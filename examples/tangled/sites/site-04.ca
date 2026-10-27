@@ -1,0 +1,9 @@
+site site-05 {
+  hosting: colocation
+  operator: team-09
+
+  router rtr-03 {
+    interface if-002
+    interface if-004 { peer: sw-03.te1-1-45, bandwidth: "10 Gbps" }
+  }
+}

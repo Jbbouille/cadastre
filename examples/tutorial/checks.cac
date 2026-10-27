@@ -1,0 +1,5 @@
+check owned {
+  select system where not exists(owner)
+  expect none
+  message: "every system has an owner"
+}

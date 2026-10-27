@@ -1,0 +1,9 @@
+forward_proxy fwd-01
+
+cluster clu-01
+
+cluster clu-02
+
+cluster clu-03 { platform: kubernetes }
+
+cluster clu-04 { platform: kubernetes }

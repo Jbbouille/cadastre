@@ -1,0 +1,71 @@
+system invoicing {
+  description: "Invoicing and customer relationship"
+  owner: invoicing-team
+  operator: infra
+
+  app billing {
+    description: "Monthly customer invoicing, PDF generation"
+    on: [web01, web02]
+    version: 2.4.1
+    language: java
+    license: "Apache-2.0"
+    -> crm        : https/443 [flow] {
+      description: "Fetches customer details before invoicing"
+      exchange: pull
+      carries: [customer]
+    }
+    -> stripe     : https/443 [flow] { exchange: push, carries: [invoice] }
+    -> analytics  : tcp/5432  [flow] { exchange: push, carries: [invoice] }
+    -> legacy-erp : tcp/1521  [flow] {
+      description: "Accounting export to the datacenter ERP"
+      exchange: push
+      carries: [invoice]
+      through: [paris-aws-1, fw01]
+    }
+
+    component spring-boot { version: 3.2.1, license: "Apache-2.0" }
+  }
+
+  app crm {
+    description: "Customer relationship management"
+    on: web01
+    version: v1.8.0
+    -> crmdb : tcp/5432 [flow] { exchange: both, carries: [customer, invoice] }
+  }
+
+  // The steps of the monthly invoicing, in their order: the links of the registry, the reply to a
+  // call, a processing within billing, a loop.
+  process monthly-invoicing {
+    description: "The invoices of the month, from the customer details to the accounting"
+    participants: [billing, crm, crmdb]
+    step billing -> crm : https/443 { label: "customer details" }
+    step crm -> crmdb { note: "customer details" }
+    step crm -> billing { reply }
+    step billing "generates the PDF invoices"
+    loop "for each invoice" {
+      step billing -> stripe
+    }
+    step billing -> legacy-erp { async }
+    step billing -> analytics
+  }
+
+  database crmdb {
+    on: db01
+    engine: postgres
+    version: 16.2
+    stores: [customer, invoice]
+  }
+
+  database analytics {
+    engine: postgres
+    managed: rds
+    on: db // managed service, deployed in the db subnet
+    stores: [invoice]
+    question: "Is this database still used?"
+  }
+}
+
+system accounting {
+  owner: accounting-team
+  app legacy-erp { label: "Accounting ERP", on: erp01 }
+}

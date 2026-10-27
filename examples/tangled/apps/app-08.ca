@@ -1,0 +1,48 @@
+system sys-07 {
+  app app-131 {
+    on: [srv-064, srv-099]
+    version: 3.0.8
+    component comp-02 { version: 15.0.1 }
+    -> sys-14.db-01 : jdbc/1521 [flow] { exchange: pull, confidence: assumed }
+    -> sys-02.db-02 : jdbc/1521 [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-132 {
+    on: [srv-064, srv-099]
+    version: 3.0.6
+    -> db-08 : jdbc/1521 [flow] { exchange: both }
+  }
+
+  app app-133 {
+    on: [srv-064, srv-099]
+    version: 3.0.3
+    -> db-08   : jdbc/1521 [flow] { exchange: both }
+    -> app-149 : https/443 [auth] { exchange: pull, carries: [data-02], confidence: assumed }
+  }
+
+  app app-134 {
+    on: [srv-064, srv-099]
+    version: 1.1.0
+    -> db-06 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-135 { on: [srv-064, srv-099], version: 0.0.9 }
+
+  app app-136 {
+    on: srv-099
+    version: 2.0.2
+    -> db-08 : jdbc/1521 [flow] { exchange: both }
+  }
+
+  app app-137 {
+    on: [srv-064, srv-099]
+    version: 1.0.1
+    component comp-05
+    component comp-03 { version: 11.0.5 }
+    -> app-149 : https/443 [auth] { exchange: pull, carries: [data-02], confidence: assumed }
+  }
+
+  app app-138 { on: srv-099, version: 2.0.1 }
+}
+
+database db-06 { scope: external }

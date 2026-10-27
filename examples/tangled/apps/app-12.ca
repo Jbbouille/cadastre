@@ -1,0 +1,41 @@
+system sys-11 {
+  saas saas-04 {
+    -> sys-00.app-160 : sftp/22 [flow] { exchange: push, channel: sys-11, confidence: assumed }
+  }
+
+  saas saas-05 {
+    channel chan-01 { type: topic, carries: [data-10, data-11] }
+    channel chan-02 { type: topic, carries: [data-10, data-11] }
+    channel chan-03 { type: topic, carries: [data-10] }
+    channel chan-04 { type: topic, carries: [data-10] }
+    channel chan-05 { type: topic, carries: [data-14] }
+    channel chan-06 { type: topic, carries: [data-13] }
+  }
+
+  app app-152 {
+    on: clu-05
+    -> sys-00.app-160 : sftp/22    [flow] { exchange: pull, channel: sys-11 }
+    -> saas-05        : kafka/9092 [flow] { exchange: push, channel: chan-01 }
+  }
+
+  app app-153 {
+    on: clu-05
+    -> saas-05      : kafka/9092 [flow] {
+      exchange: pull
+      channel: [chan-02, chan-03, chan-04, chan-05, chan-06]
+    }
+    -> sys-01.db-01 : jdbc/1521  [flow] { exchange: push, carries: [data-10, data-11] }
+    -> sys-10.db-01 : jdbc/1521  [flow] { exchange: push, carries: [data-10] }
+    -> app-164      : jdbc/1521  [flow] { exchange: push, carries: [data-10, data-14] }
+    -> app-109      : sftp/22    [flow] { exchange: push, carries: [data-13] }
+  }
+
+  app app-154 {
+    on: clu-05
+    -> saas-05 : kafka/9092 [flow] { exchange: pull, channel: chan-01 }
+    -> saas-05 : kafka/9092 [flow] {
+      exchange: push
+      channel: [chan-02, chan-03, chan-04, chan-05, chan-06]
+    }
+  }
+}

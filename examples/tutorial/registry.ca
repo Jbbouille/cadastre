@@ -1,0 +1,35 @@
+team ops
+team sales-team
+
+site dc1 {
+  hosting: on-prem
+  owner: ops
+  network lan {
+    subnet apps {
+      cidr: 10.0.1.0/24
+      server web01 { ip: 10.0.1.10 }
+      server db01  { ip: 10.0.1.20 }
+    }
+  }
+}
+
+data order
+
+system sales {
+  owner: sales-team
+  app shop {
+    on: web01
+    -> orders : https/443 [flow] { carries: [order] }
+  }
+  app orders {
+    on: web01
+    -> orders-db : tcp/5432 [flow] { carries: [order] }
+  }
+  database orders-db { on: db01 }
+
+  process checkout {
+    step shop -> orders
+    step orders -> orders-db
+    step orders -> shop { reply }
+  }
+}

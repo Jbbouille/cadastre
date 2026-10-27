@@ -1,0 +1,22 @@
+saas saas-09 {
+  -> sys-06.app-128 : https/443 [flow]
+  -> sys-05.app-100 : https/443 [flow]
+  -> app-147        : https/443 [auth]
+  -> sys-04.app-013 : https/443 [flow] { confidence: assumed }
+}
+
+saas saas-10
+
+saas saas-11
+
+saas saas-12
+
+saas saas-13 {
+  -> saas-04 [flow] { exchange: push, carries: [data-15] }
+}
+
+saas saas-14
+
+saas saas-15
+
+saas saas-16

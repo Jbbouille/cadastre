@@ -1,0 +1,1 @@
+vpn_tunnel tun-01 { ends: [vpn-02, fw-01.vpn-01], protocol: ipsec }

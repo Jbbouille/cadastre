@@ -1,0 +1,97 @@
+style {
+  edges where proto in [http, https]       { color: "#1d4ed8", legend: "HTTP / HTTPS" }
+  edges where proto in [sftp, ftp, azcopy] { color: "#c2410c", legend: "SFTP / FTP / azcopy" }
+  edges where proto = kafka                { color: "#7e22ce", legend: "Kafka" }
+  edges where proto = jdbc                 { color: "#4b5563", legend: "JDBC" }
+  layer auth                               { color: "#be185d", legend: "Authentication" }
+  layer trigger                            { color: "#9ca3af", legend: "Triggering" }
+}
+
+// The four building blocks, as in the original diagram.
+view building-blocks {
+  title: "Building blocks"
+  description: "The four systems of the retail landscape, their apps, jobs and databases, and every flow, authentication and trigger between them."
+  select app, job, database, saas, server group-by system
+  edges  [flow], [auth], [trigger]
+  render svg, mermaid { node_labels: [label], legend: true }
+}
+
+// Flows between systems, in the direction of the data. Root-level apps and SaaS
+// (out-of-scope systems, shared services) are kept as they are; the file hub is
+// lifted to its system through its `system:` reference.
+view landscape {
+  title: "Application landscape"
+  description: "The flows between the systems, lifted from the flows between their apps; the SaaS and the shared services around them."
+  select system, saas, app, database where kind = system or not exists(parent)
+  edges  lift([flow], via: system?.ancestor(system))
+  render svg { orientation: data }
+}
+
+// Who produces and who consumes the prices topic.
+view prices-topic {
+  title: "Prices topic"
+  description: "Who produces and who consumes the item prices on the Kafka topic."
+  select app, job, saas
+  edges  [flow] where channel has prices
+  render svg { orientation: data }
+}
+
+// The item prices, followed from the pricing UI in the direction of the data:
+// file hub, price processor, prices topic, then its consumers. Steps are numbered.
+view price-chain {
+  title: "Price chain"
+  description: "The item prices, followed step by step from the pricing push to the stores and the e-commerce site."
+  select app, job, saas, server without isolated
+  edges  follow(item-prices, from: pricing.ui)
+  render svg, text { orientation: data, edge_labels: [step, port] }
+}
+
+// Everything going through the file hub.
+view file-hub {
+  title: "File hub"
+  description: "The files exchanged through the product file hub: which app sends what, by which protocol."
+  select app, job, saas, server
+  edges  [flow] where target = filehub or source = filehub
+  render svg { orientation: data, edge_labels: [port, carries] }
+}
+
+// What must be validated with the teams.
+view to-verify {
+  title: "To verify"
+  description: "The links assumed or doubtful: what the mapping still has to confirm."
+  select app, job, database, saas, server
+    where confidence != confirmed or exists(question)
+    with ends
+  edges  [flow, trigger] where confidence != confirmed or exists(question)
+  render text
+}
+
+// What must be completed.
+view to-complete {
+  title: "To complete"
+  description: "The resources missing something for a complete model."
+  select server, cluster, app, job, database where incomplete
+  render text
+}
+
+// Who owns what.
+view ownership {
+  title: "Ownership"
+  description: "Who owns and who operates each system and each application."
+  select app, job, database, saas group-by owner
+  render svg { node_labels: [label, operator] }
+}
+
+// The systems stacked top to bottom in the order of their calls: pricing, then product,
+// then the labels, which call the catalog API. A stack against the flows would not hold:
+// real edges prevail. The triggers of the schedulers are drawn but do not shape the layout.
+view systems-stacked {
+  title: "Systems, stacked"
+  description: "The systems in a chosen order, top to bottom, with the shared services beside them."
+  select app, job, database, saas group-by system
+  edges  [flow], [trigger]
+  style {
+    layer trigger { layout: free }
+  }
+  render svg { direction: tb, stack: [pricing, product, labels, catalog] }
+}

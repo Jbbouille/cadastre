@@ -1,0 +1,55 @@
+<idea-plugin>
+  <id>io.github.jbbouille.cadastre</id>
+  <name>Cadastre</name>
+  <vendor url="https://github.com/Jbbouille/cadastre">Cadastre</vendor>
+  <description><![CDATA[
+    Support of the <a href="https://github.com/Jbbouille/cadastre">Cadastre</a> language, an information system as code
+    (<code>.ca</code> registry, <code>.cav</code> plans and <code>.cac</code> checks): highlighting, diagnostics, completion, go to definition,
+    find references, renaming, hover, outline and formatting, from the Cadastre language server (<code>cadastre lsp</code>);
+    code lenses above the views (Preview, Build) and the checks (their result), a live preview of the views in the
+    editors of the IDE, building the views and exporting the registry (Tools &gt; Cadastre).
+  ]]></description>
+
+  <depends>com.intellij.modules.platform</depends>
+  <depends>org.jetbrains.plugins.textmate</depends>
+  <depends>com.redhat.devtools.lsp4ij</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <textmate.bundleProvider implementation="io.github.jbbouille.cadastre.CadastreBundleProvider"/>
+    <applicationService serviceImplementation="io.github.jbbouille.cadastre.CadastreSettings"/>
+    <applicationConfigurable parentId="tools" id="io.github.jbbouille.cadastre.settings" displayName="Cadastre"
+                             instance="io.github.jbbouille.cadastre.CadastreConfigurable"/>
+    <notificationGroup id="Cadastre" displayType="BALLOON"/>
+    <fileIconProvider implementation="io.github.jbbouille.cadastre.CadastreFileIconProvider"/>
+    <toolWindow id="Cadastre" anchor="bottom" icon="/icons/cadastreToolWindow.svg" canCloseContents="false"
+                factoryClass="io.github.jbbouille.cadastre.CadastreToolWindowFactory"/>
+  </extensions>
+
+  <extensions defaultExtensionNs="com.redhat.devtools.lsp4ij">
+    <server id="cadastre" name="Cadastre" factoryClass="io.github.jbbouille.cadastre.CadastreLanguageServerFactory">
+      <description><![CDATA[The Cadastre language server: <code>cadastre lsp</code>.]]></description>
+    </server>
+    <fileNamePatternMapping patterns="*.ca;*.cav;*.cac" serverId="cadastre" languageId="cadastre"/>
+  </extensions>
+
+  <!-- The commands of the code lenses are actions of the same id, run by LSP4IJ. -->
+  <actions>
+    <group id="cadastre.menu" text="Cadastre" popup="true" icon="/icons/cadastre.svg">
+      <add-to-group group-id="ToolsMenu" anchor="last"/>
+      <action id="cadastre.previewView" class="io.github.jbbouille.cadastre.PreviewViewAction" text="Preview View…"
+              description="Render a view in the editors of the IDE, kept up to date as you type" icon="AllIcons.Actions.Preview"/>
+      <action id="cadastre.buildView" class="io.github.jbbouille.cadastre.BuildViewAction" text="Build View…"
+              description="Write the renderings of a view to out/ (cadastre build --view)" icon="AllIcons.Actions.Execute"/>
+      <action id="cadastre.buildViews" class="io.github.jbbouille.cadastre.BuildViewsAction" text="Build All Views"
+              description="Write the renderings of every view to out/ (cadastre build)">
+        <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+      </action>
+      <action id="cadastre.exportModel" class="io.github.jbbouille.cadastre.ExportModelAction" text="Export Model…"
+              description="Export the whole registry as ArchiMate, GraphML or JSON"/>
+      <action id="cadastre.restartServer" class="io.github.jbbouille.cadastre.RestartServerAction" text="Restart Language Server"
+              description="Restart cadastre lsp"/>
+    </group>
+    <action id="cadastre.showCheck" class="io.github.jbbouille.cadastre.ShowCheckAction" text="Show Check Result"
+            description="The result of a check in detail, in the Cadastre tool window"/>
+  </actions>
+</idea-plugin>

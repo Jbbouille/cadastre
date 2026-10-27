@@ -1,0 +1,126 @@
+site site-03 {
+  egress: [fw-01]
+  address_plan: [10.1.32.0/19, 10.1.64.0/20]
+  hosting: colocation
+  operator: team-02
+
+  firewall fw-01 {
+    model: "Sophos XGS 5500"
+    interface port5 { peer: fw-02.port5 }
+    interface port7 { peer: fw-02.port7 }
+    interface wan   { peer: rtr-01.if-003, bandwidth: "1 Gbps (300 Mbps)" }
+    interface lan   { peer: sw-02.fw }
+    vpn_gateway vpn-01
+  }
+
+  switch sw-01 {
+    ip: 10.1.64.11
+    model: "Nexus 3000, NX-OS 7.0(3)I7(9)"
+    interface eth1-45 { peer: sw-03.eth1-47 }
+    interface eth1-46 { peer: sw-03.eth1-48 }
+    interface eth1-11
+    interface eth1-12 { peer: srv-001.p1 }
+    interface eth1-29 { peer: srv-002.p1 }
+    interface eth1-31 { peer: srv-003.p1 }
+    interface eth1-33 { peer: srv-004.p1 }
+    interface eth1-35 { peer: srv-005.p1 }
+  }
+  switch sw-02 {
+    ip: 10.1.64.12
+    model: "Nexus 3000, NX-OS 7.0(3)I7(9)"
+    interface eth1-45 { peer: sw-04.eth1-47 }
+    interface eth1-46 { peer: sw-04.eth1-48 }
+    interface te1-1-48
+    interface fw
+    interface eth1-11
+    interface eth1-12 { peer: srv-001.p2 }
+    interface eth1-29 { peer: srv-002.p2 }
+    interface eth1-31 { peer: srv-003.p2 }
+    interface eth1-33 { peer: srv-004.p2 }
+    interface eth1-35 { peer: srv-005.p2 }
+  }
+
+  server srv-001 {
+    ip: 10.1.65.102
+    model: "Dell R7525"
+    cpu: "2 x AMD EPYC 7763, 64 cœurs"
+    ram: "2048 Go"
+    disks: ["12 SSD 7,68 To", "12 SSD 3,84 To"]
+    cluster: clu-01
+    interface p1
+    interface p2
+  }
+  server srv-002 {
+    ip: 10.1.65.103
+    model: "Dell R7525"
+    cpu: "2 x AMD EPYC 7713, 64 cœurs"
+    ram: "1024 Go"
+    disks: ["24 HDD 2,4 To"]
+    cluster: clu-01
+    interface p1
+    interface p2
+  }
+  server srv-003 {
+    model: "Dell R650"
+    cpu: "2 x Intel Xeon Silver 4316, 20 cœurs, 2,30 GHz"
+    ram: "256 Go"
+    cluster: clu-02
+    interface p1
+    interface p2
+    -> app-162 : iscsi [flow]
+    -> app-163 : iscsi [flow]
+  }
+  server srv-004 {
+    cluster: clu-02
+    interface p1
+    interface p2
+  }
+
+  server srv-005 {
+    cluster: clu-02
+    interface p1
+    interface p2
+  }
+
+  network zone-01 {
+    subnet net-01 {
+      cidr: 10.1.42.128/27
+      vlan: 1040
+
+      cluster clu-05 { platform: kubernetes }
+    }
+
+    subnet net-02 {
+      cidr: 10.1.45.64/27
+      vlan: 1520
+
+      server srv-006 { ip: 10.1.45.66 }
+      server srv-007 { ip: 10.1.45.89 }
+    }
+
+    subnet net-03 {
+      cidr: 10.1.45.224/27
+      vlan: 1530
+
+      server srv-008 { ip: 10.1.45.242 }
+      server srv-009 { ip: 10.1.45.243 }
+    }
+  }
+
+  network zone-02 {
+    subnet mgmt { cidr: 10.1.64.0/24 }
+    subnet grp-01 {
+      cidr: 10.1.65.0/24
+
+      server srv-010 {
+        ip: 10.1.65.100
+        -> srv-011 : https/443 [flow] { exchange: push, carries: [data-33] }
+        -> srv-001 : https/443 [flow] { exchange: push, carries: [data-33] }
+        -> srv-002 : https/443 [flow] { exchange: push, carries: [data-33] }
+        -> srv-003 : https/443 [flow] { exchange: push, carries: [data-33] }
+        -> srv-013 : https/443 [flow] { exchange: push, carries: [data-33] }
+      }
+    }
+    subnet net-04 { cidr: 10.1.66.0/28 }
+  }
+}

@@ -1,0 +1,28 @@
+process proc-03 {
+  participants: [
+    sys-04.job-06,
+    sys-04.app-013,
+    sys-04.app-017,
+    sys-14.db-01,
+    app-149,
+    app-127,
+    db-04,
+    db-11
+  ]
+  step sys-04.job-06 -> sys-04.app-013 [trigger]
+  step sys-04.app-013 -> db-11
+  step sys-04.app-013 -> sys-04.app-017 { async }
+  step sys-04.app-017 -> sys-04.app-013 [flow] { reply }
+  step sys-04.app-017 -> sys-14.db-01
+  step sys-04.app-017 -> app-149
+  step sys-04.app-017 -> sys-14.db-01
+  step sys-04.app-017 -> sys-04.app-013 [trigger]
+  step sys-04.app-013 -> sys-04.app-017 [flow]
+  step sys-04.app-013 "processing"
+  step sys-04.app-013 -> app-149
+  loop "for each store" {
+    step sys-04.app-013 -> app-127
+    step app-127 -> db-04
+  }
+  step sys-04.app-013 -> db-11
+}

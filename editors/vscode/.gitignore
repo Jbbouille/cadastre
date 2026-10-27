@@ -1,0 +1,6 @@
+node_modules/
+out/
+*.vsix
+bin/
+media/
+THIRD-PARTY-NOTICES.md

@@ -1,0 +1,28 @@
+system sys-02 {
+  app app-006 {
+    on: [srv-064, srv-099]
+    version: 4.0.1
+    component comp-02 { version: 15.0.1 }
+    -> db-02 : jdbc/1521 [flow] { exchange: pull }
+  }
+
+  app app-007 {
+    on: [srv-064, srv-099]
+    version: 4.0.1
+    -> db-11   : jdbc/1521 [flow] { exchange: pull, confidence: assumed }
+    -> app-149 : https/443 [auth] { exchange: pull, carries: [data-02], confidence: assumed }
+  }
+
+  app app-008 { on: [srv-064, srv-099], version: 7.0.0 }
+
+  app app-009 {
+    on: [srv-064, srv-099]
+    version: 1.1.1
+    -> db-02   : jdbc/1521 [flow] { exchange: pull }
+    -> app-149 : https/443 [auth] { exchange: pull, carries: [data-02], confidence: assumed }
+  }
+
+  app app-010 { on: [srv-064, srv-099], version: 0.0.3 }
+
+  database db-02 { on: db-09, engine: oracle }
+}

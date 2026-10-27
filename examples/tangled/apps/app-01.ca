@@ -1,0 +1,76 @@
+system sys-01 {
+  owner: team-04
+
+  app app-001 {
+    instance: "instance-1"
+    on: [srv-065, srv-100]
+    version: 1.0.83
+    component comp-01 { version: 4.2.0 }
+
+    -> db-01          : jdbc      [flow] { exchange: both }
+    -> app-149        : https/443 [auth] { exchange: pull, carries: [data-02] }
+    -> sys-00.app-160 : sftp      [flow] { exchange: pull, channel: chan-10 }
+    -> sys-00.app-160 : sftp      [flow] { exchange: push, channel: chan-12, confidence: assumed }
+  }
+
+  job job-01 {
+    scheduler: app-146
+    schedule: "0 2-23/3 * * *"
+    -> app-001 : http [trigger]
+  }
+
+  job job-02 {
+    scheduler: app-146
+    -> app-001 : http [trigger] { exchange: push, carries: [data-10] }
+  }
+
+  job job-03 {
+    scheduler: app-146
+    operator: team-01
+    -> db-01   : jdbc [flow] { exchange: pull }
+    -> app-164 : jdbc [flow] { exchange: push, carries: [data-20, data-22, data-13] }
+  }
+
+  job job-04 {
+    -> db-01   : jdbc [flow] { exchange: pull }
+    -> app-110 : ftp  [flow] { exchange: push, carries: [data-22, data-13] }
+  }
+
+  job job-05 {
+    instance: "instance-2"
+    on: srv-100
+    version: 1.0.8
+    -> db-01   : jdbc [flow] { exchange: pull }
+    -> app-126 : ftp  [flow] { exchange: push, carries: [data-11, data-22, data-05] }
+    -> app-106 : ftp  [flow] { exchange: push, carries: [data-11, data-22, data-05] }
+  }
+
+  app app-002 {
+    component comp-02
+    -> db-01 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-003 {
+    -> db-01 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-004 {
+    component comp-02
+    -> db-01 : jdbc [flow] { exchange: push }
+  }
+
+  database db-01 { on: db-08, engine: oracle }
+}
+
+app-146 -> sys-01.app-001 [trigger]
+
+sys-04.app-013 -> sys-01.app-002 : http [flow] { exchange: pull, carries: [data-22] }
+
+sys-04.app-013 -> sys-01.app-003 : http [flow] { exchange: pull, carries: [data-22] }
+
+app app-005 {
+  scope: external
+  on: [srv-065, srv-100]
+  -> sys-01.db-01 : jdbc [flow] { exchange: both }
+  -> app-164             [flow] { exchange: push, carries: [data-17], confidence: assumed }
+}

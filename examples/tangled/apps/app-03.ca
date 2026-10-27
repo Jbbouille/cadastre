@@ -1,0 +1,18 @@
+system sys-03 {
+  app app-011 {
+    instance: "instance-1"
+    on: pool-02
+    component comp-01 { version: 4.2.0 }
+    component comp-03 { version: "1.5.0_11" }
+    -> db-01 : jdbc/1521      [flow] { exchange: both }
+    -> db-04 : openedge/15008 [flow] { exchange: pull }
+  }
+
+  database db-01 { engine: oracle, version: 10.2.0, on: pool-02 }
+
+  app app-012 {
+    -> db-03 : jdbc [flow] { exchange: both }
+  }
+
+  database db-03
+}

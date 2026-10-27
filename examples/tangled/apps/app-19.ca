@@ -1,0 +1,50 @@
+system sys-19 {
+  app app-011 {
+    on: srv-015
+    version: 12.3.2
+    -> srv-011      : https/443     [flow] { exchange: pull, carries: [data-32] }
+    -> srv-001      : https/443     [flow] { exchange: pull, carries: [data-32] }
+    -> srv-002      : https/443     [flow] { exchange: pull, carries: [data-32] }
+    -> srv-003      : https/443     [flow] { exchange: pull, carries: [data-32] }
+    -> srv-013      : https/443     [flow] { exchange: pull, carries: [data-32] }
+    -> srv-010      : https/443     [flow] { exchange: both, carries: [data-32, data-33] }
+    -> srv-010      : tcp/10443     [flow] { exchange: pull, carries: [data-32] }
+    -> sys-19.proxy : ssh/22        [flow] { exchange: push, carries: [data-35] }
+    -> sys-19.proxy : tcp/6160      [flow] { exchange: push, carries: [data-35] }
+    -> sys-19.proxy : tcp/6162      [flow] { exchange: push, carries: [data-34] }
+    -> sys-19.proxy : tcp/2500-3300 [flow] { exchange: pull, carries: [data-39] }
+    -> saas-16      : https/443     [flow] { carries: [data-38], exchange: push }
+    -> saas-07      : https/443     [flow] { exchange: pull, carries: [data-40] }
+    -> saas-08      : http/80       [flow] { exchange: pull, carries: [data-41] }
+    -> app-182      : dns/53        [flow]
+    -> app-183      : ntp/123       [flow]
+  }
+
+  app proxy {
+    on: srv-012
+    -> srv-011        : nfc/902       [flow] { carries: [data-37], exchange: pull }
+    -> srv-001        : nfc/902       [flow] { carries: [data-37], exchange: pull }
+    -> srv-002        : nfc/902       [flow] { carries: [data-37], exchange: pull }
+    -> srv-003        : nfc/902       [flow] { carries: [data-37], exchange: pull }
+    -> srv-013        : nfc/902       [flow] { carries: [data-37], exchange: pull }
+    -> srv-010        : https/443     [flow] { exchange: pull, carries: [data-36] }
+    -> sys-19.app-011 : tcp/2500-3300 [flow] { carries: [data-37], exchange: push }
+    -> app-182        : dns/53        [flow]
+    -> app-183        : ntp/123       [flow]
+  }
+}
+
+actor actor-01 {
+  population: internal
+  -> sys-19.app-011 : tcp/9392  [flow]
+  -> sys-19.app-011 : tcp/9401  [flow]
+  -> saas-07        : https/443 [flow] { exchange: pull, carries: [data-40] }
+}
+
+saas saas-07
+
+saas saas-08
+
+app app-182
+
+app app-183

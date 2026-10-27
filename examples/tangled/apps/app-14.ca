@@ -1,0 +1,14 @@
+system sys-13 {
+  operator: team-09
+
+  app app-157 {
+    on: [srv-019, srv-020]
+    -> db-01 : db2 [flow] { exchange: both }
+  }
+
+  database db-01 { engine: db2, version: 11.1, on: srv-019 }
+
+  app app-158 { on: srv-021 }
+
+  app app-159 { on: srv-022 }
+}

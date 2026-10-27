@@ -1,0 +1,48 @@
+app app-126 {
+  scope: external
+  on: [pool-01, srv-007]
+  -> db-04   : openedge  [flow] { exchange: both }
+  -> app-149 : https/443 [flow] { exchange: pull, carries: [data-01] }
+}
+
+database db-04 { scope: external, engine: progress, on: [pool-01, srv-007] }
+
+app app-127 {
+  instance: "instance-6"
+  on: pool-02
+  component comp-01 { version: 4.2.0 }
+  component comp-03 { version: "1.5.0_11" }
+  -> db-04 : openedge [flow] { exchange: both }
+}
+
+system sys-06 {
+  app app-128 {
+    scope: external
+    on: [pool-01, srv-006]
+    -> db-04 : openedge [flow] { exchange: both }
+  }
+
+  app app-129 {
+    component comp-05
+    -> app-149 : https/443 [flow] { exchange: pull, carries: [data-08] }
+  }
+
+  app app-130 {
+    scope: external
+    on: [pool-01, srv-006]
+    version: 26.09.1
+    component comp-03 { version: 17 }
+    component comp-05 { version: 3 }
+    component comp-06 { version: 18 }
+    -> sys-12.app-098 : https/443  [flow] { exchange: pull, carries: [data-22] }
+    -> sys-12.app-156 : https/443  [flow]
+    -> app-128        : https/8811 [flow] { exchange: both }
+    -> saas-09        : https/443  [flow]
+    -> app-107        : https/443  [flow]
+    -> app-149        : https/443  [flow] { exchange: pull, carries: [data-08, data-01] }
+    -> app-104        : https      [flow]
+    -> app-147        : https/443  [auth]
+  }
+}
+
+database db-05 { scope: external, engine: progress }

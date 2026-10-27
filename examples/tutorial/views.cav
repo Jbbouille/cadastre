@@ -1,0 +1,31 @@
+view apps {
+  title: "Applications"
+  description: "The apps and databases of the sales system, and the flows between them."
+  select app, database group-by system
+  edges  [flow]
+  render svg, text
+}
+
+view servers {
+  title: "Servers"
+  description: "The servers by site and subnet, with the application flows lifted onto them."
+  select server group-by site > subnet
+  edges  lift([flow], via: on)
+  render text
+}
+
+view order-path {
+  title: "Order path"
+  description: "Where an order goes, step by step, from the shop."
+  select app, database without isolated
+  edges  follow(order, from: shop)
+  render text { edge_labels: [step, port] }
+}
+
+view checkout {
+  title: "Checkout"
+  description: "The checkout process as a sequence diagram."
+  select app, database
+  edges  process(checkout)
+  render sequence
+}

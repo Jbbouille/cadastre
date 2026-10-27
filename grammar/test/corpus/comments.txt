@@ -1,0 +1,68 @@
+==================
+Line comment
+==================
+
+// header
+site paris-dc1 {
+  hosting: on-prem   // end of line
+}
+
+---
+
+(source_file
+  (comment)
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (identifier))
+      (comment))))
+
+==================
+Block comment
+==================
+
+/* block
+   over several lines */
+server web01
+
+---
+
+(source_file
+  (comment)
+  (resource
+    (identifier)
+    (identifier)))
+
+==================
+Block comments do not nest
+==================
+
+/* a /* b */ server web01
+
+---
+
+(source_file
+  (comment)
+  (resource
+    (identifier)
+    (identifier)))
+
+==================
+Double slash inside a string
+==================
+
+saas stripe { url: "https://api.stripe.com" }
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (string)))))

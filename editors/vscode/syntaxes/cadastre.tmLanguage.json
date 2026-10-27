@@ -1,0 +1,210 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Cadastre",
+  "scopeName": "source.cadastre",
+  "fileTypes": ["ca", "cav", "cac"],
+  "comment": "Lexical highlighting, shown before the language server answers. The language server refines it with semantic tokens from grammar/queries/highlights.scm.",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#view" },
+    { "include": "#group" },
+    { "include": "#link" },
+    { "include": "#keywords" },
+    { "include": "#addresses" },
+    { "include": "#versions" },
+    { "include": "#quantities" },
+    { "include": "#numbers" },
+    { "include": "#resource" },
+    { "include": "#check-clauses" },
+    { "include": "#attribute" },
+    { "include": "#operators" },
+    { "include": "#punctuation" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.cadastre",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.cadastre",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.cadastre",
+      "begin": "\"",
+      "end": "\"|$",
+      "patterns": [
+        {
+          "name": "constant.character.escape.cadastre",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "view": {
+      "comment": "view <name>, check <name>",
+      "match": "(?<![\\w-])(view|check)\\s+([a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z0-9_]+)*)",
+      "captures": {
+        "1": { "name": "keyword.other.cadastre" },
+        "2": { "name": "entity.name.function.view.cadastre" }
+      }
+    },
+    "group": {
+      "comment": "group <name>: <kind> | <kind>, a group of kinds of the project",
+      "match": "^\\s*(group)\\s+([a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z0-9_]+)*)\\s*(:)([^/\\n]*)",
+      "captures": {
+        "1": { "name": "keyword.other.cadastre" },
+        "2": { "name": "entity.name.type.cadastre" },
+        "3": { "name": "punctuation.separator.key-value.cadastre" },
+        "4": { "patterns": [{ "include": "#kind-names" }] }
+      }
+    },
+    "kind-names": {
+      "patterns": [
+        { "name": "entity.name.type.cadastre", "match": "[a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z0-9_]+)*" },
+        { "name": "keyword.operator.cadastre", "match": "\\|" }
+      ]
+    },
+    "link": {
+      "comment": "-> target : protocol/port [layers]",
+      "match": "(->)\\s*([a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z0-9_]+)*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z0-9_]+)*)*)?(?:\\s*(:)\\s*([a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z0-9_]+)*)(?:(/)(\\d+(?:-\\d+)?))?)?(?:\\s*(\\[)([^\\]]*)(\\]))?",
+      "captures": {
+        "1": { "name": "keyword.operator.arrow.cadastre" },
+        "2": { "name": "variable.other.cadastre" },
+        "3": { "name": "punctuation.separator.key-value.cadastre" },
+        "4": { "name": "support.constant.protocol.cadastre" },
+        "5": { "name": "keyword.operator.cadastre" },
+        "6": { "name": "constant.numeric.port.cadastre" },
+        "7": { "name": "punctuation.definition.layers.begin.cadastre" },
+        "8": { "patterns": [{ "include": "#layer-names" }] },
+        "9": { "name": "punctuation.definition.layers.end.cadastre" }
+      }
+    },
+    "layer-names": {
+      "patterns": [
+        {
+          "name": "entity.name.tag.layer.cadastre",
+          "match": "[a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z0-9_]+)*"
+        },
+        {
+          "name": "punctuation.separator.comma.cadastre",
+          "match": ","
+        }
+      ]
+    },
+    "keywords": {
+      "comment": "Plan keywords, unless used as a key (`kind = app`, `layer: x`).",
+      "patterns": [
+        {
+          "name": "keyword.other.cadastre",
+          "match": "(?<![\\w.-])(?:for_each|view|select|zone|where|group-by|edges|lift|follow|style|render|layer|kind|nodes|ancestor|exists|with|ends|without|isolated|check|expect|process|participant|step|loop|virtual)(?![\\w-])(?!\\s*(?:[:=<>!]|has(?![\\w-])|in(?![\\w-])))"
+        },
+        {
+          "comment": "expect none | some | count <op> N | all <predicate>",
+          "match": "(?<=expect)\\s+(none|some|count|all)(?![\\w-])",
+          "captures": {
+            "1": { "name": "keyword.other.cadastre" }
+          }
+        },
+        {
+          "comment": "ancestor(kind) as a path step: on?.ancestor(site)",
+          "name": "keyword.other.cadastre",
+          "match": "(?<=\\.)ancestor(?=\\()"
+        },
+        {
+          "name": "keyword.operator.word.cadastre",
+          "match": "(?<![\\w.-])(?:and|or|not|has|in)(?![\\w-])(?!\\s*:)"
+        }
+      ]
+    },
+    "addresses": {
+      "patterns": [
+        {
+          "comment": "IPv4 address or CIDR block",
+          "name": "constant.other.address.cadastre",
+          "match": "(?<![\\w.])\\d{1,3}(?:\\.\\d{1,3}){3}(?:/\\d{1,2})?(?![\\w.])"
+        },
+        {
+          "comment": "IPv6 address or CIDR block",
+          "name": "constant.other.address.cadastre",
+          "match": "(?<![\\w:])(?:(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4}){0,6})?::(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4}){0,6})?)(?:/\\d{1,3})?(?![\\w:])"
+        }
+      ]
+    },
+    "versions": {
+      "name": "constant.numeric.version.cadastre",
+      "match": "(?<![\\w.])v?\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?![\\w.])"
+    },
+    "quantities": {
+      "comment": "A number and its unit: 100Mbps, 1.5Gbit/s",
+      "name": "constant.numeric.cadastre",
+      "match": "(?<![\\w.-])\\d+(?:\\.\\d+)?[a-zA-Z]+(?:/[a-zA-Z]+)?(?![\\w.-])"
+    },
+    "numbers": {
+      "name": "constant.numeric.cadastre",
+      "match": "(?<![\\w.-])\\d+(?:\\.\\d+)?(?![\\w.])"
+    },
+    "resource": {
+      "comment": "<kind> <name>, followed by a block, a separator or the end of the line.",
+      "match": "(?<![\\w.-])([a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z0-9_]+)*)\\s+(?!(?:where|with|without|and|or|not|has|in|group-by)(?![\\w-]))([a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z0-9_]+)*)(?=\\s*(?:\\{|,|\\}|//|/\\*|$))",
+      "captures": {
+        "1": { "name": "entity.name.type.cadastre" },
+        "2": { "name": "variable.other.definition.cadastre" }
+      }
+    },
+    "check-clauses": {
+      "comment": "severity: warning and message: \"…\", the clauses of a check",
+      "patterns": [
+        {
+          "match": "(?<![\\w.-])(severity)\\s*(:)\\s*(warning|error)(?![\\w-])",
+          "captures": {
+            "1": { "name": "keyword.other.cadastre" },
+            "2": { "name": "punctuation.separator.key-value.cadastre" },
+            "3": { "name": "constant.language.cadastre" }
+          }
+        },
+        {
+          "match": "(?<![\\w.-])(message)\\s*(:)(?!:)",
+          "captures": {
+            "1": { "name": "keyword.other.cadastre" },
+            "2": { "name": "punctuation.separator.key-value.cadastre" }
+          }
+        }
+      ]
+    },
+    "attribute": {
+      "match": "(?<![\\w.-])([a-zA-Z_][a-zA-Z0-9_]*(?:-[a-zA-Z0-9_]+)*)\\s*(:)(?!:)",
+      "captures": {
+        "1": { "name": "variable.other.property.cadastre" },
+        "2": { "name": "punctuation.separator.key-value.cadastre" }
+      }
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.cadastre",
+          "match": "->|!=|<=|>=|=|<|>"
+        },
+        {
+          "name": "keyword.operator.optional.cadastre",
+          "match": "\\?"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        { "name": "punctuation.section.braces.cadastre", "match": "[{}]" },
+        { "name": "punctuation.section.brackets.cadastre", "match": "[\\[\\]]" },
+        { "name": "punctuation.section.parens.cadastre", "match": "[()]" },
+        { "name": "punctuation.separator.comma.cadastre", "match": "," },
+        { "name": "punctuation.separator.key-value.cadastre", "match": ":" },
+        { "name": "punctuation.accessor.cadastre", "match": "\\." }
+      ]
+    }
+  }
+}

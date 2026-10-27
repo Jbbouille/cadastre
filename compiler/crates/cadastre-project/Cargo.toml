@@ -1,0 +1,11 @@
+[package]
+name = "cadastre-project"
+description = "Reading a Cadastre project from the file system: its cadastre.toml, its sources and its modules."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+cadastre-core = { path = "../cadastre-core" }
+toml = "0.9"

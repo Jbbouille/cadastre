@@ -1,0 +1,39 @@
+site site-01 {
+  scope: external
+
+  router rtr-01 {
+    interface if-001
+    interface if-002
+    interface if-003
+    interface if-004
+    interface if-005
+  }
+}
+
+site site-02 {
+  scope: external
+  operator: team-08
+  router rtr-02
+}
+
+wan_link wan-01 { ends: [rtr-11, rtr-02], technology: mpls, operator: team-08 }
+
+wan_link wan-02 { ends: [rtr-12, rtr-02], technology: mpls, operator: team-08 }
+
+wan_link wan-03 {
+  ends: [rtr-04, rtr-02]
+  technology: mpls
+  operator: team-08
+  bandwidth: "500 Mbps"
+}
+
+wan_link wan-04 {
+  ends: [rtr-07, rtr-02]
+  technology: mpls
+  operator: team-08
+  bandwidth: "500 Mbps"
+}
+
+wan_link wan-05 { ends: [rtr-09, rtr-02], technology: mpls, operator: team-08 }
+
+wan_link wan-06 { ends: [rtr-13, rtr-02], technology: mpls, operator: team-08 }

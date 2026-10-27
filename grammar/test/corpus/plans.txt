@@ -1,0 +1,1148 @@
+==================
+Minimal view
+==================
+
+view flows {
+  select app, database
+  edges  [flow]
+  render svg
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (identifier))
+    (edges_clause
+      (edge_selector
+        (layers
+          (identifier))))
+    (render_clause
+      (identifier))))
+
+==================
+Nested group-by
+==================
+
+view physical {
+  select server, switch group-by site > rack
+  edges  lift(peer, via: parent)
+  render svg
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (identifier)
+      (group_by
+        (identifier)
+        (identifier)))
+    (edges_clause
+      (edge_selector
+        (lift
+          (edge_selector
+            (identifier))
+          (lift_option
+            (identifier)
+            (path
+              (path_step
+                (identifier)))))))
+    (render_clause
+      (identifier))))
+
+==================
+lift with a path and options
+==================
+
+view macro {
+  select subnet
+  edges  lift([flow], via: on?.parent, merge: port, loops: keep)
+  render svg
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier))
+    (edges_clause
+      (edge_selector
+        (lift
+          (edge_selector
+            (layers
+              (identifier)))
+          (lift_option
+            (identifier)
+            (path
+              (path_step
+                (identifier)
+                (optional_marker))
+              (path_step
+                (identifier))))
+          (lift_option
+            (identifier)
+            (path
+              (path_step
+                (identifier))))
+          (lift_option
+            (identifier)
+            (path
+              (path_step
+                (identifier)))))))
+    (render_clause
+      (identifier))))
+
+==================
+follow a data object
+==================
+
+view prices {
+  select app, job, saas
+  edges  follow(item-prices, from: pricing.ui) where confidence = confirmed, follow(articles)
+  render svg { edge_labels: [step, carries] }
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (identifier)
+      (identifier))
+    (edges_clause
+      (edge_selector
+        (follow
+          (identifier)
+          (follow_option
+            (identifier)
+            (qualified_name)))
+        (where_clause
+          (comparison
+            (path
+              (path_step
+                (identifier)))
+            (identifier))))
+      (edge_selector
+        (follow
+          (identifier))))
+    (render_clause
+      (identifier)
+      (attribute
+        (identifier)
+        (list
+          (identifier)
+          (identifier))))))
+
+==================
+follow used as a name
+==================
+
+app follow { from: x }
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (identifier)))))
+
+==================
+Path with ancestor
+==================
+
+view inter-sites {
+  select site, saas
+  edges  lift([flow], via: on?.ancestor(site)), lift(connector, via: ancestor(site))
+  render svg
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (identifier))
+    (edges_clause
+      (edge_selector
+        (lift
+          (edge_selector
+            (layers
+              (identifier)))
+          (lift_option
+            (identifier)
+            (path
+              (path_step
+                (identifier)
+                (optional_marker))
+              (path_step
+                (ancestor
+                  (identifier)))))))
+      (edge_selector
+        (lift
+          (edge_selector
+            (identifier))
+          (lift_option
+            (identifier)
+            (path
+              (path_step
+                (ancestor
+                  (identifier))))))))
+    (render_clause
+      (identifier))))
+
+==================
+Several selectors and the through option
+==================
+
+view security {
+  select server, firewall group-by site > subnet
+  edges  lift([flow], via: on), on, through: show
+  render svg
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (identifier)
+      (group_by
+        (identifier)
+        (identifier)))
+    (edges_clause
+      (edge_selector
+        (lift
+          (edge_selector
+            (layers
+              (identifier)))
+          (lift_option
+            (identifier)
+            (path
+              (path_step
+                (identifier))))))
+      (edge_selector
+        (identifier))
+      (edges_option
+        (identifier)
+        (identifier)))
+    (render_clause
+      (identifier))))
+
+==================
+Filters on select and edges
+==================
+
+view gdpr {
+  select app, database, saas where exists(description)
+  edges  [flow] where carries.classification = personal
+  render svg
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (identifier)
+      (identifier)
+      (where_clause
+        (exists
+          (path
+            (path_step
+              (identifier))))))
+    (edges_clause
+      (edge_selector
+        (layers
+          (identifier))
+        (where_clause
+          (comparison
+            (path
+              (path_step
+                (identifier))
+              (path_step
+                (identifier)))
+            (identifier)))))
+    (render_clause
+      (identifier))))
+
+==================
+Filter inside lift
+==================
+
+view fw01-matrix {
+  select server, saas
+  edges  lift([flow] where through has fw01, via: on, merge: port)
+  render text
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (identifier))
+    (edges_clause
+      (edge_selector
+        (lift
+          (edge_selector
+            (layers
+              (identifier))
+            (where_clause
+              (has
+                (path
+                  (path_step
+                    (identifier)))
+                (identifier))))
+          (lift_option
+            (identifier)
+            (path
+              (path_step
+                (identifier))))
+          (lift_option
+            (identifier)
+            (path
+              (path_step
+                (identifier)))))))
+    (render_clause
+      (identifier))))
+
+==================
+Combined predicates
+==================
+
+view v {
+  select server where not (os = debian12) and (ancestor(site).hosting = cloud or kind in [a, b])
+  render text
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (where_clause
+        (and
+          (not
+            (parenthesized
+              (comparison
+                (path
+                  (path_step
+                    (identifier)))
+                (identifier))))
+          (parenthesized
+            (or
+              (comparison
+                (path
+                  (path_step
+                    (ancestor
+                      (identifier)))
+                  (path_step
+                    (identifier)))
+                (identifier))
+              (in
+                (path
+                  (path_step
+                    (identifier)))
+                (list
+                  (identifier)
+                  (identifier))))))))
+    (render_clause
+      (identifier))))
+
+==================
+and binds tighter than or
+==================
+
+view v {
+  select server where a = 1 or b = 2 and c = 3
+  render text
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (where_clause
+        (or
+          (comparison
+            (path
+              (path_step
+                (identifier)))
+            (number))
+          (and
+            (comparison
+              (path
+                (path_step
+                  (identifier)))
+              (number))
+            (comparison
+              (path
+                (path_step
+                  (identifier)))
+              (number))))))
+    (render_clause
+      (identifier))))
+
+==================
+Comparisons and pseudo-attributes
+==================
+
+view v {
+  select app where version >= 2.0.0
+  edges  [flow] where target.kind = saas and port != 443 and source.name = billing
+  render text
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (where_clause
+        (comparison
+          (path
+            (path_step
+              (identifier)))
+          (semver))))
+    (edges_clause
+      (edge_selector
+        (layers
+          (identifier))
+        (where_clause
+          (and
+            (and
+              (comparison
+                (path
+                  (path_step
+                    (identifier))
+                  (path_step
+                    (identifier)))
+                (identifier))
+              (comparison
+                (path
+                  (path_step
+                    (identifier)))
+                (number)))
+            (comparison
+              (path
+                (path_step
+                  (identifier))
+                (path_step
+                  (identifier)))
+              (identifier))))))
+    (render_clause
+      (identifier))))
+
+==================
+Render options
+==================
+
+view v {
+  select app
+  render svg, text {
+    direction: lr
+    edge_labels: [port, carries]
+    legend: true
+  }
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier))
+    (render_clause
+      (identifier)
+      (identifier)
+      (attribute
+        (identifier)
+        (identifier))
+      (attribute
+        (identifier)
+        (list
+          (identifier)
+          (identifier)))
+      (attribute
+        (identifier)
+        (identifier)))))
+
+==================
+with ends and without isolated
+==================
+
+view to-verify {
+  select app, saas where confidence != confirmed with ends without isolated group-by system
+  edges  [flow] where confidence != confirmed
+  render text
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (identifier)
+      (where_clause
+        (comparison
+          (path
+            (path_step
+              (identifier)))
+          (identifier)))
+      (with_ends)
+      (without_isolated)
+      (group_by
+        (identifier)))
+    (edges_clause
+      (edge_selector
+        (layers
+          (identifier))
+        (where_clause
+          (comparison
+            (path
+              (path_step
+                (identifier)))
+            (identifier)))))
+    (render_clause
+      (identifier))))
+
+==================
+Modifier keywords used as names
+==================
+
+app with { ends: 1, without: 2, isolated: 3 }
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (number))
+      (attribute
+        (identifier)
+        (number))
+      (attribute
+        (identifier)
+        (number)))))
+
+==================
+Styles with filters
+==================
+
+style {
+  edges where proto in [http, https] { color: "#1d4ed8", legend: "HTTP / HTTPS" }
+  layer auth                         { color: "#be185d", legend: "Authentification" }
+  nodes where scope = external       { line: dashed }
+  kind  system where name = sales      { color: "#6a3d9a" }
+}
+
+---
+
+(source_file
+  (style_block
+    (edges_style
+      (where_clause
+        (in
+          (path
+            (path_step
+              (identifier)))
+          (list
+            (identifier)
+            (identifier))))
+      (attribute
+        (identifier)
+        (string))
+      (attribute
+        (identifier)
+        (string)))
+    (layer_style
+      (identifier)
+      (attribute
+        (identifier)
+        (string))
+      (attribute
+        (identifier)
+        (string)))
+    (nodes_style
+      (where_clause
+        (comparison
+          (path
+            (path_step
+              (identifier)))
+          (identifier)))
+      (attribute
+        (identifier)
+        (identifier)))
+    (kind_style
+      (identifier)
+      (where_clause
+        (comparison
+          (path
+            (path_step
+              (identifier)))
+          (identifier)))
+      (attribute
+        (identifier)
+        (string)))))
+
+==================
+View with data orientation
+==================
+
+view lineage {
+  select app, job where confidence != confirmed or incomplete
+  edges  [flow] where channel has tarif and exists(exchange)
+  render svg { orientation: data, node_labels: [label, runtime], edge_labels: [description] }
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (identifier)
+      (where_clause
+        (or
+          (comparison
+            (path
+              (path_step
+                (identifier)))
+            (identifier))
+          (flag
+            (path
+              (path_step
+                (identifier)))))))
+    (edges_clause
+      (edge_selector
+        (layers
+          (identifier))
+        (where_clause
+          (and
+            (has
+              (path
+                (path_step
+                  (identifier)))
+              (identifier))
+            (exists
+              (path
+                (path_step
+                  (identifier))))))))
+    (render_clause
+      (identifier)
+      (attribute
+        (identifier)
+        (identifier))
+      (attribute
+        (identifier)
+        (list
+          (identifier)
+          (identifier)))
+      (attribute
+        (identifier)
+        (list
+          (identifier))))))
+
+==================
+Project style and view style
+==================
+
+style {
+  layer flow      { color: steelblue }
+  layer network   { color: "#3366cc", line: dashed }
+  kind  connector { line: dotted }
+}
+
+view gdpr {
+  select app
+  edges  [flow]
+  style  { layer flow { color: red } }
+  render svg
+}
+
+---
+
+(source_file
+  (style_block
+    (layer_style
+      (identifier)
+      (attribute
+        (identifier)
+        (identifier)))
+    (layer_style
+      (identifier)
+      (attribute
+        (identifier)
+        (string))
+      (attribute
+        (identifier)
+        (identifier)))
+    (kind_style
+      (identifier)
+      (attribute
+        (identifier)
+        (identifier))))
+  (view
+    (identifier)
+    (select_clause
+      (identifier))
+    (edges_clause
+      (edge_selector
+        (layers
+          (identifier))))
+    (style_block
+      (layer_style
+        (identifier)
+        (attribute
+          (identifier)
+          (identifier))))
+    (render_clause
+      (identifier))))
+
+==================
+Stack with several items on a level
+==================
+
+view wan {
+  select site
+  render svg { stack: [[pa2, pa7], pa4, [site-north, site-west]] }
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier))
+    (render_clause
+      (identifier)
+      (attribute
+        (identifier)
+        (list
+          (list
+            (identifier)
+            (identifier))
+          (identifier)
+          (list
+            (identifier)
+            (identifier)))))))
+
+==================
+Zones
+==================
+
+view wan {
+  select site group-by operator
+  zone hostco-sap "Hostco SAP" [hostco-site-east, hostco-site-south] { fill: "#eef" }
+  zone internet where scope = external
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (group_by
+        (identifier)))
+    (zone_clause
+      (identifier)
+      (string)
+      (list
+        (identifier)
+        (identifier))
+      (attribute
+        (identifier)
+        (string)))
+    (zone_clause
+      (identifier)
+      (where_clause
+        (comparison
+          (path
+            (path_step
+              (identifier)))
+          (identifier))))))
+
+==================
+Zone as a name
+==================
+
+site zone { hosting: on-prem, zone: north }
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (identifier))
+      (attribute
+        (identifier)
+        (identifier)))))
+
+==================
+Checks
+==================
+
+check owners {
+  select app where not exists(owner)
+  expect none
+  message: "every app has an owner"
+}
+check behind-firewall {
+  select server
+  edges lift([flow], via: on) where target = erp01
+  expect all through has fw01
+  severity: warning
+}
+check enough { select server expect count >= 2 }
+check any { select app expect some }
+
+---
+
+(source_file
+  (check
+    (identifier)
+    (select_clause
+      (identifier)
+      (where_clause
+        (not
+          (exists
+            (path
+              (path_step
+                (identifier)))))))
+    (expect_clause
+      (none))
+    (attribute
+      (identifier)
+      (string)))
+  (check
+    (identifier)
+    (select_clause
+      (identifier))
+    (edges_clause
+      (edge_selector
+        (lift
+          (edge_selector
+            (layers
+              (identifier)))
+          (lift_option
+            (identifier)
+            (path
+              (path_step
+                (identifier)))))
+        (where_clause
+          (comparison
+            (path
+              (path_step
+                (identifier)))
+            (identifier)))))
+    (expect_clause
+      (all
+        (has
+          (path
+            (path_step
+              (identifier)))
+          (identifier))))
+    (attribute
+      (identifier)
+      (identifier)))
+  (check
+    (identifier)
+    (select_clause
+      (identifier))
+    (expect_clause
+      (count
+        (number))))
+  (check
+    (identifier)
+    (select_clause
+      (identifier))
+    (expect_clause
+      (some))))
+
+==================
+Expect words as names
+==================
+
+server none { role: some }
+view all { select app where count = 2 }
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (identifier))))
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (where_clause
+        (comparison
+          (path
+            (path_step
+              (identifier)))
+          (number))))))
+
+==================
+Follow relayed by databases
+==================
+
+view prices {
+  select app, database
+  edges follow(item-prices, from: pricing, relay: [database])
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (identifier))
+    (edges_clause
+      (edge_selector
+        (follow
+          (identifier)
+          (follow_option
+            (identifier)
+            (identifier))
+          (follow_option
+            (identifier)
+            (list
+              (identifier))))))))
+
+==================
+Paths on both sides of a comparison
+==================
+
+view v {
+  edges [flow] where source.ancestor(system) != target.ancestor(system)
+  edges [flow] where source.owner = target.owner and source.on?.ancestor(site) = target.on?.ancestor(site)
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (edges_clause
+      (edge_selector
+        (layers
+          (identifier))
+        (where_clause
+          (comparison
+            (path
+              (path_step
+                (identifier))
+              (path_step
+                (ancestor
+                  (identifier))))
+            (right_path
+              (qualified_name)
+              (identifier))))))
+    (edges_clause
+      (edge_selector
+        (layers
+          (identifier))
+        (where_clause
+          (and
+            (comparison
+              (path
+                (path_step
+                  (identifier))
+                (path_step
+                  (identifier)))
+              (qualified_name))
+            (comparison
+              (path
+                (path_step
+                  (identifier))
+                (path_step
+                  (identifier)
+                  (optional_marker))
+                (path_step
+                  (ancestor
+                    (identifier))))
+              (right_path
+                (qualified_name)
+                (optional_marker)
+                (path_step
+                  (ancestor
+                    (identifier)))))))))))
+
+==================
+Aggregates
+==================
+
+view v { select app where count(on) < 2 and count(on?.ancestor(site)) >= 2 }
+view w { select app where count = 2 }
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (where_clause
+        (and
+          (comparison
+            (aggregate
+              (identifier)
+              (path
+                (path_step
+                  (identifier))))
+            (number))
+          (comparison
+            (aggregate
+              (identifier)
+              (path
+                (path_step
+                  (identifier)
+                  (optional_marker))
+                (path_step
+                  (ancestor
+                    (identifier)))))
+            (number))))))
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (where_clause
+        (comparison
+          (path
+            (path_step
+              (identifier)))
+          (number))))))
+
+==================
+Keys with an argument
+==================
+
+view v { select app where failures(hosting).kind = server or failures(hosting) has fw01 }
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (where_clause
+        (or
+          (comparison
+            (path
+              (path_step
+                (call
+                  (identifier)
+                  (identifier)))
+              (path_step
+                (identifier)))
+            (identifier))
+          (has
+            (path
+              (path_step
+                (call
+                  (identifier)
+                  (identifier))))
+            (identifier)))))))
+
+==================
+Network path
+==================
+
+view chemin {
+  select server, switch
+  edges path(veeam.proxy, esx-02)
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (select_clause
+      (identifier)
+      (identifier))
+    (edges_clause
+      (edge_selector
+        (path_selector
+          (qualified_name)
+          (identifier))))))
+
+==================
+View with a title and a description
+==================
+
+view flows {
+  title: "Application flows"
+  description: "Who calls whom, by protocol."
+  select app
+  render svg
+}
+
+---
+
+(source_file
+  (view
+    (identifier)
+    (attribute
+      (identifier)
+      (string))
+    (attribute
+      (identifier)
+      (string))
+    (select_clause
+      (identifier))
+    (render_clause
+      (identifier))))

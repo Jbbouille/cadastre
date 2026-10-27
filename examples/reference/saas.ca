@@ -1,0 +1,7 @@
+saas stripe {
+  description: "Online invoice payment"
+  owner: invoicing-team
+  vendor: "Stripe"
+  region: eu
+  stores: [invoice]
+}

@@ -1,0 +1,17 @@
+{
+  "grammars": [
+    {
+      "name": "cadastre",
+      "camelcase": "Cadastre",
+      "scope": "source.cadastre",
+      "path": ".",
+      "file-types": ["ca", "cav", "cac"],
+      "highlights": "queries/highlights.scm"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT OR Apache-2.0",
+    "description": "Tree-sitter grammar for the Cadastre language (.ca, .cav, .cac)"
+  }
+}

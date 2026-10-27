@@ -1,0 +1,69 @@
+==================
+Full link forbidden inside a block
+:error
+==================
+
+app x {
+  a -> b
+}
+
+---
+
+(source_file)
+
+==================
+Positional argument rejected
+:error
+==================
+
+subnet dmz 10.0.1.0/24 { }
+
+---
+
+(source_file)
+
+==================
+Link chaining rejected
+:error
+==================
+
+a -> b -> c
+
+---
+
+(source_file)
+
+==================
+Incoming link rejected
+:error
+==================
+
+a <- b
+
+---
+
+(source_file)
+
+==================
+Child resource inside a link block rejected
+:error
+==================
+
+app x {
+  -> y { component z }
+}
+
+---
+
+(source_file)
+
+==================
+Whitespace inside a port_spec rejected
+:error
+==================
+
+a -> b : https / 443
+
+---
+
+(source_file)

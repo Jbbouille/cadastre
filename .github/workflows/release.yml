@@ -1,0 +1,135 @@
+# A release on each version tag (`v0.1.0`): `cadastre` binaries, the VS Code extension of each
+# platform with its binary, and the WebAssembly module.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        name: Tag matching the versions of the compiler and the extension
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          compiler=$(sed -n 's/^version = "\(.*\)"/\1/p' compiler/Cargo.toml | head -1)
+          extension=$(node -p 'require("./editors/vscode/package.json").version')
+          echo "tag $version, compiler $compiler, extension $extension"
+          test "$version" = "$compiler" && test "$version" = "$extension"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  binaries:
+    needs: [version, wasm]
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-musl, vscode: linux-x64 }
+          - { os: macos-latest, target: aarch64-apple-darwin, vscode: darwin-arm64 }
+          - { os: macos-latest, target: x86_64-apple-darwin, vscode: darwin-x64 }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, vscode: win32-x64 }
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      # Static binaries: no musl nor MSVC runtime needed on the machine.
+      CC_x86_64_unknown_linux_musl: musl-gcc
+      RUSTFLAGS: ${{ contains(matrix.target, 'windows') && '-C target-feature=+crt-static' || '' }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - if: contains(matrix.target, 'musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - working-directory: compiler
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add ${{ matrix.target }}
+          cargo build -p cadastre-cli --release --target ${{ matrix.target }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: playground
+          path: playground
+      - name: Archive
+        run: |
+          name="cadastre-$VERSION-${{ matrix.target }}"
+          exe=cadastre; [[ "${{ matrix.target }}" == *windows* ]] && exe=cadastre.exe
+          mkdir -p "dist/$name" editors/vscode/bin
+          cp "compiler/target/${{ matrix.target }}/release/$exe" "dist/$name/"
+          cp "compiler/target/${{ matrix.target }}/release/$exe" editors/vscode/bin/
+          cp README.md LICENSE-MIT LICENSE-APACHE THIRD-PARTY-NOTICES.md "dist/$name/"
+          # The extension ships the notices of what it contains.
+          cp THIRD-PARTY-NOTICES.md editors/vscode/
+          # The page `cadastre serve` and `cadastre site` publish a project with.
+          cp -r playground "dist/$name/playground"
+          cd dist
+          if [[ "$exe" == *.exe ]]; then 7z a "$name.zip" "$name" > /dev/null; else tar czf "$name.tar.gz" "$name"; fi
+          rm -r "$name"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: VS Code extension
+        working-directory: editors/vscode
+        run: |
+          npm ci
+          npx vsce package --target ${{ matrix.vscode }} --skip-license -o "../../dist/cadastre-$VERSION-${{ matrix.vscode }}.vsix"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.target }}
+          path: dist/*
+
+  wasm:
+    needs: version
+    runs-on: ubuntu-latest
+    env:
+      CC_wasm32_unknown_unknown: clang
+      AR_wasm32_unknown_unknown: llvm-ar
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y clang llvm
+      - working-directory: compiler
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          cargo build -p cadastre-wasm --target wasm32-unknown-unknown --profile wasm
+      - run: |
+          mkdir dist
+          cp compiler/target/wasm32-unknown-unknown/wasm/cadastre_wasm.wasm web/cadastre.js dist/
+      # The self-hosted playground: the page, the module, Graphviz and the examples, in one archive.
+      - name: Playground
+        run: |
+          python3 web/build-playground.py --wasm compiler/target/wasm32-unknown-unknown/wasm/cadastre_wasm.wasm --out "cadastre-playground-${{ needs.version.outputs.version }}"
+          zip -qr "dist/cadastre-playground-${{ needs.version.outputs.version }}.zip" "cadastre-playground-${{ needs.version.outputs.version }}"
+          python3 web/build-playground.py --wasm compiler/target/wasm32-unknown-unknown/wasm/cadastre_wasm.wasm --out playground --viz "cadastre-playground-${{ needs.version.outputs.version }}/viz-standalone.js" --no-examples
+      - uses: actions/upload-artifact@v4
+        with:
+          name: playground
+          path: playground
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-wasm
+          path: dist/*
+
+  release:
+    needs: [version, binaries, wasm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      - name: Checksums and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" * --title "Cadastre ${{ needs.version.outputs.version }}" --generate-notes

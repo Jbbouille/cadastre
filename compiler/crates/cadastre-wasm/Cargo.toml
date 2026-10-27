@@ -1,0 +1,15 @@
+[package]
+name = "cadastre-wasm"
+description = "Cadastre in the browser: the compiler core exposed as WebAssembly."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+cadastre-core = { path = "../cadastre-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

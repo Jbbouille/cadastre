@@ -1,0 +1,52 @@
+system sys-05 {
+  app app-098 {
+    on: [srv-064, srv-099]
+    version: 2.16.2
+    egress: [fwd-01]
+    component comp-02 { version: 15.0.1 }
+    component comp-04 { version: 1.0.13 }
+
+    -> db-01          : jdbc/1521 [flow] { exchange: both }
+    -> sys-10.app-098 : https/443 [flow] { exchange: pull, carries: [data-23, data-10, data-04] }
+    -> saas-02        : https/443 [flow] { exchange: push, carries: [data-06] }
+    -> saas-03        : https/443 [flow]
+    -> app-147        : https/443 [auth]
+    -> app-148        : ldaps/636 [auth]
+  }
+
+  app app-099 {
+    on: [srv-064, srv-099]
+    egress: [fwd-01]
+    component comp-02 { version: 15.0.1 }
+
+    -> app-098        : https/443 [flow]
+    -> sys-10.app-098 : https/443 [flow] { exchange: pull, carries: [data-23, data-10] }
+    -> saas-01        : https/443 [flow] { exchange: push, carries: [data-06] }
+  }
+
+  app app-100 {
+    on: [srv-064, srv-099]
+    version: 3.3.0
+    component comp-05
+
+    -> db-01   : jdbc      [flow] { exchange: both }
+    -> app-147 : https/443 [auth]
+  }
+
+  app app-101 {
+    on: fleet-01
+    -> app-098 : https/443 [flow]
+  }
+
+  database db-01 { on: srv-066, engine: oracle }
+}
+
+saas saas-01 {
+  -> saas-11 : https [flow] { exchange: pull, carries: [data-19] }
+}
+
+saas saas-02 {
+  -> saas-11 : https [flow] { exchange: pull, carries: [data-19] }
+}
+
+saas saas-03 { scope: external }

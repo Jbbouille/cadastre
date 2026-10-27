@@ -1,0 +1,147 @@
+site site-06 {
+  address_plan: [10.1.0.0/20]
+  scope: external
+  operator: team-09
+
+  rack rack-01
+  rack rack-02
+  rack rack-03
+
+  firewall fw-03 {
+    model: "Check Point 6600"
+    rack: rack-01
+    interface team-08 { peer: rtr-04.lan, subnet: net-05, ip: 10.1.7.3 }
+  }
+  router rtr-04 {
+    model: "Cisco ISR4451"
+    rack: rack-02
+    interface lan { subnet: net-05, ip: 10.1.7.13 }
+  }
+  device dev-01 { model: "RAD ETX203AX", rack: rack-03 }
+  router rtr-05 { model: "Cisco ISR4221", rack: rack-01 }
+  router rtr-06 { model: "Cisco ISR4221", rack: rack-01 }
+  switch sw-05  { model: "Cisco Nexus 93180YC-FX", rack: rack-01 }
+  switch sw-06  { model: "Cisco Nexus 93180YC-FX", rack: rack-01 }
+  switch sw-07  { model: "Cisco C9200L-48T-4G-E", rack: rack-01 }
+
+  server srv-016 {
+    model: "Lenovo ThinkSystem SR650"
+    ram: "768 Go"
+    hypervisor: vmware
+    rack: rack-01
+  }
+  server srv-017 { model: "IBM Power S924 (9009-42G)", ram: "768 Go", rack: rack-01 }
+  server srv-018 { model: "IBM HMC 7063-CR1", rack: rack-01 }
+
+  network team-09 {
+    subnet net-05 {
+      cidr: 10.1.7.0/27
+      vlan: 99
+      stretched_to: site-07
+      firewall_vip: 10.1.7.1
+      router_vip: 10.1.7.11
+    }
+
+    subnet net-06 {
+      cidr: 10.1.0.0/24
+      vlan: 110
+
+      virtual server srv-019 {
+        ip: 10.1.0.28
+        on: srv-017
+        os: "AIX 7.3 TL1 SP2"
+        vcpu: 8
+        ram: "40 Go"
+      }
+      virtual server srv-020 {
+        ip: 10.1.0.34
+        on: srv-017
+        os: "AIX 7.3"
+        vcpu: 3
+        ram: "35 Go"
+      }
+      virtual server srv-021 {
+        ip: 10.1.0.26
+        on: srv-017
+        os: "AIX 7.3"
+        vcpu: 2
+        ram: "16 Go"
+      }
+      virtual server srv-022 {
+        ip: 10.1.0.37
+        on: srv-017
+        os: "AIX 7.3"
+        vcpu: 2
+        ram: "32 Go"
+      }
+      virtual server srv-023 {
+        ip: 10.1.0.36
+        on: srv-017
+        os: "AIX 7.3"
+        vcpu: 2
+        ram: "20 Go"
+      }
+    }
+
+    subnet net-07 {
+      cidr: 10.1.4.0/26
+      vlan: 60
+
+      virtual server srv-024 { ip: 10.1.4.5, on: srv-017, os: "AIX" }
+      virtual server srv-025 {
+        ip: 10.1.4.7
+        on: srv-016
+        os: "Linux"
+        vcpu: 2
+        ram: "8 Go"
+      }
+      virtual server srv-026 {
+        ip: 10.1.4.47
+        on: srv-016
+        os: "Linux"
+        vcpu: 4
+        ram: "8 Go"
+      }
+      virtual server srv-027 {
+        ip: 10.1.4.54
+        on: srv-016
+        os: "Linux"
+        vcpu: 2
+        ram: "6 Go"
+      }
+    }
+
+    subnet net-08 {
+      cidr: 10.1.4.128/26
+      vlan: 410
+
+      virtual server srv-028 {
+        ip: 10.1.4.133
+        on: srv-016
+        os: "Linux"
+        vcpu: 4
+        ram: "16 Go"
+      }
+    }
+
+    subnet net-09 {
+      cidr: 10.1.1.192/28
+      vlan: 660
+
+      virtual server srv-029 {
+        ip: 10.1.1.206
+        on: srv-016
+        os: "Windows"
+        vcpu: 4
+        ram: "8 Go"
+      }
+    }
+  }
+
+  virtual server srv-030 {
+    on: srv-016
+    os: "Windows"
+    vcpu: 2
+    ram: "8 Go"
+  }
+}

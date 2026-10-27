@@ -1,0 +1,393 @@
+site site-11 {
+  address_plan: [
+    10.1.128.0/20,
+    10.1.128.0/27,
+    10.1.144.32/28,
+    10.1.146.0/24,
+    10.1.148.0/24,
+    10.1.149.0/24,
+    10.1.150.0/24,
+    10.1.156.0/24,
+    10.1.160.0/25,
+    10.1.240.0/21
+  ]
+  hosting: colocation
+  operator: team-06
+
+  switch sw-14 {
+    interface if-006
+    interface if-007
+    interface internet { peer: rtr-01.if-002, bandwidth: "500 Mbps" }
+    interface if-008   { peer: fw-08.wan }
+  }
+  firewall fw-08 {
+    model: "FortiGate 1800F"
+    interface if-009
+    interface wan
+    interface lan { peer: sw-15.if-008 }
+  }
+  switch sw-15 {
+    interface te2-0-1
+    interface te2-0-2
+    interface if-008
+    interface if-010 { peer: fw-09.if-013 }
+  }
+  firewall fw-09 {
+    model: "Check Point"
+    interface if-011
+    interface if-012
+    interface if-013
+    interface if-014 { peer: sw-16.if-010 }
+  }
+  switch sw-16 {
+    model: "Catalyst 9300, IOS-XE 17.3.4"
+    interface te2-0-1
+    interface te2-0-2
+    interface te1-1-4 { vlan: 1167, peer: rtr-03.if-002, bandwidth: "10 Gbps" }
+    interface if-010
+    interface team-08 { peer: rtr-12.lan }
+    interface if-015  { peer: fw-05.if-002 }
+  }
+
+  device dev-06
+  device dev-07
+  device dev-08
+  proxy rp-02
+  router rtr-12 {
+    operator: team-08
+    interface lan { subnet: net-54, ip: 10.1.128.13 }
+  }
+
+  cluster clu-08 { platform: vmware }
+
+  network zone-03 {
+    subnet net-39 {
+      cidr: 10.1.128.160/27
+      vlan: 2484
+      stretched_to: site-09
+
+      virtual server srv-093 {
+        ip: 10.1.128.172
+        on: clu-08
+        vcpu: 4
+        ram: "8 Go"
+        disk_size: "110 Go"
+        os: "Windows Server 2016 or later"
+        hypervisor: vmware
+      }
+    }
+
+    subnet net-40 {
+      cidr: 10.1.128.128/27
+      vlan: 2483
+      stretched_to: site-09
+
+      virtual server srv-094 {
+        ip: 10.1.128.150
+        on: clu-08
+        os: "Windows Server 2019"
+        vcpu: 2
+        ram: "4 Go"
+        disk_size: "80 Go"
+        hypervisor: vmware
+      }
+      virtual server srv-095 {
+        ip: 10.1.128.138
+        on: clu-08
+        os: "Windows Server 2019"
+        vcpu: 2
+        ram: "4 Go"
+        disk_size: "80 Go"
+        hypervisor: vmware
+      }
+    }
+
+    subnet net-41 {
+      cidr: 10.1.128.224/27
+      vlan: 2486
+
+      virtual server srv-096 {
+        ip: 10.1.128.229
+        on: clu-08
+        os: "Windows 10.0.17763.0"
+        vcpu: 2
+        ram: "16 Go"
+        disk_size: "255 Go"
+        hypervisor: vmware
+      }
+    }
+
+    subnet net-42 {
+      cidr: 10.1.128.96/27
+      vlan: 2491
+      stretched_to: site-09
+
+      virtual server srv-097 {
+        ip: 10.1.128.115
+        on: clu-08
+        os: "Debian GNU/Linux 7"
+        vcpu: 1
+        ram: "2 Go"
+        disk_size: "70 Go"
+        hypervisor: vmware
+      }
+    }
+  }
+
+  network zone-01 {
+    subnet net-43 {
+      cidr: 10.1.136.160/27
+      vlan: 2453
+      stretched_to: site-09
+
+      virtual server srv-098 {
+        ip: 10.1.136.172
+        on: clu-08
+        vcpu: 6
+        ram: "48 Go"
+        disk_size: "655 Go"
+        os: "RHEL 7.9"
+        hypervisor: vmware
+      }
+    }
+
+    subnet net-44 {
+      cidr: 10.1.137.160/27
+      vlan: 2461
+      stretched_to: site-09
+
+      virtual server srv-099 {
+        ip: 10.1.137.182
+        on: clu-08
+        vcpu: 4
+        ram: "32 Go"
+        disk_size: "140 Go"
+        os: "RHEL 7.9"
+        hypervisor: vmware
+      }
+      virtual server srv-100 {
+        ip: 10.1.137.179
+        on: clu-08
+        vcpu: 4
+        ram: "32 Go"
+        disk_size: "160 Go"
+        os: "RHEL 7.9"
+        hypervisor: vmware
+      }
+    }
+
+    subnet net-45 {
+      cidr: 10.1.138.0/27
+      vlan: 2464
+      stretched_to: site-09
+
+      server srv-101 {
+        ip: 10.1.138.19
+        model: "Lenovo ThinkSystem SR650"
+        os: "RHEL 8.10"
+        ram: "256 Go"
+        disk_size: "3091 Go"
+        cpu: "32 cœurs"
+      }
+    }
+
+    subnet net-46 {
+      cidr: 10.1.136.0/27
+      vlan: 2448
+      stretched_to: site-09
+
+      virtual server srv-102 {
+        ip: 10.1.136.8
+        on: clu-08
+        os: "RHEL 8.10"
+        vcpu: 3
+        ram: "9 Go"
+        disk_size: "120 Go"
+        hypervisor: vmware
+      }
+    }
+
+    subnet net-47 {
+      cidr: 10.1.136.128/27
+      vlan: 2452
+      stretched_to: site-09
+
+      virtual server srv-103 {
+        ip: 10.1.136.136
+        on: clu-08
+        os: "Windows 10.0.14393.0"
+        vcpu: 4
+        ram: "48 Go"
+        disk_size: "1075 Go"
+        hypervisor: vmware
+      }
+    }
+
+    subnet net-48 {
+      cidr: 10.1.136.224/27
+      vlan: 2455
+
+      virtual server srv-104 {
+        ip: 10.1.136.246
+        on: clu-08
+        os: "RHEL 7.9"
+        vcpu: 8
+        ram: "32 Go"
+        disk_size: "280 Go"
+        hypervisor: vmware
+      }
+    }
+
+    subnet net-49 {
+      cidr: 10.1.137.32/27
+      vlan: 2457
+
+      virtual server srv-105 {
+        ip: 10.1.137.46
+        on: clu-08
+        os: "Other 3.x Linux"
+        vcpu: 8
+        ram: "8 Go"
+        disk_size: "1030 Go"
+        hypervisor: vmware
+      }
+    }
+
+    subnet net-50 {
+      cidr: 10.1.137.128/27
+      vlan: 2460
+      stretched_to: site-09
+
+      virtual server srv-106 {
+        ip: 10.1.137.138
+        on: clu-08
+        os: "Red Hat Enterprise Linux 5 (32-bit)"
+        vcpu: 8
+        ram: "32 Go"
+        disk_size: "300 Go"
+        hypervisor: vmware
+      }
+      virtual server srv-107 {
+        ip: 10.1.137.139
+        on: clu-08
+        os: "Red Hat Enterprise Linux 5"
+        vcpu: 8
+        ram: "32 Go"
+        disk_size: "300 Go"
+        hypervisor: vmware
+      }
+      virtual server srv-108 {
+        ip: 10.1.137.140
+        on: clu-08
+        os: "Windows 10.0.17763.0"
+        vcpu: 8
+        ram: "48 Go"
+        disk_size: "460 Go"
+        hypervisor: vmware
+      }
+    }
+  }
+
+  network zone-04 {
+    subnet net-51 {
+      cidr: 10.1.133.0/27
+      vlan: 2400
+      stretched_to: site-09
+
+      virtual server srv-109 {
+        ip: 10.1.133.5
+        on: clu-08
+        vcpu: 2
+        ram: "8 Go"
+        disk_size: "160 Go"
+        os: "Windows Server 2019 Standard"
+        hypervisor: vmware
+      }
+    }
+
+    subnet net-52 {
+      cidr: 10.1.134.0/27
+      vlan: 2408
+
+      virtual server srv-110 {
+        ip: 10.1.134.15
+        on: clu-08
+        os: "RHEL 7.9"
+        vcpu: 2
+        ram: "4 Go"
+        disk_size: "110 Go"
+        hypervisor: vmware
+      }
+    }
+
+    subnet net-53 {
+      cidr: 10.1.134.32/27
+      vlan: 2409
+      stretched_to: site-09
+
+      virtual server srv-111 {
+        ip: 10.1.134.37
+        on: clu-08
+        os: "RHEL 7.9"
+        vcpu: 2
+        ram: "32 Go"
+        disk_size: "90 Go"
+        hypervisor: vmware
+      }
+    }
+  }
+
+  virtual server srv-112 {
+    on: clu-08
+    os: "VMware Photon OS"
+    vcpu: 8
+    ram: "30 Go"
+    disk_size: "915 Go"
+    hypervisor: vmware
+  }
+  virtual server srv-113 {
+    on: clu-08
+    cluster: clu-03
+    os: "Debian 20.04"
+    vcpu: 2
+    ram: "4 Go"
+    disk_size: "30 Go"
+    hypervisor: vmware
+  }
+  virtual server srv-114 {
+    on: clu-08
+    cluster: clu-03
+    os: "Debian 20.04"
+    vcpu: 8
+    ram: "32 Go"
+    disk_size: "170 Go"
+    hypervisor: vmware
+  }
+  virtual server srv-115 {
+    on: clu-08
+    cluster: clu-04
+    os: "Debian 20.04"
+    vcpu: 2
+    ram: "4 Go"
+    disk_size: "30 Go"
+    hypervisor: vmware
+  }
+  virtual server srv-116 {
+    on: clu-08
+    cluster: clu-04
+    os: "Debian 20.04"
+    vcpu: 4
+    ram: "16 Go"
+    disk_size: "40 Go"
+    hypervisor: vmware
+  }
+
+  network zone-05 {
+    subnet net-54 {
+      cidr: 10.1.128.0/27
+      stretched_to: site-10
+      firewall_vip: 10.1.128.1
+      router_vip: 10.1.128.11
+    }
+  }
+}

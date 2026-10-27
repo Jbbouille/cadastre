@@ -1,0 +1,646 @@
+system sys-04 {
+  app app-013 {
+    scope: external
+    on: [srv-063, srv-098]
+    -> db-11          : jdbc/1521 [flow] { exchange: both }
+    -> app-014        : http      [flow] { exchange: push, carries: [data-01] }
+    -> app-015        : http      [flow] { exchange: pull, carries: [data-01], confidence: assumed }
+    -> app-107        : http      [flow] { exchange: push, carries: [data-22], confidence: assumed }
+    -> app-164        : http      [flow] { exchange: push, carries: [data-22, data-46], confidence: assumed }
+    -> sys-15.app-174 : http      [flow] { exchange: push, carries: [data-22], confidence: assumed }
+    -> app-149        : https/443 [flow] { exchange: pull, carries: [data-08] }
+    -> sys-01.app-001 : http      [flow] { exchange: pull, carries: [data-22], confidence: assumed }
+    -> app-109        : http      [flow] { exchange: push, carries: [data-13], confidence: assumed }
+    -> app-017        : http      [flow] { exchange: pull, carries: [data-22, data-17] }
+    -> app-127        : http/8080 [flow] { exchange: push, carries: [data-22, data-17] }
+  }
+
+  app app-014 {
+    scope: external
+    instance: "instance-3"
+    on: srv-062
+    -> app-149 : https/443 [flow] { exchange: push, carries: [data-01] }
+  }
+
+  app app-015 {
+    scope: external
+    instance: "instance-3"
+    on: srv-062
+    -> app-149 : https/443 [flow] { exchange: both, carries: [data-01, data-02, data-08] }
+  }
+
+  app app-016 {
+    scope: external
+    instance: "instance-4"
+    on: srv-062
+    -> app-149 : https/443 [flow] { exchange: pull, carries: [data-08] }
+    -> app-164             [flow] { exchange: push, carries: [data-08], confidence: assumed }
+  }
+
+  app app-017 {
+    scope: external
+    instance: "instance-4"
+    on: srv-062
+    version: 3.7.1
+    -> sys-14.db-01 : jdbc [flow] { exchange: both, carries: [data-22, data-17] }
+    -> app-149      : http [flow] { exchange: pull, carries: [data-08] }
+  }
+
+  app app-018 {
+    instance: "instance-3"
+    on: srv-062
+    version: 1.1.3
+    component comp-02
+    -> sys-01.db-01 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-019 {
+    instance: "instance-3"
+    on: srv-062
+    version: 1.1.3
+    component comp-02
+    -> sys-01.db-01 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-020 { instance: "instance-3", on: srv-062 }
+
+  app app-021 {
+    instance: "instance-3"
+    version: 1.1.0
+    on: srv-062
+    -> sys-01.db-01 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-022 {
+    instance: "instance-3"
+    version: 2.0.0
+    on: srv-062
+    -> db-08 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-023 { instance: "instance-3", version: 1.2.2, on: srv-062 }
+
+  app app-024 { instance: "instance-3", on: srv-062 }
+
+  app app-025 {
+    instance: "instance-3"
+    version: 1.0.0
+    on: srv-062
+    -> sys-01.db-01 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-026 {
+    instance: "instance-3"
+    version: 1.2.0
+    on: srv-062
+    -> db-08 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-027 {
+    instance: "instance-3"
+    version: 1.0.1
+    on: srv-062
+    -> sys-10.db-01 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-028 {
+    instance: "instance-3"
+    on: srv-062
+    -> db-08 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-029 {
+    instance: "instance-3"
+    version: 1.5.4
+    on: srv-062
+    -> db-12 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-030 {
+    instance: "instance-3"
+    version: 1.1.0
+    on: srv-062
+    -> db-05        : jdbc [flow] { exchange: pull }
+    -> db-06        : jdbc [flow] { exchange: pull }
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull }
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-031 {
+    instance: "instance-3"
+    version: 1.1.0
+    on: srv-062
+    -> db-05        : jdbc [flow] { exchange: pull }
+    -> db-06        : jdbc [flow] { exchange: pull }
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull }
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-032 {
+    instance: "instance-3"
+    version: 1.1.3
+    on: srv-062
+    -> sys-01.db-01 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-033 {
+    instance: "instance-3"
+    version: 1.1.2
+    on: srv-062
+    -> sys-01.db-01 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-034 {
+    instance: "instance-3"
+    version: 1.2.3
+    on: srv-062
+    -> sys-01.db-01 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-035 {
+    instance: "instance-3"
+    version: 2.0.1
+    on: srv-062
+    -> sys-01.db-01 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-036 { instance: "instance-5", version: 1.1.0, on: srv-062 }
+
+  app app-037 {
+    instance: "instance-5"
+    version: 1.1.0
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-038 {
+    instance: "instance-5"
+    version: 1.1.0
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-039 {
+    instance: "instance-5"
+    version: 1.1.1
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-040 {
+    instance: "instance-5"
+    version: 1.0.2
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-041 {
+    instance: "instance-5"
+    version: 1.1.0
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-042 {
+    instance: "instance-5"
+    version: 1.0.2
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-043 {
+    instance: "instance-5"
+    version: 1.1.2
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-044 {
+    instance: "instance-5"
+    version: 1.1.1
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-045 {
+    instance: "instance-5"
+    version: 1.1.0
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-046 {
+    instance: "instance-5"
+    version: 1.0.7
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-047 {
+    instance: "instance-5"
+    version: 2.1.2
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-048 {
+    instance: "instance-5"
+    version: 1.2.3
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-049 {
+    instance: "instance-5"
+    version: 1.3.8
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-050 {
+    instance: "instance-5"
+    version: 1.0.0
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-051 {
+    instance: "instance-5"
+    version: 1.3.3
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-052 {
+    instance: "instance-5"
+    version: 2.1.1
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-053 {
+    instance: "instance-5"
+    version: 2.1.5
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-054 {
+    instance: "instance-5"
+    version: 1.2.1
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-055 {
+    instance: "instance-5"
+    version: 1.0.4
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-056 {
+    instance: "instance-5"
+    version: 1.0.0
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-057 {
+    instance: "instance-5"
+    version: 1.1.0
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-058 {
+    instance: "instance-5"
+    version: 1.4.4
+    on: srv-062
+    -> db-11        : jdbc [flow] { exchange: both }
+    -> sys-02.db-02 : jdbc [flow] { exchange: both }
+  }
+
+  app app-059 {
+    instance: "instance-5"
+    on: srv-062
+    -> sys-02.db-02 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-060 {
+    instance: "instance-5"
+    version: 1.4.6
+    on: srv-062
+    -> db-11        : jdbc [flow] { exchange: both }
+    -> sys-02.db-02 : jdbc [flow] { exchange: both }
+  }
+
+  app app-061 {
+    instance: "instance-4"
+    version: 1.0.0
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-062 {
+    instance: "instance-4"
+    version: 3.1.0
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-063 {
+    instance: "instance-4"
+    version: 3.1.0
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-064 {
+    instance: "instance-4"
+    version: 4.0.3
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-065 {
+    instance: "instance-4"
+    version: 3.0.0
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-066 {
+    instance: "instance-4"
+    version: 3.0.0
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-067 {
+    instance: "instance-4"
+    version: 2.5.2
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-068 {
+    instance: "instance-4"
+    version: 3.1.0
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-069 {
+    instance: "instance-4"
+    version: 1.0.3
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-070 {
+    instance: "instance-4"
+    version: 3.2.2
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-071 {
+    instance: "instance-4"
+    version: 3.3.0
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-072 {
+    instance: "instance-4"
+    version: 3.1.0
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-073 {
+    instance: "instance-4"
+    version: 3.4.0
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-074 {
+    instance: "instance-4"
+    version: 3.1.0
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-075 {
+    instance: "instance-4"
+    version: 1.0.0
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-076 {
+    instance: "instance-4"
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull, confidence: assumed }
+  }
+
+  app app-077 {
+    instance: "instance-4"
+    version: 3.0.1
+    on: srv-062
+    -> db-05        : jdbc [flow] { exchange: pull }
+    -> db-06        : jdbc [flow] { exchange: pull }
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull }
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-078 {
+    instance: "instance-4"
+    version: 3.0.1
+    on: srv-062
+    -> db-11 : jdbc [flow] { exchange: both }
+  }
+
+  app app-079 {
+    instance: "instance-4"
+    version: 3.1.0
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-080 {
+    instance: "instance-4"
+    version: 3.3.0
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-081 {
+    instance: "instance-4"
+    version: 3.2.1
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-082 {
+    instance: "instance-4"
+    version: 1.0.0
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-083 {
+    instance: "instance-4"
+    version: 3.1.0
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-084 {
+    instance: "instance-4"
+    version: 3.3.0
+    on: srv-062
+    -> sys-14.db-01 : jdbc [flow] { exchange: push, confidence: assumed }
+  }
+
+  app app-085 {
+    instance: "instance-4"
+    version: 3.0.0
+    on: srv-062
+    -> db-11 : jdbc [flow] { exchange: both }
+  }
+
+  app app-086 {
+    instance: "instance-4"
+    version: 4.0.1
+    on: srv-062
+    -> db-05        : jdbc [flow] { exchange: pull }
+    -> db-06        : jdbc [flow] { exchange: pull }
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull }
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-087 {
+    instance: "instance-4"
+    version: 4.1.2
+    on: srv-062
+    -> db-05        : jdbc [flow] { exchange: pull }
+    -> db-06        : jdbc [flow] { exchange: pull }
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull }
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-088 {
+    instance: "instance-4"
+    version: 4.1.1
+    on: srv-062
+    -> db-05        : jdbc [flow] { exchange: pull }
+    -> db-06        : jdbc [flow] { exchange: pull }
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull }
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-089 {
+    instance: "instance-4"
+    version: 4.1.0
+    on: srv-062
+    -> db-05        : jdbc [flow] { exchange: pull }
+    -> db-06        : jdbc [flow] { exchange: pull }
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull }
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-090 {
+    instance: "instance-4"
+    version: 4.1.0
+    on: srv-062
+    -> db-05        : jdbc [flow] { exchange: pull }
+    -> db-06        : jdbc [flow] { exchange: pull }
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull }
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-091 {
+    instance: "instance-4"
+    version: 4.2.2
+    on: srv-062
+    -> db-05        : jdbc [flow] { exchange: pull }
+    -> db-06        : jdbc [flow] { exchange: pull }
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull }
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-092 {
+    instance: "instance-4"
+    version: 4.1.1
+    on: srv-062
+    -> db-05        : jdbc [flow] { exchange: pull }
+    -> db-06        : jdbc [flow] { exchange: pull }
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull }
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-093 {
+    instance: "instance-4"
+    version: 4.0.0
+    on: srv-062
+    -> db-05        : jdbc [flow] { exchange: pull }
+    -> db-06        : jdbc [flow] { exchange: pull }
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull }
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-094 {
+    instance: "instance-4"
+    version: 4.1.0
+    on: srv-062
+    -> db-05        : jdbc [flow] { exchange: pull }
+    -> db-06        : jdbc [flow] { exchange: pull }
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull }
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-095 {
+    instance: "instance-4"
+    version: 4.1.1
+    on: srv-062
+    -> db-05        : jdbc [flow] { exchange: pull }
+    -> db-06        : jdbc [flow] { exchange: pull }
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull }
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-096 {
+    instance: "instance-4"
+    version: 4.0.0
+    on: srv-062
+    -> db-05        : jdbc [flow] { exchange: pull }
+    -> db-06        : jdbc [flow] { exchange: pull }
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull }
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull }
+  }
+
+  app app-097 {
+    instance: "instance-4"
+    version: 4.1.0
+    on: srv-062
+    -> db-05        : jdbc [flow] { exchange: pull }
+    -> db-06        : jdbc [flow] { exchange: pull }
+    -> sys-14.db-01 : jdbc [flow] { exchange: pull }
+    -> sys-02.db-02 : jdbc [flow] { exchange: pull }
+  }
+
+  job job-06 {
+    scheduler: app-013
+    on: srv-063
+    -> app-013 : http [trigger]
+  }
+}
+
+sys-04.app-013 -> sys-04.app-018 : http [flow] { exchange: pull, carries: [data-22] }
+
+sys-04.app-013 -> sys-04.app-019 : http [flow] { exchange: pull, carries: [data-13] }
+
+sys-04.app-017 -> sys-04.app-013 : http [trigger] { exchange: push }

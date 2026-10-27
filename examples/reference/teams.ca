@@ -1,0 +1,3 @@
+team infra           { label: "Infrastructure team" }
+team invoicing-team  { label: "Invoicing team", contact: "#invoicing" }
+team accounting-team { label: "Accounting team" }

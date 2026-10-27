@@ -1,0 +1,39 @@
+site site-08 {
+  hosting: office
+
+  egress: [rtr-10]
+
+  router rtr-09 { operator: team-08 }
+  router rtr-10 {
+    gateway: 172.17.10.254
+    public_hop: 198.19.97.108
+    interface wan { peer: rtr-01.if-005 }
+  }
+  vpn_gateway vpn-02
+
+  actor actor-02 {
+    population: internal
+    -> sys-05.app-101 [flow]
+  }
+
+  network lan {
+    subnet net-12 { cidr: 10.4.0.0/26 }
+    subnet net-13 { cidr: 10.5.0.0/16 }
+    subnet net-14 { cidr: 10.6.0.0/16 }
+    subnet net-15 { cidr: 10.7.0.0/16 }
+    subnet net-16 { cidr: 10.8.0.0/16 }
+    subnet net-17 { cidr: 10.9.0.0/16 }
+    subnet net-18 { cidr: 10.10.0.0/16 }
+    subnet net-19 {
+      cidr: 10.11.0.0/16
+      fleet fleet-01
+    }
+    subnet net-20 {
+      cidr: 10.12.0.0/16
+
+      device dev-02 {
+        -> saas-01 [flow] { exchange: pull, carries: [data-06] }
+      }
+    }
+  }
+}

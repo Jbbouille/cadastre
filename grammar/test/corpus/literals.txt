@@ -1,0 +1,158 @@
+==================
+Identifiers with hyphens
+==================
+
+site paris-dc1 { hosting: on-prem }
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (identifier)))))
+
+==================
+Number, semver, IPv4 and CIDR
+==================
+
+x a {
+  n: 16.2
+  p: 443
+  v: 1.2.3
+  w: v1.4.0
+  r: 1.2.3-rc.1+build.5
+  ip: 10.0.1.5
+  net: 10.0.1.0/24
+}
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (number))
+      (attribute
+        (identifier)
+        (number))
+      (attribute
+        (identifier)
+        (semver))
+      (attribute
+        (identifier)
+        (semver))
+      (attribute
+        (identifier)
+        (semver))
+      (attribute
+        (identifier)
+        (ipv4))
+      (attribute
+        (identifier)
+        (cidr4)))))
+
+==================
+IPv6 and CIDR6
+==================
+
+x a {
+  a: fd00::1
+  b: 2001:db8:0:0:0:0:0:1
+  c: fd00::/8
+  d: ::1
+}
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (ipv6))
+      (attribute
+        (identifier)
+        (ipv6))
+      (attribute
+        (identifier)
+        (cidr6))
+      (attribute
+        (identifier)
+        (ipv6)))))
+
+==================
+Hexadecimal key that is not an IPv6
+==================
+
+x a { beef: 1, cafe: dead }
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (number))
+      (attribute
+        (identifier)
+        (identifier)))))
+
+==================
+Qualified name as a value
+==================
+
+x a { q: prod.dmz.web01 }
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (qualified_name)))))
+
+==================
+Strings
+==================
+
+x a {
+  s: "C++"
+  t: "Apache-2.0"
+  u: "https://api.stripe.com"
+  v: "guillemet \" et antislash \\"
+}
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (string))
+      (attribute
+        (identifier)
+        (string))
+      (attribute
+        (identifier)
+        (string))
+      (attribute
+        (identifier)
+        (string)))))

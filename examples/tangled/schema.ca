@@ -1,0 +1,53 @@
+kind subnet { stretched_to: ref(site) }
+
+kind interface { bandwidth: string }
+
+kind wan_link { bandwidth: string, technology: mpls }
+
+kind vpn_tunnel { protocol: ipsec }
+
+kind router { gateway: ip, public_hop: ip }
+
+kind actor { population: internal | external | partner }
+
+kind server {
+  vcpu: number
+  disk_size: pattern("\d+ Go")
+  hypervisor: vmware
+  os: string
+  fqdn: string
+}
+
+kind pool { os: string }
+
+kind server {
+  model: string
+  serial: string
+  cpu: string
+  ram: pattern("\d+ Go")
+  disks: string*
+}
+
+kind firewall { model: string }
+
+kind switch { model: string }
+
+kind cluster { platform: kubernetes | vmware }
+
+kind system { instance: string }
+
+kind app { instance: string, vip: ip }
+
+kind job { instance: string, version: semver }
+
+kind database { engine: oracle | progress | mariadb | db2 | db-13 }
+
+layer flow { package: string }
+
+kind router { model: string }
+
+kind device { model: string }
+
+kind site { address_plan: cidr* }
+
+kind subnet { firewall_vip: ip, router_vip: ip }

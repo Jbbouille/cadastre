@@ -1,0 +1,3 @@
+// The schema of the project: the descriptive keys it types, beside those of the language.
+
+kind cluster { platform: kubernetes | openshift | eks | aks | gke }

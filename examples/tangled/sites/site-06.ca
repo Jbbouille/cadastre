@@ -1,0 +1,124 @@
+site site-07 {
+  address_plan: [10.1.0.0/20]
+  scope: external
+  operator: team-09
+
+  rack rack-04
+  rack rack-05
+  rack rack-06
+
+  firewall fw-04 {
+    model: "Check Point 6600"
+    rack: rack-05
+    interface team-08 { peer: rtr-07.lan, subnet: net-10, ip: 10.1.7.2 }
+  }
+  router rtr-07 {
+    model: "Cisco ISR4431"
+    rack: rack-06
+    interface lan { subnet: net-10, ip: 10.1.7.12 }
+  }
+  router rtr-08 { model: "Cisco ISR4221", rack: rack-05 }
+  switch sw-08  { model: "Cisco Nexus 93180YC-FX", rack: rack-05 }
+  switch sw-09  { model: "Cisco Nexus 93180YC-FX", rack: rack-05 }
+  switch sw-10  { model: "Cisco C9200L-48T-4G-E", rack: rack-05 }
+
+  server srv-031 {
+    model: "Lenovo ThinkSystem SR650"
+    ram: "768 Go"
+    hypervisor: vmware
+    rack: rack-04
+  }
+  server srv-032 { model: "IBM Power S924 (9009-42G)", ram: "768 Go", rack: rack-04 }
+  server srv-033 { model: "IBM HMC 7063-CR1", rack: rack-04 }
+
+  network team-09 {
+    subnet net-10 {
+      cidr: 10.1.7.0/27
+      vlan: 99
+      stretched_to: site-06
+      firewall_vip: 10.1.7.1
+      router_vip: 10.1.7.11
+    }
+
+    subnet net-11 {
+      cidr: 10.1.4.0/26
+      vlan: 60
+
+      virtual server srv-034 { ip: 10.1.4.4, on: srv-032, os: "AIX" }
+      virtual server srv-035 {
+        ip: 10.1.4.6
+        on: srv-031
+        os: "Linux"
+        vcpu: 2
+        ram: "8 Go"
+      }
+      virtual server srv-036 {
+        ip: 10.1.4.8
+        on: srv-031
+        vcpu: 2
+        ram: "8 Go"
+      }
+      virtual server srv-037 {
+        ip: 10.1.4.46
+        on: srv-031
+        os: "Linux"
+        vcpu: 2
+        ram: "8 Go"
+      }
+      virtual server srv-038 {
+        ip: 10.1.4.48
+        on: srv-031
+        os: "Linux"
+        vcpu: 4
+        ram: "8 Go"
+      }
+      virtual server srv-039 {
+        ip: 10.1.4.52
+        on: srv-031
+        os: "Linux"
+        vcpu: 4
+        ram: "20 Go"
+      }
+      virtual server srv-040 {
+        ip: 10.1.4.55
+        on: srv-031
+        os: "Linux"
+        vcpu: 2
+        ram: "6 Go"
+      }
+      virtual server srv-041 {
+        ip: 10.1.4.56
+        on: srv-031
+        os: "Linux"
+        vcpu: 8
+        ram: "25 Go"
+      }
+      virtual server srv-042 {
+        ip: 10.1.4.57
+        on: srv-031
+        os: "Windows Server 2016"
+        vcpu: 4
+        ram: "8 Go"
+      }
+    }
+  }
+
+  virtual server srv-043 {
+    on: srv-031
+    os: "Linux"
+    vcpu: 4
+    ram: "16 Go"
+  }
+  virtual server srv-044 {
+    on: srv-031
+    os: "Linux"
+    vcpu: 4
+    ram: "16 Go"
+  }
+  virtual server srv-045 {
+    on: srv-031
+    os: "Linux"
+    vcpu: 4
+    ram: "8 Go"
+  }
+}

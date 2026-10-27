@@ -1,0 +1,56 @@
+# The demo on GitHub Pages, from master: the site of each example project (`cadastre site`) and
+# the playground. Enabled by the repository variable `PAGES` set to `true`, once Pages is
+# available (Settings → Pages → Source: GitHub Actions).
+name: Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: vars.PAGES == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      CC_wasm32_unknown_unknown: clang
+      AR_wasm32_unknown_unknown: llvm-ar
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y clang llvm graphviz
+      - working-directory: compiler
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add wasm32-unknown-unknown
+          cargo build -p cadastre-wasm --target wasm32-unknown-unknown --profile wasm
+          cargo build -p cadastre-cli --release
+      # The self-hosted playground, as the releases ship it, under /playground/.
+      - name: Playground
+        run: python3 web/build-playground.py --wasm compiler/target/wasm32-unknown-unknown/wasm/cadastre_wasm.wasm --out site/playground
+      # The site of each example, as a team would publish its own project; the playground of each
+      # one beside it, read-only on that project.
+      - name: Sites
+        run: |
+          cadastre=compiler/target/release/cadastre
+          $cadastre site examples/retail --out site/retail --playground site/playground --title "Retail"
+          $cadastre site examples/reference --out site/reference --playground site/playground --title "Reference"
+          $cadastre site examples/tutorial --out site/tutorial --playground site/playground --title "Tutorial"
+          cp web/demo.html site/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

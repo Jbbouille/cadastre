@@ -1,0 +1,39 @@
+system sys-10 {
+  owner: team-04
+
+  app app-098 {
+    on: [srv-064, srv-099]
+    version: 1.21.0
+    component comp-02 { version: 15.0.1 }
+    component comp-04 { version: 1.0.13 }
+
+    -> sys-00.app-160 : sftp      [flow] { exchange: pull, channel: chan-09 }
+    -> sys-00.app-160 : sftp/22   [flow] { exchange: both }
+    -> sys-00.app-160 : sftp      [flow] { exchange: push, channel: chan-12 }
+    -> db-01          : jdbc/1521 [flow] { exchange: both }
+    -> sys-01.db-01   : jdbc/1521 [flow] { exchange: pull, carries: [data-13] }
+    -> sys-14.db-01   : jdbc/1521 [flow] { exchange: pull, carries: [data-43] }
+    -> app-164        : http      [flow] { exchange: push, carries: [data-31, data-28] }
+    -> app-147        : https/443 [auth]
+    -> app-148        : ldaps/636 [auth]
+  }
+
+  job job-08 {
+    on: srv-064
+    schedule: "*/15 * * * *"
+    -> app-098 : https [flow] { exchange: push }
+  }
+
+  job job-09 {
+    on: srv-064
+    schedule: "0 21 * * *"
+    -> app-098 : https [flow] { exchange: pull, confidence: assumed }
+  }
+
+  job job-10 {
+    on: srv-064
+    -> sys-00.app-160 : ssh [flow] { exchange: pull, confidence: assumed }
+  }
+
+  database db-01 { on: srv-066, engine: oracle }
+}

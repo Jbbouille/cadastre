@@ -1,0 +1,590 @@
+==================
+Resource without a block
+==================
+
+server web01
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)))
+
+==================
+Nested resources
+==================
+
+site aws-paris {
+  hosting: cloud
+  vpc prod {
+    subnet dmz {
+      cidr: 10.0.1.0/24
+      server web01 { os: debian12 }
+    }
+  }
+}
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (identifier))
+      (resource
+        (identifier)
+        (identifier)
+        (block
+          (resource
+            (identifier)
+            (identifier)
+            (block
+              (attribute
+                (identifier)
+                (cidr4))
+              (resource
+                (identifier)
+                (identifier)
+                (block
+                  (attribute
+                    (identifier)
+                    (identifier)))))))))))
+
+==================
+Optional comma between elements
+==================
+
+server db01 { os: debian12, kernel: "6.1.0-18-amd64" ip: 10.0.2.10, }
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (identifier))
+      (attribute
+        (identifier)
+        (string))
+      (attribute
+        (identifier)
+        (ipv4)))))
+
+==================
+List with a trailing comma
+==================
+
+app billing { on: [web01, web02,] }
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (list
+          (identifier)
+          (identifier))))))
+
+==================
+Full link at the root level
+==================
+
+billing -> crm : https/443 [flow]
+
+---
+
+(source_file
+  (link
+    (identifier)
+    (identifier)
+    (port_spec
+      (identifier)
+      (port))
+    (layers
+      (identifier))))
+
+==================
+Link without whitespace
+==================
+
+billing->crm:https/443[flow]
+
+---
+
+(source_file
+  (link
+    (identifier)
+    (identifier)
+    (port_spec
+      (identifier)
+      (port))
+    (layers
+      (identifier))))
+
+==================
+Link without port nor layer
+==================
+
+billing -> crm
+
+---
+
+(source_file
+  (link
+    (identifier)
+    (identifier)))
+
+==================
+Link between qualified names
+==================
+
+aws-paris.prod.dmz.web01 -> dmz.db01 : tcp/22
+
+---
+
+(source_file
+  (link
+    (qualified_name)
+    (qualified_name)
+    (port_spec
+      (identifier)
+      (port))))
+
+==================
+Link inside a block, with attributes
+==================
+
+app billing {
+  on: web01
+  -> crm : https/443 [flow, network] {
+    description: "Fetches customer details"
+    carries: [customer]
+    through: [paris-aws-1, fw01]
+  }
+  -> stripe : https/443 [flow] { carries: [invoice] }
+}
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (identifier))
+      (inline_link
+        (identifier)
+        (port_spec
+          (identifier)
+          (port))
+        (layers
+          (identifier)
+          (identifier))
+        (link_block
+          (attribute
+            (identifier)
+            (string))
+          (attribute
+            (identifier)
+            (list
+              (identifier)))
+          (attribute
+            (identifier)
+            (list
+              (identifier)
+              (identifier)))))
+      (inline_link
+        (identifier)
+        (port_spec
+          (identifier)
+          (port))
+        (layers
+          (identifier))
+        (link_block
+          (attribute
+            (identifier)
+            (list
+              (identifier))))))))
+
+==================
+Port range and protocol alone
+==================
+
+app x {
+  -> y : tcp/8000-8100
+  -> z : icmp
+}
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (inline_link
+        (identifier)
+        (port_spec
+          (identifier)
+          (port)))
+      (inline_link
+        (identifier)
+        (port_spec
+          (identifier))))))
+
+==================
+Child resource after a link
+==================
+
+app billing {
+  -> crm : https/443 [flow]
+  component spring-boot { version: 3.2.1, license: "Apache-2.0" }
+}
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (inline_link
+        (identifier)
+        (port_spec
+          (identifier)
+          (port))
+        (layers
+          (identifier)))
+      (resource
+        (identifier)
+        (identifier)
+        (block
+          (attribute
+            (identifier)
+            (semver))
+          (attribute
+            (identifier)
+            (string)))))))
+
+==================
+Interfaces and qualified references
+==================
+
+switch sw01 {
+  rack: r12
+  interface ge-0-0-1 { label: "ge-0/0/1", peer: web01 }
+  interface ge-0-0-2 { label: "ge-0/0/2", peer: fw01.lan-erp }
+}
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (identifier))
+      (resource
+        (identifier)
+        (identifier)
+        (block
+          (attribute
+            (identifier)
+            (string))
+          (attribute
+            (identifier)
+            (identifier))))
+      (resource
+        (identifier)
+        (identifier)
+        (block
+          (attribute
+            (identifier)
+            (string))
+          (attribute
+            (identifier)
+            (qualified_name)))))))
+
+==================
+Connector
+==================
+
+vpn_tunnel paris-aws-1 { ends: [fw01.vpn, vgw], protocol: ipsec }
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (list
+          (qualified_name)
+          (identifier)))
+      (attribute
+        (identifier)
+        (identifier)))))
+
+==================
+Plan keywords used as keys and names
+==================
+
+app parent { select: 1, where: 2, style: x, view: y, kind: z, render: w }
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (number))
+      (attribute
+        (identifier)
+        (number))
+      (attribute
+        (identifier)
+        (identifier))
+      (attribute
+        (identifier)
+        (identifier))
+      (attribute
+        (identifier)
+        (identifier))
+      (attribute
+        (identifier)
+        (identifier)))))
+
+==================
+For each
+==================
+
+for_each (code, ip) in [[lil, 10.1.1.10], [lyo, 10.1.2.10]] {
+  site store-$code {
+    server srv-$code { ip: $ip }
+  }
+}
+
+site hub {
+  for_each name in [a, b] { server $name }
+}
+
+---
+
+(source_file
+  (for_each
+    (identifier)
+    (identifier)
+    (list
+      (list
+        (identifier)
+        (ipv4))
+      (list
+        (identifier)
+        (ipv4)))
+    (resource
+      (identifier)
+      (identifier)
+      (block
+        (resource
+          (identifier)
+          (identifier)
+          (block
+            (attribute
+              (identifier)
+              (identifier)))))))
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (for_each
+        (identifier)
+        (list
+          (identifier)
+          (identifier))
+        (resource
+          (identifier)
+          (identifier))))))
+
+==================
+Kind declarations
+==================
+
+kind server { os: string, cluster_of: ref(cluster | pool)*, hv: vmware | hyperv, id: pattern("INV-[0-9]+") (required) }
+kind printer { like: device }
+
+---
+
+(source_file
+  (kind_declaration
+    (identifier)
+    (key_declaration
+      (identifier)
+      (type
+        (identifier)))
+    (key_declaration
+      (identifier)
+      (type
+        (kinds
+          (identifier)
+          (identifier))
+        (cardinality)))
+    (key_declaration
+      (identifier)
+      (type
+        (choices
+          (identifier)
+          (identifier))))
+    (key_declaration
+      (identifier)
+      (type
+        (string))
+      (required)))
+  (kind_declaration
+    (identifier)
+    (key_declaration
+      (identifier)
+      (type
+        (identifier)))))
+
+==================
+Link declarations
+==================
+
+link { volume: string }
+layer flow { package: string (required) }
+a -> b
+
+---
+
+(source_file
+  (link_declaration
+    (key_declaration
+      (identifier)
+      (type
+        (identifier))))
+  (link_declaration
+    (identifier)
+    (key_declaration
+      (identifier)
+      (type
+        (identifier))
+      (required)))
+  (link
+    (identifier)
+    (identifier)))
+
+==================
+Group declarations
+==================
+
+group storage: database | saas
+app a { group: x }
+
+---
+
+(source_file
+  (group_declaration
+    (identifier)
+    (identifier)
+    (identifier))
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (identifier)))))
+
+==================
+Processes
+==================
+
+process orders {
+  participant stores "Stores" [s1, s2]
+  step a -> b : https [flow] { async }
+  step b "computes"
+  loop "each store" { step b -> c { reply, label: "ack" } }
+}
+
+---
+
+(source_file
+  (process
+    (identifier)
+    (participant
+      (identifier)
+      (string)
+      (list
+        (identifier)
+        (identifier)))
+    (step
+      (identifier)
+      (identifier)
+      (port_spec
+        (identifier))
+      (layers
+        (identifier))
+      (step_block
+        (identifier)))
+    (step
+      (identifier)
+      (string))
+    (loop
+      (string)
+      (step
+        (identifier)
+        (identifier)
+        (step_block
+          (identifier)
+          (attribute
+            (identifier)
+            (string)))))))
+
+==================
+Virtual machines
+==================
+
+server esx01
+virtual server web01 { on: esx01 }
+site dc { virtual firewall fw }
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier))
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (attribute
+        (identifier)
+        (identifier))))
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (resource
+        (identifier)
+        (identifier)))))

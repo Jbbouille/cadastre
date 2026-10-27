@@ -1,0 +1,18 @@
+saas kafka-cloud {
+  label: "Managed Kafka"
+  channel prices { type: topic, carries: [item-prices] }
+}
+
+saas apim {
+  label: "API manager"
+  -> labels.label-server : https/443 [flow] { confidence: assumed }
+}
+
+saas electronic-labels { label: "Electronic shelf labels" }
+saas paper-labels      { label: "Paper labels" }
+
+// Cross-cutting services
+app keycloak  { description: "Identity provider" }
+app directory { label: "Active Directory" }
+
+app central-scheduler { label: "Central scheduler", description: "Company-wide batch scheduler" }

@@ -1,0 +1,10 @@
+// The schema of the project: the descriptive keys it types, beside those of the language.
+
+kind cluster { platform: kubernetes | openshift | eks | aks | gke }
+kind device { role: string }
+kind vpn_tunnel { protocol: ipsec | wireguard | openvpn | gre }
+kind wan_link {
+  technology: direct_connect | expressroute | interconnect | mpls | leased_line | fiber
+  bandwidth: bandwidth
+}
+kind actor { population: internal | external | partner }

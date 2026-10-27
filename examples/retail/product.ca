@@ -1,0 +1,13 @@
+// The servers of the product theme, written apart from their site and placed in it by `parent:`.
+
+// Unknown subnet: approximate placement, directly in the site (incomplete).
+server filehub {
+  parent: hoster-a-dc
+  label: "Product file hub"
+  os: redhat
+  system: product
+
+  channel product-images { type: directory, path: "/data/images", carries: [product-files] }
+  channel pim-feed       { type: directory, path: "/data/pim", carries: [product-files] }
+  channel price-files    { type: directory, path: "/data/prices", carries: [item-prices] }
+}

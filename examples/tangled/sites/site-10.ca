@@ -1,0 +1,73 @@
+site site-10 {
+  address_plan: [
+    10.1.128.0/27,
+    10.1.144.32/28,
+    10.1.146.0/24,
+    10.1.148.0/24,
+    10.1.149.0/24,
+    10.1.150.0/24,
+    10.1.156.0/24,
+    10.1.160.0/25,
+    10.1.240.0/21
+  ]
+  hosting: colocation
+  operator: team-06
+
+  switch sw-11 {
+    interface if-006   { peer: sw-14.if-006 }
+    interface if-007   { peer: sw-14.if-007 }
+    interface internet { peer: rtr-01.if-001, bandwidth: "500 Mbps" }
+    interface if-008   { peer: fw-06.wan }
+  }
+
+  firewall fw-06 {
+    model: "FortiGate 1800F"
+    interface if-009 { peer: fw-08.if-009 }
+    interface wan
+    interface lan    { peer: sw-12.if-008 }
+    vpn_gateway vpn-03
+  }
+
+  switch sw-12 {
+    interface te2-0-1 { peer: sw-15.te2-0-1 }
+    interface te2-0-2 { peer: sw-15.te2-0-2 }
+    interface if-008
+    interface if-010  { peer: fw-07.if-013 }
+  }
+
+  firewall fw-07 {
+    model: "Check Point"
+    interface if-011 { peer: fw-09.if-011 }
+    interface if-012 { peer: fw-09.if-012 }
+    interface if-013
+    interface if-014 { peer: sw-13.if-010 }
+  }
+
+  switch sw-13 {
+    model: "Catalyst 9300, IOS-XE 17.3.4"
+    interface te2-0-1 { peer: sw-16.te2-0-1 }
+    interface te2-0-2 { peer: sw-16.te2-0-2 }
+    interface te1-1-4 { vlan: 1166, peer: sw-02.te1-1-48, bandwidth: "10 Gbps" }
+    interface if-010
+    interface team-08 { peer: rtr-11.lan }
+    interface if-015  { peer: fw-05.if-001 }
+  }
+
+  device dev-03
+  device dev-04
+  device dev-05
+  proxy rp-01
+  router rtr-11 {
+    operator: team-08
+    interface lan { subnet: net-38, ip: 10.1.128.12 }
+  }
+
+  network zone-05 {
+    subnet net-38 {
+      cidr: 10.1.128.0/27
+      stretched_to: site-11
+      firewall_vip: 10.1.128.1
+      router_vip: 10.1.128.11
+    }
+  }
+}

@@ -1,0 +1,80 @@
+app app-102 {
+  scope: external
+  operator: team-05
+  -> sys-00.app-160 : sftp [flow] {
+    exchange: both
+    channel: chan-11
+    carries: [data-25]
+    confidence: assumed
+  }
+}
+
+app app-103 {
+  scope: external
+  -> sys-10.app-098 : https/443 [flow] {
+    exchange: pull
+    carries: [data-24, data-42, data-22, data-10]
+  }
+}
+
+app app-104 {
+  scope: external
+  -> sys-10.app-098 : https/443 [flow] { exchange: pull, carries: [data-24] }
+}
+
+app app-105 {
+  scope: external
+  -> sys-10.app-098 : https/443 [flow] {
+    exchange: pull
+    carries: [data-22, data-10]
+    confidence: assumed
+  }
+}
+
+app app-106 { scope: external }
+
+app app-107 { scope: external }
+
+app app-108 {
+  scope: external
+  -> saas-04              [flow] { exchange: push, carries: [data-07] }
+  -> sys-01.app-001 : ftp [flow] { exchange: push, carries: [data-09] }
+}
+
+app app-109 {
+  scope: external
+  -> app-102  [flow] { exchange: push, carries: [data-13, data-22, data-20, data-17] }
+  -> saas-10  [flow] { exchange: push, carries: [data-08] }
+}
+
+app app-110 { scope: external }
+
+app app-111 { scope: external }
+
+app app-112 { scope: external }
+
+app app-113 { scope: external }
+
+app app-114 { scope: external }
+
+app app-115 { scope: external }
+
+app app-116 { scope: external }
+
+app app-117 { scope: external }
+
+app app-118 { scope: external }
+
+app app-119 { scope: external }
+
+app app-120 { scope: external }
+
+app app-121 { scope: external }
+
+app app-122 { scope: external }
+
+app app-123 { scope: external }
+
+app app-124 { scope: external }
+
+app app-125 { scope: external }

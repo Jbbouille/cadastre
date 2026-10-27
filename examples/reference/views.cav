@@ -1,0 +1,153 @@
+style {
+  layer flow      { color: steelblue }
+  kind  connector { color: gray, line: dotted }
+}
+
+view flows {
+  title: "Application flows"
+  description: "Every flow between the apps, databases and SaaS, as written in the registry."
+  select app, database, saas
+  edges  [flow]
+  render svg
+}
+
+view network {
+  title: "Network"
+  description: "The servers by site and subnet, with the application flows lifted onto the machines that host them."
+  select server, saas group-by site > subnet
+  edges  lift([flow], via: on)
+  render svg
+}
+
+view macro {
+  title: "Subnets"
+  description: "The flows between subnets, merged by port: what the firewall rules must allow."
+  select subnet
+  edges  lift([flow], via: on?.ancestor(subnet), merge: port)
+  render svg
+}
+
+view landscape {
+  title: "Landscape"
+  description: "The flows between the systems and the SaaS, in the direction of the data."
+  select system, saas
+  edges  lift([flow], via: ancestor(system))
+  render svg { orientation: data }
+}
+
+view to-verify {
+  title: "To verify"
+  description: "The resources and flows assumed or doubtful, or with an open question: what remains to confirm."
+  select app, database, saas, server where confidence != confirmed or exists(question) with ends
+  edges  [flow] where confidence != confirmed or exists(question)
+  render text
+}
+
+view ownership {
+  title: "Ownership"
+  description: "The apps, databases and SaaS by owner team, with their operator."
+  select app, database, saas group-by owner
+  render svg { node_labels: [label, operator] }
+}
+
+view to-complete {
+  title: "To complete"
+  description: "The resources missing something for a complete model."
+  select server, app, database, subnet where incomplete
+  render text
+}
+
+view inter-sites {
+  title: "Between the sites"
+  description: "The flows and the connectors between the sites, with the SaaS reached from them."
+  select site, saas
+  edges  lift([flow], via: on?.ancestor(site)), lift(connector, via: ancestor(site))
+  render svg { legend: true }
+}
+
+view gdpr {
+  title: "Personal data"
+  description: "The flows carrying personal data, in red: where the customer details travel."
+  select app, database, saas without isolated
+  edges  [flow] where carries.classification = personal
+  style {
+    layer flow { color: red }
+  }
+  render svg { edge_labels: [port, carries] }
+}
+
+view customer-trail {
+  title: "Customer trail"
+  description: "The customer details followed step by step from the CRM database."
+  select app, database without isolated
+  edges  follow(customer, from: crmdb)
+  render svg { orientation: data, edge_labels: [step, port] }
+}
+
+view fw01-matrix {
+  title: "Firewall matrix"
+  description: "The flows through the datacenter firewall, merged by port: its rule table."
+  select server, saas
+  edges  lift([flow] where through has fw01, via: on, merge: port)
+  render text
+}
+
+view security {
+  title: "Security"
+  description: "The servers and firewalls by site and subnet, every flow split at the devices it traverses."
+  select server, firewall group-by site > subnet
+  edges  lift([flow], via: on), through: show
+  render svg
+}
+
+view physical {
+  title: "Physical"
+  description: "The servers, switches and firewalls by site and rack, with their cabling."
+  select server, switch, firewall group-by site > rack
+  edges  lift(peer, via: parent)
+  render svg
+}
+
+view deployment {
+  title: "Deployment"
+  description: "What runs where: the apps and databases with the servers hosting them."
+  select app, database, server
+  edges  [flow], on
+  render svg
+}
+
+// The flows to the internet, through the devices deduced from `egress` (the NAT gateway of the VPC).
+view egress {
+  title: "Egress"
+  description: "The flows to the SaaS and the devices they leave through, deduced from the egress of the VPC."
+  select app, saas, router without isolated
+  edges  [flow] where target.kind = saas, through: show
+  render svg { edge_labels: [port, carries] }
+}
+
+// Impact analysis: what becomes unavailable when the datacenter firewall fails.
+view fw01-failure {
+  title: "If fw01 fails"
+  description: "What becomes unavailable when the datacenter firewall fails: the impact analysis."
+  select app, database, saas where failures has fw01
+  render svg, text
+}
+
+// A scenario: several resources failing together, what fails and what is unavailable in red.
+view web-servers-failure {
+  title: "If both web servers fail"
+  description: "web01 and web02 down together: in red, what fails and what becomes unavailable through it."
+  failing: [web01, web02]
+  select app, database, saas, server
+  edges  [flow], on
+  render svg { legend: true }
+}
+
+// A process: its links numbered in the order of its steps, and its sequence diagram.
+view invoicing-process {
+  title: "Monthly invoicing"
+  description: "The monthly invoicing process, its links numbered as its steps, and its sequence diagram."
+  select app, database, saas
+  edges  process(monthly-invoicing)
+  render svg, sequence { edge_labels: [step, port] }
+}

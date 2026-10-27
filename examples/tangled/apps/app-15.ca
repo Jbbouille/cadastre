@@ -1,0 +1,136 @@
+system sys-00 {
+  owner: team-04
+
+  saas saas-06 {
+    channel chan-07 { type: directory }
+
+    -> app-109 : https [flow] { exchange: push, carries: [data-22, data-20, data-19] }
+
+    -> saas-04 : sftp      [flow] { exchange: push, carries: [data-22, data-26, data-14, data-20] }
+    -> saas-13 : sftp/2222 [flow] { exchange: push, carries: [data-27] }
+    -> saas-14 : https     [flow] { exchange: push, carries: [data-22, data-19] }
+  }
+
+  app app-160 {
+    on: srv-055
+
+    channel chan-08 { type: directory, carries: [data-19] }
+
+    channel chan-09 { type: directory, carries: [data-23, data-19, data-04, data-24, data-42] }
+    channel chan-10 { type: directory, carries: [data-20, data-21, data-22] }
+    channel chan-11 { type: directory, carries: [data-18, data-19] }
+    channel chan-12 { type: directory, carries: [data-30] }
+    channel sys-11  { type: directory, carries: [data-10, data-11] }
+  }
+
+  job job-11 {
+    on: srv-055
+    scheduler: app-146
+    -> app-160 : file [flow] {
+      exchange: push
+      channel: chan-10
+      carries: [data-20, data-21, data-22]
+    }
+    -> saas-06 : sftp [flow] {
+      exchange: pull
+      channel: chan-07
+      carries: [data-20, data-21, data-22]
+    }
+  }
+
+  job job-12 {
+    on: srv-055
+    scheduler: app-146
+    schedule: "0 10,21 * * *"
+    -> app-160 : file [flow] { exchange: push, channel: chan-09 }
+    -> saas-06 : sftp [flow] {
+      exchange: pull
+      channel: chan-07
+      carries: [data-23, data-42, data-04, data-24, data-19]
+    }
+  }
+
+  job job-13 {
+    on: srv-055
+    scheduler: app-146
+    schedule: "30 3-21/2 * * *"
+    -> app-160 : file [flow] { exchange: pull, carries: [data-13] }
+    -> saas-06 : sftp [flow] { exchange: push, channel: chan-07, carries: [data-13] }
+  }
+
+  job job-14 {
+    on: srv-055
+    -> app-160 : file [flow] { exchange: push, channel: chan-11 }
+    -> saas-06 : sftp [flow] { exchange: pull, channel: chan-07, carries: [data-18] }
+  }
+
+  job job-15 {
+    on: srv-055
+    scheduler: app-146
+    -> app-160 : file [flow] { exchange: push, carries: [data-18] }
+    -> saas-06 : sftp [flow] {
+      exchange: pull
+      channel: chan-07
+      carries: [data-18]
+      confidence: doubtful
+    }
+  }
+
+  job job-02 {
+    on: srv-055
+    schedule: "*/15 * * * *"
+    -> app-160 : file [flow] { exchange: pull, channel: sys-11 }
+    -> saas-06 : sftp [flow] { exchange: push, channel: chan-07, carries: [data-12, data-10] }
+  }
+
+  job job-16 {
+    on: srv-055
+    schedule: "55 7 * * *"
+    -> app-160 : file [flow] { exchange: pull, carries: [data-29] }
+    -> saas-06 : sftp [flow] { exchange: push, channel: chan-07, carries: [data-29] }
+  }
+
+  job job-17 {
+    on: srv-055
+    schedule: "*/30 * * * *"
+    -> app-160 : file [flow] { exchange: pull, channel: chan-12 }
+    -> saas-06 : sftp [flow] { exchange: push, channel: chan-07, carries: [data-30] }
+  }
+
+  job job-18 {
+    on: srv-055
+    schedule: "*/30 * * * *"
+    -> app-160 : file [flow] { exchange: push, carries: [data-19] }
+    -> saas-12 : sftp [flow] { exchange: pull, carries: [data-18, data-19] }
+    -> saas-06 : sftp [flow] { exchange: push, channel: chan-07, carries: [data-19] }
+  }
+
+  job job-19 {
+    egress: [fwd-01]
+    on: srv-055
+    schedule: "24 3 * * *"
+    -> app-160 : file   [flow] { exchange: pull, channel: chan-08 }
+    -> saas-11 : job-19 [flow] { exchange: push, carries: [data-19] }
+  }
+
+  job job-20 {
+    on: srv-055
+    schedule: "0 21 * * *"
+    -> app-160 : file   [flow] { exchange: pull, channel: chan-08 }
+    -> saas-15 : job-20 [flow] { exchange: push, carries: [data-19] }
+  }
+
+  job job-21 {
+    on: srv-055
+    schedule: "0 1 * * *"
+    -> app-160 : file   [flow] { exchange: pull, channel: chan-08 }
+    -> saas-15 : job-20 [flow] { exchange: push, carries: [data-19] }
+  }
+
+  app app-161 {
+    on: srv-055
+    component comp-03 { version: 11 }
+    -> app-160 : file [flow] { exchange: push, channel: chan-08 }
+    -> saas-06 : sftp [flow] { exchange: pull, channel: chan-07, carries: [data-19] }
+  }
+}

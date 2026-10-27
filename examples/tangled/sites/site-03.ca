@@ -1,0 +1,80 @@
+site site-04 {
+  egress: [fw-01]
+  address_plan: [10.1.32.0/19, 10.1.64.0/20]
+  operator: team-02
+
+  firewall fw-02 {
+    model: "Sophos XGS 5500"
+    interface port5
+    interface port7
+    interface wan { peer: rtr-01.if-004, bandwidth: "1 Gbps (300 Mbps)" }
+    interface lan { peer: sw-03.fw }
+  }
+
+  switch sw-03 {
+    ip: 10.1.64.13
+    model: "Nexus 3000, NX-OS 7.0(3)I7(9)"
+    interface eth1-47
+    interface eth1-48
+    interface te1-1-45
+    interface fw
+    interface eth1-11 { peer: srv-011.p1 }
+    interface eth1-29 { peer: srv-013.p1 }
+    interface eth1-31 { peer: srv-015.p1 }
+    interface eth1-33 { peer: srv-014.p1 }
+  }
+
+  switch sw-04 {
+    ip: 10.1.64.14
+    model: "Nexus 3000, NX-OS 7.0(3)I7(9)"
+    interface eth1-47
+    interface eth1-48
+    interface eth1-11 { peer: srv-011.p2 }
+    interface eth1-29 { peer: srv-013.p2 }
+    interface eth1-31 { peer: srv-015.p2 }
+    interface eth1-33 { peer: srv-014.p2 }
+  }
+
+  server srv-011 {
+    ip: 10.1.65.101
+    model: "Dell R7525"
+    cpu: "2 x AMD EPYC 7763, 64 cœurs"
+    ram: "2048 Go"
+    disks: ["12 SSD 3,84 To", "12 SSD 7,68 To"]
+    cluster: clu-01
+    interface p1
+    interface p2
+  }
+
+  virtual server srv-012 {
+    ip: 10.1.65.32
+    on: srv-011
+    os: "Ubuntu"
+    hypervisor: vmware
+  }
+  server srv-013 {
+    model: "Dell R650"
+    cpu: "2 x Intel Xeon Silver 4316, 20 cœurs, 2,30 GHz"
+    ram: "256 Go"
+    cluster: clu-02
+    interface p1
+    interface p2
+    -> app-162 : iscsi [flow]
+    -> app-163 : iscsi [flow]
+  }
+  server srv-014 {
+    cluster: clu-02
+    interface p1
+    interface p2
+  }
+
+  server srv-015 {
+    ip: 10.1.65.31
+    model: "Dell R750"
+    cpu: "2 x Intel Xeon Gold 5315Y, 16 cœurs, 3,20 GHz"
+    ram: "256 Go"
+    os: "Windows Server 2022"
+    interface p1
+    interface p2
+  }
+}

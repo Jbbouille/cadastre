@@ -1,0 +1,23 @@
+{
+  "format_version": "1.0",
+  "values": {"root_module": {
+    "resources": [
+      {"address": "azurerm_virtual_network.hub", "mode": "managed", "type": "azurerm_virtual_network", "name": "hub",
+       "values": {"id": "/vnet/hub", "name": "hub-vnet", "location": "westeurope", "resource_group_name": "rg", "address_space": ["10.10.0.0/16"]}},
+      {"address": "azurerm_subnet.app", "mode": "managed", "type": "azurerm_subnet", "name": "app",
+       "values": {"id": "/subnet/app", "name": "app", "resource_group_name": "rg", "virtual_network_name": "hub-vnet", "address_prefixes": ["10.10.1.0/24"]}},
+      {"address": "azurerm_network_interface.vm", "mode": "managed", "type": "azurerm_network_interface", "name": "vm",
+       "values": {"id": "/nic/vm", "ip_configuration": [{"subnet_id": "/subnet/app", "private_ip_address": "10.10.1.4"}]}},
+      {"address": "azurerm_linux_virtual_machine.vm", "mode": "managed", "type": "azurerm_linux_virtual_machine", "name": "vm",
+       "values": {"id": "/vm/1", "name": "app-vm-01", "size": "Standard_B2s", "network_interface_ids": ["/nic/vm"]}}
+    ],
+    "child_modules": [{"address": "module.gcp", "resources": [
+      {"address": "module.gcp.google_compute_network.vpc", "mode": "managed", "type": "google_compute_network", "name": "vpc",
+       "values": {"id": "projects/shop/global/networks/main", "name": "main", "project": "shop", "self_link": "https://www.googleapis.com/compute/v1/projects/shop/global/networks/main"}},
+      {"address": "module.gcp.google_compute_subnetwork.eu", "mode": "managed", "type": "google_compute_subnetwork", "name": "eu",
+       "values": {"id": "sub-eu", "name": "eu", "region": "europe-west1", "ip_cidr_range": "10.20.1.0/24", "network": "https://www.googleapis.com/compute/v1/projects/shop/global/networks/main", "self_link": "https://www.googleapis.com/compute/v1/projects/shop/regions/europe-west1/subnetworks/eu"}},
+      {"address": "module.gcp.google_compute_instance.api", "mode": "managed", "type": "google_compute_instance", "name": "api",
+       "values": {"id": "api-1", "name": "api-1", "machine_type": "e2-medium", "network_interface": [{"subnetwork": "https://www.googleapis.com/compute/v1/projects/shop/regions/europe-west1/subnetworks/eu", "network_ip": "10.20.1.5"}]}}
+    ]}]
+  }}
+}

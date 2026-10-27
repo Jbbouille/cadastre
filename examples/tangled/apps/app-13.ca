@@ -1,0 +1,20 @@
+system sys-12 {
+  app app-098 {
+    on: clu-05
+    -> db-13   : https [flow] { exchange: pull, carries: [data-23] }
+    -> app-147 : https [auth]
+  }
+
+  app app-155 {
+    on: clu-05
+    -> sys-10.db-01 : jdbc/1521 [flow] { exchange: pull, carries: [data-23] }
+    -> db-13        : https     [flow] { exchange: push, carries: [data-23] }
+  }
+
+  app app-156 {
+    on: clu-05
+    -> app-149 : https/443 [flow] { exchange: pull, carries: [data-01] }
+  }
+
+  database db-13 { engine: db-13, on: [srv-008, srv-009] }
+}

@@ -1,0 +1,12 @@
+[package]
+name = "cadastre-mcp"
+description = "MCP server for Cadastre: AI agents explore a project and write views and checks against it."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+cadastre-core = { path = "../cadastre-core" }
+cadastre-project = { path = "../cadastre-project" }
+serde_json = "1"

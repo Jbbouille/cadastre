@@ -1,0 +1,50 @@
+// Checks: the rules of this information system, run by `cadastre check`.
+
+check every-app-has-an-owner {
+  select app where not exists(owner)
+  expect none
+  message: "an app has an owner team, written or inherited from its system"
+}
+
+check no-personal-data-to-saas {
+  edges  [flow] where carries has customer and target.kind = saas
+  expect none
+  message: "customer details stay in our systems"
+}
+
+check no-direct-db-access {
+  edges  [flow] where target.kind = database and source.ancestor(system) != target.ancestor(system)
+  expect none
+  message: "a database is reached through the apps of its own system"
+}
+
+check saas-through-an-egress {
+  edges  [flow] where target.kind = saas
+  expect all exists(through)
+  message: "a flow to a SaaS leaves through a declared egress (NAT, proxy, firewall)"
+}
+
+check erp-behind-fw01 {
+  select app
+  edges  [flow] where target = legacy-erp
+  expect all through has fw01
+  message: "the ERP is only reached through the datacenter firewall"
+}
+
+check supported-os {
+  select server
+  expect all not os in [debian9, debian10]
+}
+
+check redundant-front {
+  select server where ancestor(subnet) = dmz
+  expect count >= 2
+}
+
+// A rule introduced gradually: a warning until the questions are answered.
+check no-open-question {
+  select app, database where exists(question)
+  expect none
+  severity: warning
+  message: "answer the open questions of the model"
+}

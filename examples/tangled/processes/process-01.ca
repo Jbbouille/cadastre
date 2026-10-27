@@ -1,0 +1,32 @@
+process proc-01 {
+  participant grp-01 "Hosts" [srv-011, srv-001, srv-002, srv-003, srv-013]
+  participants: [sys-19.app-011, srv-010, sys-19.proxy, grp-01, saas-16]
+  step sys-19.app-011 "processing"
+  step sys-19.app-011 -> srv-010 : https/443
+  step sys-19.app-011 -> srv-010 : tcp/10443
+  step sys-19.app-011 -> sys-19.proxy : tcp/6162
+  loop "for each VM" {
+    step sys-19.app-011 -> srv-010 : https/443
+    step srv-010 -> grp-01
+    step sys-19.proxy -> srv-010
+    step srv-010 -> sys-19.proxy { reply }
+    step sys-19.proxy -> grp-01 : nfc/902
+    step grp-01 -> sys-19.proxy : nfc/902 { reply }
+    step sys-19.proxy "processing"
+    step sys-19.proxy -> sys-19.app-011 : tcp/2500-3300
+    step sys-19.app-011 "processing"
+    step sys-19.app-011 -> srv-010 : https/443
+    step srv-010 -> grp-01
+  }
+  step sys-19.app-011 -> saas-16
+}
+
+process proc-02 {
+  participants: [srv-001, sys-19.proxy, sys-19.app-011, saas-16]
+  step sys-19.proxy -> srv-001 : nfc/902
+  step srv-001 -> sys-19.proxy : nfc/902 { reply }
+  step sys-19.proxy "processing"
+  step sys-19.proxy -> sys-19.app-011 : tcp/2500-3300
+  step sys-19.app-011 "processing"
+  step sys-19.app-011 -> saas-16
+}

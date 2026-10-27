@@ -1,0 +1,153 @@
+// 124 database flows of one integration platform, grouped by instance: every adapter
+// reaches several databases, the edges fan out across the three instances.
+view tangled-databases {
+  select app, database
+    where ancestor(system) = sys-04 and name != sys-04.app-013
+    with ends
+    without isolated
+    group-by instance
+  edges  [flow] where source.ancestor(system) = sys-04 and source != sys-04.app-013 and proto = jdbc
+  render svg {
+    direction: lr
+    node_labels: [label]
+    edge_labels: []
+    spacing: [0.6, 3]
+  }
+}
+
+// Four supply systems and everything they exchange with (with ends): a dense
+// many-to-many between the systems and the apps around them.
+view tangled-systems {
+  select app, job, saas, database
+    where ancestor(system) in [sys-15, sys-16, sys-17, sys-18]
+    with ends
+    group-by system
+  edges  [flow] where source.ancestor(system) in [sys-15, sys-16, sys-17, sys-18]
+    or target.ancestor(system) in [sys-15, sys-16, sys-17, sys-18]
+  render svg {
+    orientation: data
+    node_labels: [label]
+    edge_labels: [carries]
+    spacing: [1.2, 1.6]
+  }
+}
+
+// One hub and its batch: 84 flows in and out, most of them to the stores' servers,
+// drawn as one very tall column.
+view tangled-hub {
+  select app, job, saas, database
+    where name in [sys-14.app-164, sys-14.app-165, sys-14.db-01]
+    with ends
+    group-by system
+  edges  [flow, trigger] where source in [sys-14.app-164, sys-14.app-165, sys-14.db-01]
+    or target in [sys-14.app-164, sys-14.app-165, sys-14.db-01]
+  render svg {
+    orientation: data
+    node_labels: [label]
+    edge_labels: [carries]
+    edge_labels_wrap: values
+    spacing: [1.2, 1.6]
+  }
+}
+
+// Flows of a product information system, lifted to their servers (via: on?):
+// jobs, file drops and long labels crossing the frames of seven systems.
+view tangled-lifted {
+  select app, job, saas, server, database
+    where (kind != job and (ancestor(system) in [sys-00, sys-10, sys-01, sys-05, sys-11, sys-14, sys-12] or not exists(ancestor(system))))
+    or (kind = job and ancestor(system) = sys-00)
+    without isolated
+    group-by system
+  edges  lift([flow] where (source.ancestor(system) in [sys-00, sys-10] or target.ancestor(system) in [sys-00, sys-10])
+    and not (source.kind = job and source.ancestor(system) = sys-10),
+    via: on?)
+  render svg {
+    satellites: false
+    orientation: data
+    node_labels: [label]
+    edge_labels: [carries]
+    edge_labels_wrap: 40
+  }
+}
+
+// A backup platform across two sites: control flows to every host and to the
+// management server cross the data flows, the VM in its host, the hosts in their site.
+view tangled-backup {
+  select server, app, saas, actor
+    where ancestor(system) = sys-19
+    or cluster in [clu-01, clu-02]
+    or name in [saas-16, saas-07, saas-08, app-182, app-183, actor-01]
+    or name in [srv-015, srv-012, srv-010]
+    group-by site > on
+  edges  [flow] where source.ancestor(system) = sys-19 or source.name = srv-010 or source.name = actor-01
+  style {
+    nodes where cluster = clu-01 { color: "#2563eb" }
+    nodes where cluster = clu-02 { color: "#c2410c" }
+  }
+  render svg {
+    direction: lr
+    orientation: data
+    node_labels: [label, ip, model]
+    edge_labels: [port, carries]
+    edge_labels_wrap: values
+  }
+}
+
+// Who calls the identity services: many callers, two directories, encrypted and
+// unencrypted links, right to left.
+view tangled-directory {
+  select app, job, database
+    where name in [app-149, app-151, sys-04.app-014, sys-04.app-015] or ancestor(system) = sys-09
+    with ends
+    group-by system
+  edges  [flow, auth] where target.name in [app-149, sys-04.app-014, sys-04.app-015]
+    or target.ancestor(system) = sys-09
+    or (source.ancestor(system) = sys-09 and not target.ancestor(system) = sys-14)
+    or source.name = app-151
+  style {
+    edges where proto = ldaps { color: "#047857", legend: "Encrypted" }
+    edges where proto = ldap  { color: "#dc2626", line: dashed, legend: "Not encrypted" }
+    edges where source.name = app-149 and target.ancestor(system) = sys-09 and proto = jdbc {
+      layout: free
+    }
+  }
+  render svg {
+    direction: rl
+    node_labels: [label]
+    edge_labels: [carries]
+    edge_labels_wrap: values
+    legend: true
+  }
+}
+
+// One legacy system with zones (application servers, database) and the flows of its
+// neighbours across them.
+view tangled-zones {
+  select app, job, saas, database, server
+    where ancestor(system) = sys-01
+    or name in [app-005, sys-04.app-013, sys-04.app-018, sys-04.app-019, app-107, app-109, app-110, sys-15.app-174, sys-16.app-012, app-126, app-108, app-106, sys-14.app-164]
+    or name = app-160
+    without isolated
+  zone   jboss-4 "Zone" [sys-01.app-001, job-05]
+  zone   comp-02 "Zone" [sys-04.app-018, sys-04.app-019, app-002]
+  zone   oracle "Zone" [sys-01.db-01]
+  edges  [flow] where source.ancestor(system) = sys-01
+    or target.ancestor(system) = sys-01
+    or source.name in [sys-04.app-013, sys-14.app-164]
+  render svg {
+    orientation: data
+    node_labels: [label]
+    edge_labels: [carries]
+    edge_labels_wrap: values
+  }
+}
+
+// The network of every site: switches, firewalls, routers and the cables between
+// them, lifted to their devices, with WAN links and VPN tunnels.
+view tangled-network {
+  select switch, firewall, router, device, proxy, server
+    where kind != server or exists(model)
+    group-by site
+  edges  lift(peer, via: parent), wan_link, vpn_tunnel
+  render svg { direction: tb, node_labels: [label, model] }
+}

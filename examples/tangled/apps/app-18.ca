@@ -1,0 +1,171 @@
+system sys-15 {
+  app app-174 {
+    on: [srv-106, srv-107, srv-108, srv-081, srv-082]
+    -> db-14 : jdbc/1521 [flow] { exchange: both }
+  }
+
+  database db-14 { engine: oracle, on: srv-080 }
+  database db-15 { on: srv-083 }
+}
+
+system sys-16 {
+  app app-012 {
+    -> db-01 : jdbc [flow] { exchange: both }
+  }
+
+  app app-175
+
+  app app-176
+
+  database db-01
+}
+
+system sys-17 {
+  app app-177
+
+  app app-178
+
+  app app-179
+}
+
+system sys-18 {
+  app app-180
+
+  app app-181
+}
+
+saas-04 -> sys-14.app-164 [flow] { exchange: push }
+
+sys-16.app-012 -> sys-14.app-164 [flow] { exchange: push }
+
+sys-16.app-175 -> sys-14.app-164 [flow] { exchange: push }
+
+sys-14.app-164 -> sys-16.app-175 [flow] { exchange: push }
+
+sys-15.app-174 -> app-126 [flow] { exchange: push }
+
+sys-15.app-174 -> sys-16.app-012 [flow] { exchange: push }
+
+sys-15.app-174 -> sys-16.app-175 [flow] { exchange: push }
+
+sys-15.app-174 -> app-110 [flow] { exchange: push }
+
+sys-15.app-174 -> app-122 [flow] { exchange: push }
+
+sys-15.app-174 -> sys-13.app-157 [flow] { exchange: push }
+
+sys-15.app-174 -> app-111 [flow] { exchange: push }
+
+sys-15.app-174 -> app-108 [flow] { exchange: push }
+
+sys-15.app-174 -> sys-14.app-164 [flow] { exchange: push }
+
+app-126 -> sys-15.app-174 [flow] { exchange: push }
+
+sys-16.app-175 -> sys-15.app-174 [flow] { exchange: push }
+
+sys-16.app-012 -> sys-15.app-174 [flow] { exchange: push }
+
+app-110 -> sys-15.app-174 [flow] { exchange: push }
+
+app-122 -> sys-15.app-174 [flow] { exchange: push }
+
+sys-14.app-170 -> sys-15.app-174 [flow] { exchange: push, confidence: assumed }
+
+app-112 -> sys-15.app-174 [flow] { exchange: push }
+
+sys-13.app-157 -> sys-15.app-174 [flow] { exchange: push }
+
+app-111 -> sys-15.app-174 [flow] { exchange: push }
+
+sys-16.app-012 -> app-108 [flow] { exchange: push }
+
+sys-16.app-175 -> app-108 [flow] { exchange: push }
+
+sys-16.app-175 -> app-110 [flow] { exchange: push }
+
+sys-16.app-012 -> sys-03.app-012 [flow] { exchange: push }
+
+sys-16.app-012 -> sys-03.app-011 [flow] { exchange: push }
+
+sys-16.app-012 -> app-113 [flow] { exchange: push }
+
+sys-16.app-012 -> sys-13.app-157 [flow] { exchange: push }
+
+sys-16.app-176 -> sys-16.db-01 [flow] { exchange: pull }
+
+sys-17.app-177 -> sys-03.app-012 [flow] { exchange: push }
+
+sys-16.app-012 -> sys-17.app-177 [flow] { exchange: push, confidence: assumed }
+
+sys-17.app-177 -> sys-16.app-012 [flow] { exchange: push, confidence: assumed }
+
+sys-03.app-012 -> sys-17.app-177 [flow] { exchange: push, confidence: assumed }
+
+app-126 -> sys-16.app-012 [flow] { exchange: push, confidence: assumed }
+
+app-121 -> sys-17.app-177 [flow] { exchange: push }
+
+app-120 -> sys-17.app-177 [flow] { exchange: push, confidence: assumed }
+
+sys-17.app-177 -> app-114 [flow] { exchange: push, confidence: assumed }
+
+app-114 -> sys-17.app-177 [flow] { exchange: push, confidence: assumed }
+
+sys-17.app-177 -> app-122 [flow] { exchange: push }
+
+app-122 -> sys-17.app-177 [flow] { exchange: push }
+
+app-124 -> sys-17.app-177 [flow] { exchange: push }
+
+app-123 -> sys-17.app-177 [flow] { exchange: push }
+
+sys-17.app-177 -> app-113 [flow] { exchange: push }
+
+sys-17.app-177 -> sys-13.app-157 [flow] { exchange: push }
+
+app-115 -> sys-17.app-177 [flow] { exchange: push, confidence: assumed }
+
+app-116 -> sys-17.app-177 [flow] { exchange: push, confidence: assumed }
+
+sys-17.app-177 -> sys-17.app-178 [flow] { exchange: push, confidence: assumed }
+
+sys-17.app-178 -> sys-17.app-177 [flow] { exchange: push, confidence: assumed }
+
+app-110 -> sys-17.app-178 [flow] { exchange: push, confidence: assumed }
+
+sys-16.app-012 -> sys-17.app-178 [flow] { exchange: push, confidence: assumed }
+
+sys-17.app-178 -> sys-15.app-174 [flow] { exchange: push, confidence: assumed }
+
+sys-17.app-177 -> app-119 [flow] { exchange: push, confidence: assumed }
+
+app-117 -> sys-17.app-177 [flow] { exchange: push, confidence: assumed }
+
+sys-17.app-177 -> app-118 [flow] { exchange: push, confidence: assumed }
+
+sys-17.app-177 -> app-125 [flow] { exchange: push, confidence: assumed }
+
+sys-17.app-179 -> sys-03.app-012 [flow] { exchange: push, confidence: assumed }
+
+sys-03.app-012 -> sys-17.app-179 [flow] { exchange: push, confidence: assumed }
+
+app-112 -> sys-17.app-177 [flow] { exchange: push, confidence: assumed }
+
+sys-16.app-176 -> sys-17.app-177 [flow] { exchange: push, confidence: assumed }
+
+sys-16.app-012 -> sys-18.app-180 [flow] { exchange: push, confidence: assumed }
+
+sys-17.app-177 -> sys-18.app-180 [flow] { exchange: push, confidence: assumed }
+
+sys-18.app-180 -> sys-16.app-012 [flow] { exchange: push, confidence: assumed }
+
+sys-18.app-180 -> sys-17.app-177 [flow] { exchange: push, confidence: assumed }
+
+sys-16.app-012 -> sys-18.app-181 [flow] { exchange: push, confidence: assumed }
+
+sys-17.app-177 -> sys-18.app-181 [flow] { exchange: push, confidence: assumed }
+
+sys-18.app-181 -> sys-16.app-012 [flow] { exchange: push, confidence: assumed }
+
+sys-18.app-181 -> sys-17.app-177 [flow] { exchange: push, confidence: assumed }

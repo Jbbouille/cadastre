@@ -1,0 +1,55 @@
+site aws-paris {
+  hosting: cloud
+  owner: infra
+  provider: aws
+  region: eu-west-3
+
+  vpc prod {
+    account: "111111111111"
+    // Every flow to the internet leaves through the NAT gateway.
+    egress: [nat-gw]
+    vpn_gateway vgw { label: "vgw-0a1b2c" }
+    router nat-gw   { label: "nat-0a1b2c" }
+
+    subnet dmz {
+      cidr: 10.0.1.0/24
+      az: eu-west-3a
+      server web01 { os: debian12, ip: 10.0.1.10 }
+      server web02 { os: debian12, ip: 10.0.1.11 }
+    }
+    subnet db {
+      cidr: 10.0.2.0/24
+      az: eu-west-3a
+      server db01 { os: debian12, kernel: "6.1.0-18-amd64", ip: 10.0.2.10 }
+    }
+  }
+}
+
+site paris-dc1 {
+  hosting: on-prem
+  owner: infra
+  rack r12 { room: "Room 2", units: 42 }
+
+  firewall fw01 {
+    rack: r12
+    interface wan     { ip: 203.0.113.2 }
+    interface lan-erp { subnet: erp, ip: 192.168.10.1 }
+    vpn_gateway vpn   { public_ip: 203.0.113.2 }
+  }
+
+  switch sw01 {
+    rack: r12
+    interface ge-0-0-1 { label: "ge-0/0/1", peer: erp01 }
+    interface ge-0-0-2 { label: "ge-0/0/2", peer: fw01.lan-erp }
+  }
+
+  network lan {
+    subnet erp {
+      cidr: 192.168.10.0/24
+      server erp01 { rack: r12, ip: 192.168.10.20 }
+    }
+  }
+}
+
+vpn_tunnel paris-aws-1 { ends: [fw01.vpn, vgw], protocol: ipsec }
+vpn_tunnel paris-aws-2 { ends: [fw01.vpn, vgw], protocol: ipsec, description: "Backup tunnel" }

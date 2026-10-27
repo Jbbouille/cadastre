@@ -1,0 +1,21 @@
+{
+  "name": "cadastre",
+  "displayName": "Cadastre",
+  "contributes": {
+    "languages": [
+      {
+        "id": "cadastre",
+        "aliases": ["Cadastre"],
+        "extensions": [".ca", ".cav", ".cac"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "cadastre",
+        "scopeName": "source.cadastre",
+        "path": "./syntaxes/cadastre.tmLanguage.json"
+      }
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+data product-files  { description: "Flat files and product images" }
+data item-prices    { description: "Item prices" }
+data price-deltas   { description: "Price changes" }
+data articles       { description: "Item master data" }
+data sales-sessions { description: "Franchisee sales sessions" }
+data label-content  { description: "Labels to print or display" }

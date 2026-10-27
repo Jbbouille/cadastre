@@ -1,0 +1,17 @@
+// Infrastructure, as known after a first workshop.
+
+site hoster-a-dc {
+  hosting: colocation
+  operator: hoster-a // managed hosting
+  question: "Which network is the file hub in?"
+
+  // Its servers are written by functional theme: `filehub` in product.ca.
+}
+
+// Cluster known by its existence only: at the root (incomplete).
+cluster k8s-data { platform: kubernetes }
+
+site stores {
+  hosting: office
+  fleet store-workstations { label: "Store workstations", os: windows11 }
+}

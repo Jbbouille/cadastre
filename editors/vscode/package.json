@@ -1,0 +1,164 @@
+{
+  "name": "cadastre",
+  "displayName": "Cadastre",
+  "description": "Cadastre language support: highlighting, diagnostics, outline, go to definition, hover, live preview and build of views.",
+  "version": "0.1.0",
+  "publisher": "cadastre",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jbbouille/cadastre.git",
+    "directory": "editors/vscode"
+  },
+  "private": true,
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "cadastre",
+        "aliases": [
+          "Cadastre"
+        ],
+        "extensions": [
+          ".ca",
+          ".cav",
+          ".cac"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "cadastre",
+        "scopeName": "source.cadastre",
+        "path": "./syntaxes/cadastre.tmLanguage.json"
+      }
+    ],
+    "semanticTokenScopes": [
+      {
+        "language": "cadastre",
+        "scopes": {
+          "decorator": [
+            "entity.name.tag.layer.cadastre"
+          ],
+          "regexp": [
+            "constant.other.address.cadastre"
+          ]
+        }
+      }
+    ],
+    "configuration": {
+      "title": "Cadastre",
+      "properties": {
+        "cadastre.server.path": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path of the `cadastre` executable, started as `cadastre lsp`. Empty: the executable shipped with the extension, or `cadastre` from the `PATH`.",
+          "scope": "machine-overridable"
+        },
+        "cadastre.diagnostics.incomplete": {
+          "type": "string",
+          "enum": [
+            "hint",
+            "information",
+            "warning",
+            "off"
+          ],
+          "default": "hint",
+          "markdownDescription": "How incomplete elements (what is missing for a complete model, without being wrong) are reported."
+        },
+        "cadastre.diagnostics.strict": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Report incomplete elements as errors, like `cadastre check --strict`."
+        },
+        "cadastre.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication with the language server in the output panel."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "cadastre.previewView",
+        "title": "Preview view",
+        "category": "Cadastre",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "cadastre.buildView",
+        "title": "Build view",
+        "category": "Cadastre",
+        "icon": "$(run)"
+      },
+      {
+        "command": "cadastre.buildViews",
+        "title": "Build all views",
+        "category": "Cadastre",
+        "icon": "$(run-all)"
+      },
+      {
+        "command": "cadastre.exportModel",
+        "title": "Export model (ArchiMate, GraphML, JSON)…",
+        "category": "Cadastre"
+      },
+      {
+        "command": "cadastre.restartServer",
+        "title": "Restart language server",
+        "category": "Cadastre"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "cadastre.previewView",
+          "when": "editorLangId == cadastre",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "cadastre.buildViews",
+          "when": "explorerResourceIsFolder || resourceExtname == .ca || resourceExtname == .cav || resourceExtname == .cac",
+          "group": "cadastre"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p . && npm run media",
+    "media": "esbuild media-src/mermaid.js --bundle --minify --format=iife --legal-comments=eof --outfile=media/mermaid.js",
+    "watch": "tsc -watch -p .",
+    "test": "node test/grammar.test.js",
+    "package": "vsce package",
+    "vscode:prepublish": "npm run compile"
+  },
+  "dependencies": {
+    "@viz-js/viz": "^3.11.0",
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@mermaid-js/layout-elk": "^0.2.3",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.28.2",
+    "mermaid": "^11.17.2",
+    "typescript": "^5.5.0",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.0.0"
+  }
+}

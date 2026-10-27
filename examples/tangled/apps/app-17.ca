@@ -1,0 +1,97 @@
+system sys-14 {
+  instance: "instance-8"
+
+  app app-164 {
+    on: [srv-064, srv-099]
+    version: 4.4.0
+    component comp-02 { version: 15.0.1 }
+
+    -> db-01          : jdbc/1521 [flow]       { exchange: both }
+    -> app-149        : https/443 [flow, auth] { exchange: pull, carries: [data-02, data-01, data-08] }
+    -> sys-01.app-004             [flow]       {
+      exchange: push
+      carries: [data-44, data-45, data-46, data-17]
+      confidence: assumed
+    }
+    -> app-109                    [flow]       { exchange: push, carries: [data-17] }
+    -> saas-04                    [flow]       { exchange: push, carries: [data-16] }
+    -> app-110                    [flow]       { exchange: push, carries: [data-22, data-46, data-13] }
+    -> sys-15.app-174             [flow]       { exchange: push, carries: [data-22, data-20, data-13] }
+    -> sys-16.app-012             [flow]       { exchange: push, carries: [data-22, data-13, data-44] }
+    -> app-108                    [flow]       { exchange: push, carries: [data-22, data-20, data-13] }
+  }
+
+  app app-165 {
+    on: [srv-064, srv-099]
+    version: 3.7.2
+    -> db-01 : jdbc/1521 [flow] { exchange: both }
+  }
+
+  app app-166 {
+    on: [srv-064, srv-099]
+    version: 4.9.1
+    component comp-02 { version: 15.0.1 }
+    -> db-01        : jdbc/1521 [flow] { exchange: both }
+    -> sys-01.db-01 : jdbc/1521 [flow] { exchange: pull }
+    -> sys-02.db-02 : jdbc/1521 [flow]
+    -> app-149      : https/443 [auth] { exchange: pull, carries: [data-02], confidence: assumed }
+  }
+
+  app app-167 {
+    on: [srv-064, srv-099]
+    version: 4.0.0
+    -> db-01 : jdbc/1521 [flow] { exchange: pull }
+  }
+
+  app app-168 {
+    on: [srv-064, srv-099]
+    version: 3.0.0
+    -> db-01 : jdbc/1521 [flow] { exchange: both }
+  }
+
+  app app-169 {
+    on: [srv-064, srv-099]
+    version: 3.1.0
+    -> db-01 : jdbc/1521 [flow] { exchange: both }
+  }
+
+  app app-170 {
+    on: [srv-064, srv-099]
+    version: 3.4.5
+    -> db-08        : jdbc/1521 [flow]       { exchange: both }
+    -> db-01        : jdbc/1521 [flow]       { exchange: pull }
+    -> sys-02.db-02 : jdbc/1521 [flow]
+    -> app-149      : https/443 [flow, auth] { exchange: pull, carries: [data-02, data-01, data-08] }
+  }
+
+  app app-171 {
+    on: [srv-064, srv-099]
+    version: 3.5.4
+    -> app-149 : https/443 [flow] { exchange: pull, carries: [data-01] }
+    -> db-08   : jdbc/1521 [flow] { exchange: both }
+  }
+
+  app app-172 {
+    on: [srv-064, srv-099]
+    version: 4.2.0
+    -> db-01        : jdbc/1521 [flow] { exchange: pull }
+    -> sys-15.db-14 : jdbc/1521 [flow] { exchange: pull }
+  }
+
+  app app-173 {
+    on: [srv-064, srv-099]
+    version: 3.0.0
+    -> sys-02.db-02 : jdbc/1521 [flow] { exchange: both }
+  }
+
+  app app-098 {
+    on: srv-099
+    component comp-09
+    -> db-01        : jdbc/1521 [flow]
+    -> db-08        : jdbc/1521 [flow]
+    -> sys-16.db-01 : jdbc      [flow] { confidence: assumed }
+    -> sys-03.db-03 : jdbc      [flow] { confidence: assumed }
+  }
+
+  database db-01 { on: db-09, engine: oracle }
+}

@@ -1,0 +1,9 @@
+team team-01
+team team-02
+team team-03
+team team-04
+team team-05
+team team-06 { scope: external }
+team team-07 { scope: external }
+team team-08 { scope: external }
+team team-09 { scope: external }

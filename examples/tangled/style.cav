@@ -1,0 +1,17 @@
+style {
+  edges where proto in [http, https]       { color: "#1d4ed8", legend: "HTTP / HTTPS" }
+  edges where proto in [sftp, ftp, azcopy] { color: "#c2410c", legend: "SFTP / FTP / azcopy" }
+  edges where proto = kafka                { color: "#7e22ce", legend: "Kafka" }
+  edges where proto = jdbc                 { color: "#4b5563", legend: "JDBC" }
+  layer auth                               { color: "#be185d", legend: "Authentication" }
+  layer trigger                            { color: "#9ca3af", legend: "Trigger" }
+
+  kind  firewall              { color: "#dc2626", legend: "Firewall" }
+  kind  switch                { color: "#2563eb", legend: "Switch" }
+  kind  router                { color: "#7c3aed", legend: "Router" }
+  kind  proxy                 { color: "#ea580c", legend: "Proxy, WAF" }
+  kind  device                { color: "#6b7280", legend: "Other device" }
+  kind  server                { color: "#059669", legend: "Server" }
+  edges where kind = peer     { color: "#0f766e", legend: "Fibre, cable" }
+  edges where kind = wan_link { color: "#a16207", legend: "MPLS" }
+}

@@ -1,0 +1,60 @@
+app app-146 { scope: external, operator: team-09, on: srv-020 }
+
+app app-147 {
+  scope: external
+  on: srv-070
+  component app-147 { version: 15.0.2 }
+  -> db-07 [flow] { exchange: both }
+}
+
+database db-07 { scope: external, engine: mariadb, on: [srv-071, srv-102, srv-072] }
+
+app app-148 { scope: external, on: [srv-046, srv-093] }
+
+app app-149 {
+  scope: external
+  vip: 10.1.137.164
+  on: [srv-064, srv-099]
+  version: 1.9.31
+  component comp-07
+  component comp-03 { version: 11.0.15 }
+  -> sys-09.app-150 : https/51101 [flow] { exchange: both, carries: [data-01, data-02, data-08] }
+  -> sys-09.db-01   : jdbc/53333  [flow] { exchange: pull, carries: [data-03, data-01] }
+}
+
+system sys-09 {
+  app app-150 {
+    scope: external
+    on: srv-023
+    component comp-08 { version: 7.50 }
+    -> app-148 : ldaps/636 [flow] { exchange: push, carries: [data-01] }
+    -> app-148 : ldap/389  [flow] { exchange: push, carries: [data-01] }
+    -> db-01   : jdbc      [flow] { exchange: both }
+  }
+
+  database db-01 { engine: db2, on: srv-023 }
+}
+
+app app-151 {
+  scope: external
+  -> sys-04.app-013 [flow] { exchange: push, carries: [data-01], confidence: assumed }
+}
+
+job job-07 {
+  schedule: "0 6 * * *"
+  -> app-149 : https/443 [flow] { exchange: pull, carries: [data-03] }
+}
+
+database db-08 { on: srv-066, engine: oracle }
+
+database db-09 {
+  on: srv-069
+  engine: oracle
+  -> db-10 : tcp/1521 [replication] { exchange: push }
+}
+
+database db-10 { on: srv-101, engine: oracle }
+
+database db-11 { on: srv-061, engine: oracle }
+
+database db-12 { scope: external, engine: oracle }

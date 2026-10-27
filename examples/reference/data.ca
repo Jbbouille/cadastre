@@ -1,0 +1,2 @@
+data customer { description: "Customer details", classification: personal }
+data invoice  { description: "Issued invoice", classification: confidential }

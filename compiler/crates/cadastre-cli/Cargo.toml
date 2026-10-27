@@ -1,0 +1,22 @@
+[package]
+name = "cadastre-cli"
+description = "The `cadastre` command: reads a project, compiles it, writes renderings."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "cadastre"
+path = "src/main.rs"
+
+[dependencies]
+cadastre-core = { path = "../cadastre-core" }
+cadastre-project = { path = "../cadastre-project" }
+cadastre-lsp = { path = "../cadastre-lsp" }
+cadastre-mcp = { path = "../cadastre-mcp" }
+serde_json = "1"
+
+[features]
+# Prototype: `render elk`, the layout of Eclipse ELK ported to Rust (EPL-2.0).
+elk = ["cadastre-core/elk"]

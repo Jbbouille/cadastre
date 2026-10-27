@@ -1,0 +1,152 @@
+// The four mapped building blocks, and the neighbouring systems out of scope.
+
+system product {
+  owner: product-team
+  label: "Product management"
+
+  saas pim {
+    label: "PIM (SaaS)"
+    -> filehub : sftp/22 [flow] { exchange: push, channel: pim-feed, carries: [product-files] }
+  }
+
+  saas photo-studio {
+    label: "Photo studio"
+    -> filehub : sftp/22 [flow] { exchange: push, channel: product-images }
+  }
+
+  job fsync {
+    on: filehub
+    schedule: "cron"
+    description: "File synchronization (asset copy)"
+    question: "Exact frequency?"
+  }
+
+  app price-processor {
+    label: "Price processor (Kafka Streams / Connect)"
+    on: k8s-data
+    owner: data-team
+    -> filehub     : sftp/22    [flow] { exchange: pull, channel: price-files }
+    -> kafka-cloud : kafka/9092 [flow] { exchange: push, channel: prices }
+    -> pim         : sftp/22    [flow] { exchange: push, carries: [price-deltas] }
+  }
+}
+
+system catalog {
+  label: "Product data service"
+  description: "Service layer so that the PIM is not queried directly"
+
+  app api {
+    label: "Catalog API"
+    runtime: java
+    -> filehub        : http       [flow] { exchange: pull, carries: [product-files], confidence: assumed }
+    -> db             : jdbc       [flow] { exchange: both }
+    -> kafka-cloud    : kafka/9092 [flow] { exchange: pull, channel: prices }
+    -> logistics      : http       [flow] {
+      confidence: assumed
+      question: "Flow direction: does the API call logistics, or the other way round?"
+    }
+    -> sales-transfer : http       [flow] { confidence: assumed }
+    -> keycloak       : http       [auth]
+    -> directory      : ldap       [auth]
+  }
+
+  database db { engine: oracle }
+}
+
+system pricing {
+  owner: pricing-team
+  label: "Price management"
+
+  app ui {
+    label: "Pricing UI"
+    runtime: java
+    -> db      : jdbc    [flow] { exchange: both }
+    -> filehub : sftp/22 [flow] { exchange: push, channel: price-files, carries: [item-prices] }
+    -> filehub : http    [flow] { confidence: doubtful, question: "Is this HTTP flow still used?" }
+  }
+
+  job price-push {
+    schedule: "cron"
+    description: "Triggers the price push"
+    -> ui : http [trigger]
+  }
+
+  job extractor {
+    schedule: "cron"
+    command: "java -jar main.jar"
+    -> db               : jdbc   [flow] { exchange: pull }
+    -> franchise-portal : ftp/21 [flow] {
+      exchange: push
+      carries: [item-prices, articles, sales-sessions]
+    }
+  }
+
+  job article-extractor {
+    -> db  : jdbc [flow] { exchange: pull }
+    -> esb : http [flow] { exchange: push, carries: [articles] }
+  }
+
+  job price-extractor {
+    -> db  : jdbc [flow] { exchange: pull }
+    -> esb : http [flow] { exchange: push, carries: [item-prices] }
+  }
+
+  database db { }
+}
+
+// The central scheduler triggers the pricing UI, protocol unknown.
+central-scheduler -> pricing.ui [trigger] { confidence: assumed }
+
+system labels {
+  label: "Paper and electronic labels"
+
+  app label-server {
+    label: "Label server"
+    runtime: java
+    component wildfly     { }
+    component spring-boot { }
+    -> db                : jdbc  [flow] { exchange: both }
+    -> catalog.api       : http  [flow] { exchange: pull, confidence: assumed }
+    -> electronic-labels : https [flow] { exchange: push, carries: [label-content] }
+    -> paper-labels      : https [flow] { exchange: push, carries: [label-content] }
+    -> keycloak          : http  [auth]
+    -> directory         : ldap  [auth]
+  }
+
+  app desktop {
+    label: "Desktop label application"
+    on: store-workstations
+    -> label-server : http [flow] { description: "Label batch", confidence: assumed }
+  }
+
+  database db { }
+}
+
+// ===== Out of scope =====
+
+app web-shop {
+  scope: external
+  label: "E-commerce site"
+  -> filehub : azcopy  [flow] { exchange: pull, channel: product-images, confidence: assumed }
+  -> filehub : sftp/22 [flow] { exchange: pull, channel: product-images, confidence: assumed }
+}
+
+app logistics        { scope: external }
+app sales-transfer   { scope: external, label: "Sales transfer" }
+app esb              { scope: external }
+app franchise-portal { scope: external, question: "Which version of the franchisee portal?" }
+
+app commercial-management {
+  scope: external
+  -> apim [flow] { confidence: assumed }
+}
+
+app indexer {
+  scope: external
+  label: "Indexing application (unknown)"
+  confidence: doubtful
+  -> catalog.api   : http [flow] { confidence: assumed }
+  -> search-engine        [flow] { question: "Indexing?" }
+}
+
+database search-engine { scope: external, engine: solr }

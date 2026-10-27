@@ -1,0 +1,7 @@
+// Teams known after the first mapping workshop. Some building blocks have no
+// identified owner yet: they show up in the to-complete view.
+
+team hoster-a     { label: "Hosting provider A", scope: external }
+team product-team { label: "Product team" }
+team pricing-team { label: "Pricing team" }
+team data-team    { label: "Data team" }

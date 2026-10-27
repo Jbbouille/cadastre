@@ -1,0 +1,9 @@
+app app-162 {
+  on: srv-011
+  -> app-163 [flow] { exchange: push }
+}
+
+app app-163 {
+  on: srv-001
+  -> app-162 [flow] { exchange: push }
+}

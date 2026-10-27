@@ -1,0 +1,28 @@
+[package]
+name = "cadastre-core"
+description = "Core of the Cadastre compiler: parsing, registry, resolution, views, renderings. No system access, compiles to WebAssembly."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+tree-sitter.workspace = true
+# Provides the minimal C headers needed to compile the parser for wasm32-unknown-unknown.
+tree-sitter-language = "0.1"
+# Reads the layout computed by Graphviz (`-Tjson`) for the draw.io export.
+serde_json = { version = "1", features = ["preserve_order"] }
+# The `pattern("…")` type of the schema of a project: small, no dependency.
+regex-lite = "0.1"
+# Prototype: the layout of Eclipse ELK ported to Rust (EPL-2.0), behind the `elk` feature.
+merman-layout-elk = { version = "0.9.1", optional = true }
+
+[dev-dependencies]
+# Reads the grammar to generate docs/reference.md.
+serde_json = { version = "1", features = ["preserve_order"] }
+
+[build-dependencies]
+cc = "1"
+
+[features]
+elk = ["dep:merman-layout-elk"]
