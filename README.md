@@ -116,6 +116,14 @@ check every-app-has-an-owner {
 
 `cadastre check` fails as soon as a rule is broken, naming what breaks it: `check every-app-has-an-owner failed: 2 nodes selected, none expected: billing, crm` (the registry above has no owner yet).
 
+## Writers, readers, integrators
+
+One compiled model, three ways in:
+
+- **Those who write it** use the [playground](https://cadastre-lang.org/playground/), the VS Code extension or the IntelliJ plugin (live previews, through the language server), the `cadastre` command line, or an AI agent through the MCP server.
+- **Those who consult it** read the site published by `cadastre site`: a page per view and per resource, search, the results of the checks; static files for any intranet, no `.ca` file to open.
+- **Those who integrate it** read the static JSON API beside the site (`api/`, described in [docs/api.md](docs/api.md)): a record per resource and per view, the links, the checks; to feed an intranet page, a form, a security assessment tool or a dashboard, without a server.
+
 ## Getting started
 
 Install `cadastre` from the [releases](https://github.com/Jbbouille/cadastre/releases) (Linux, macOS, Windows), or build it with Rust:

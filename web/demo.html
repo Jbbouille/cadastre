@@ -116,6 +116,19 @@ if (/[#&?](example|view|q)=/.test(location.hash)) location.replace("playground/"
 
 <section>
   <div class="wrap">
+    <h2>One model, three audiences</h2>
+    <p class="sub">The same compiled model, for the people who write it, the people who read it, and the tools that need it.</p>
+    <div class="grid3">
+      <div class="card"><h3>Those who write it</h3><p>The <a href="playground/">playground</a> in the browser, the VS Code extension and the IntelliJ plugin with live previews, the language server behind them, the <code>cadastre</code> command line, and an MCP server for AI agents. Diagnostics, completion, navigation, renaming, formatting.</p></div>
+      <div class="card"><h3>Those who consult it</h3><p>The site published by <code>cadastre site</code>, for readers who will never open a <code>.ca</code> file: a page per view and per resource, diagrams leading to the resources, search, the results of the checks. Static, for any intranet.</p></div>
+      <div class="card"><h3>Those who integrate it</h3><p>A static JSON API beside the site, <code>api/</code>: a record per resource and per view, the links, the checks. Feed an intranet page, a form, a security assessment tool or a dashboard, without a server. <a href="https://github.com/Jbbouille/cadastre/blob/master/docs/api.md">The JSON model</a>.</p></div>
+    </div>
+    <p class="caption">Command line: <code>check</code>, <code>build</code>, <code>fmt</code>, <code>site</code>, <code>serve</code>; imports from a Terraform state or a CSV inventory; exports to ArchiMate, GraphML and JSON.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
     <h2>A small example</h2>
     <p class="sub">The project of the tutorial: one site, one system, its flows. Its <code>apps</code> view is five lines, and the compiler draws the diagram from them.</p>
     <div class="example">
@@ -254,17 +267,6 @@ view order-path {
   </div>
 </section>
 
-<section>
-  <div class="wrap">
-    <h2>Where you write it</h2>
-    <p class="sub">Text files are only pleasant with good tools around them.</p>
-    <div class="grid3">
-      <div class="card"><h3>Command line</h3><p><code>cadastre check</code>, <code>build</code>, <code>fmt</code>, <code>site</code>, <code>serve</code>; imports from a Terraform state or a CSV inventory; exports to ArchiMate, GraphML and JSON.</p></div>
-      <div class="card"><h3>Editors</h3><p>A language server with diagnostics, completion, navigation, renaming and formatting; a VS Code extension and an IntelliJ plugin with live previews of the views.</p></div>
-      <div class="card"><h3>Agents</h3><p>An MCP server, so that an AI agent can read the model, query it and check what it writes, as a human does in the editor.</p></div>
-    </div>
-  </div>
-</section>
 
 <section class="install">
   <div class="wrap">
