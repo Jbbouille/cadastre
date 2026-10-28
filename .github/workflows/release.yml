@@ -1,6 +1,6 @@
 # A release on each version tag (`v0.1.0`): `cadastre` binaries, the VS Code extension of each
 # platform with its binary, and the WebAssembly module; then the crates on crates.io and the
-# extension on the Visual Studio Marketplace and Open VSX, each one when its secret is set.
+# extension on the Visual Studio Marketplace and Open VSX, each one once it is set up.
 name: Release
 
 on:
@@ -158,12 +158,16 @@ jobs:
           cargo publish --workspace --exclude cadastre-wasm --allow-dirty
 
   # The extension of each platform on the Visual Studio Marketplace and on Open VSX (VSCodium,
-  # Cursor…). Each registry is skipped without its secret: VSCE_PAT, OVSX_PAT.
+  # Cursor…). The Marketplace by Trusted Publishing (OIDC, no token), once its policy names this
+  # workflow and the repository variable MARKETPLACE is `true`; Open VSX with the OVSX_PAT secret.
   extension:
     needs: [version, release]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     env:
-      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      MARKETPLACE: ${{ vars.MARKETPLACE }}
       OVSX_PAT: ${{ secrets.OVSX_PAT }}
     steps:
       - uses: actions/download-artifact@v4
@@ -176,8 +180,8 @@ jobs:
           node-version: 22
       - name: Visual Studio Marketplace
         run: |
-          if [ -z "$VSCE_PAT" ]; then echo "::notice::no VSCE_PAT secret, not published on the Marketplace"; exit 0; fi
-          npx --yes @vscode/vsce publish --packagePath dist/*.vsix
+          if [ "$MARKETPLACE" != true ]; then echo "::notice::no MARKETPLACE variable, not published on the Marketplace"; exit 0; fi
+          npx --yes @vscode/vsce publish --oidc --packagePath dist/*.vsix
       - name: Open VSX
         run: |
           if [ -z "$OVSX_PAT" ]; then echo "::notice::no OVSX_PAT secret, not published on Open VSX"; exit 0; fi
