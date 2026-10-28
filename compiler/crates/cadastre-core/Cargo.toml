@@ -4,7 +4,10 @@ description = "Core of the Cadastre compiler: parsing, registry, resolution, vie
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish.workspace = true
+repository.workspace = true
+homepage.workspace = true
+# The grammar and its highlighting query, copied into `vendor/` when packaged (compiler/vendor.sh).
+include = ["src/**", "build.rs", "vendor/**"]
 
 [dependencies]
 tree-sitter.workspace = true

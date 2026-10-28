@@ -10,7 +10,7 @@ use tree_sitter::{Query, QueryCursor, StreamingIterator};
 use crate::syntax;
 
 /// The highlighting query, as shipped with the grammar.
-pub const HIGHLIGHTS_QUERY: &str = include_str!("../../../../grammar/queries/highlights.scm");
+pub const HIGHLIGHTS_QUERY: &str = include_str!(concat!(env!("OUT_DIR"), "/highlights.scm"));
 
 /// A highlighted range of a text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

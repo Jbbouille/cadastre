@@ -35,7 +35,7 @@ jobs:
           rustup show active-toolchain || rustup toolchain install
           rustup target add wasm32-unknown-unknown
           cargo build -p cadastre-wasm --target wasm32-unknown-unknown --profile wasm
-          cargo build -p cadastre-cli --release
+          cargo build -p cadastre --release
       # The self-hosted playground, as the releases ship it, under /playground/.
       - name: Playground
         run: python3 web/build-playground.py --wasm compiler/target/wasm32-unknown-unknown/wasm/cadastre_wasm.wasm --out site/playground

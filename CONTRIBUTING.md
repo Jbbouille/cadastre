@@ -24,8 +24,8 @@ Requires Rust (see `compiler/rust-toolchain.toml`) and a C compiler for the gene
 ```bash
 cd compiler
 cargo test
-cargo run -p cadastre-cli -- check ../examples/reference
-cargo run -p cadastre-cli -- build ../examples/reference
+cargo run -p cadastre -- check ../examples/reference
+cargo run -p cadastre -- build ../examples/reference
 cargo install --path crates/cadastre-cli
 ```
 
@@ -75,13 +75,26 @@ cargo test --workspace
 
 ## Releases
 
-A version tag publishes a release. Before tagging, move the entries of `CHANGELOG.md` from *Unreleased* to the version, with what a project must change to upgrade. The tag must match the version of `compiler/Cargo.toml` and of `editors/vscode/package.json`:
+A version tag publishes a release. Before tagging, move the entries of `CHANGELOG.md` from *Unreleased* to the version, with what a project must change to upgrade. The tag must match the version of `compiler/Cargo.toml` (the workspace, and the versions its crates require of one another in `[workspace.dependencies]`) and of `editors/vscode/package.json`:
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-The release holds the `cadastre` binaries for Linux (static), macOS (Apple silicon and Intel) and Windows, the VS Code extension of each platform with its binary, the WebAssembly module with `cadastre.js`, and their checksums.
+The release holds the `cadastre` binaries for Linux (static), macOS (Apple silicon and Intel) and Windows, the VS Code extension of each platform with its binary, the WebAssembly module with `cadastre.js`, and their checksums. Then, each one when its secret is set in the repository:
+
+| Where | Secret | What |
+|---|---|---|
+| crates.io | `CARGO_REGISTRY_TOKEN` | `cadastre-core`, `cadastre-project`, `cadastre-lsp`, `cadastre-mcp` and `cadastre` (the command: `cargo install cadastre`) |
+| Visual Studio Marketplace | `VSCE_PAT` | the extension of each platform, publisher `cadastre` |
+| Open VSX | `OVSX_PAT` | the same, for VSCodium, Cursor and the other editors that read Open VSX |
+
+The crates embed files of the repository outside their directory (the grammar for `cadastre-core`, the documentation of the language for `cadastre-mcp`): a clone reads them in place, a package from a copy in `vendor/` that `compiler/vendor.sh` makes before publishing. To check the packages without publishing them:
+
+```bash
+sh compiler/vendor.sh
+cd compiler && cargo publish --dry-run --workspace --exclude cadastre-wasm --allow-dirty
+```
 
 The playground is deployed to GitHub Pages from `master` once the repository variable `PAGES` is set to `true` (with Pages enabled, source *GitHub Actions*).

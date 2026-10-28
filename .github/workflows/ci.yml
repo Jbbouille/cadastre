@@ -47,8 +47,8 @@ jobs:
       - name: Examples valid and formatted
         run: |
           for example in ../examples/*/; do
-            cargo run -q -p cadastre-cli -- check "$example"
-            cargo run -q -p cadastre-cli -- fmt "$example" --check
+            cargo run -q -p cadastre -- check "$example"
+            cargo run -q -p cadastre -- fmt "$example" --check
           done
 
   wasm:

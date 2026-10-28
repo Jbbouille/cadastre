@@ -21,17 +21,17 @@ pub const RESOURCES: &[(&str, &str, &str)] = &[
     (
         "cadastre://reference",
         "The exact syntax, kinds, keys, types and values of the language",
-        include_str!("../../../../docs/reference.md"),
+        include_str!(concat!(env!("OUT_DIR"), "/reference.md")),
     ),
     (
         "cadastre://views",
         "A cheat sheet for views: evaluation, recipes, pitfalls",
-        include_str!("../../../../docs/views.md"),
+        include_str!(concat!(env!("OUT_DIR"), "/views.md")),
     ),
     (
         "cadastre://tutorial",
         "The three levels of the language, on a small project",
-        include_str!("../../../../docs/tutorial.md"),
+        include_str!(concat!(env!("OUT_DIR"), "/tutorial.md")),
     ),
 ];
 

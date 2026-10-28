@@ -1,5 +1,6 @@
 # A release on each version tag (`v0.1.0`): `cadastre` binaries, the VS Code extension of each
-# platform with its binary, and the WebAssembly module.
+# platform with its binary, and the WebAssembly module; then the crates on crates.io and the
+# extension on the Visual Studio Marketplace and Open VSX, each one when its secret is set.
 name: Release
 
 on:
@@ -22,8 +23,10 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           compiler=$(sed -n 's/^version = "\(.*\)"/\1/p' compiler/Cargo.toml | head -1)
           extension=$(node -p 'require("./editors/vscode/package.json").version')
-          echo "tag $version, compiler $compiler, extension $extension"
-          test "$version" = "$compiler" && test "$version" = "$extension"
+          # The crates of the workspace depend on one another at that version too (crates.io).
+          crates=$(sed -n 's/^cadastre-[a-z]* = { path = "[^"]*", version = "\(.*\)" }/\1/p' compiler/Cargo.toml | sort -u)
+          echo "tag $version, compiler $compiler, extension $extension, crates $crates"
+          test "$version" = "$compiler" && test "$version" = "$extension" && test "$version" = "$crates"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
   binaries:
@@ -52,7 +55,7 @@ jobs:
         run: |
           rustup show active-toolchain || rustup toolchain install
           rustup target add ${{ matrix.target }}
-          cargo build -p cadastre-cli --release --target ${{ matrix.target }}
+          cargo build -p cadastre --release --target ${{ matrix.target }}
       - uses: actions/download-artifact@v4
         with:
           name: playground
@@ -133,3 +136,49 @@ jobs:
           cd dist
           sha256sum * > SHA256SUMS
           gh release create "$GITHUB_REF_NAME" * --title "Cadastre ${{ needs.version.outputs.version }}" --generate-notes
+
+  # The crates on crates.io, in the order of their dependencies: `cargo install cadastre`. Skipped
+  # without the CARGO_REGISTRY_TOKEN secret.
+  crates:
+    needs: [version, release]
+    runs-on: ubuntu-latest
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+    steps:
+      - if: env.CARGO_REGISTRY_TOKEN == ''
+        run: echo "::notice::no CARGO_REGISTRY_TOKEN secret, the crates are not published"
+      - if: env.CARGO_REGISTRY_TOKEN != ''
+        uses: actions/checkout@v4
+      - if: env.CARGO_REGISTRY_TOKEN != ''
+        working-directory: compiler
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          # The grammar and the documentation the crates embed, copied into them (ignored by Git).
+          sh vendor.sh
+          cargo publish --workspace --exclude cadastre-wasm --allow-dirty
+
+  # The extension of each platform on the Visual Studio Marketplace and on Open VSX (VSCodium,
+  # Cursor…). Each registry is skipped without its secret: VSCE_PAT, OVSX_PAT.
+  extension:
+    needs: [version, release]
+    runs-on: ubuntu-latest
+    env:
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Visual Studio Marketplace
+        run: |
+          if [ -z "$VSCE_PAT" ]; then echo "::notice::no VSCE_PAT secret, not published on the Marketplace"; exit 0; fi
+          npx --yes @vscode/vsce publish --packagePath dist/*.vsix
+      - name: Open VSX
+        run: |
+          if [ -z "$OVSX_PAT" ]; then echo "::notice::no OVSX_PAT secret, not published on Open VSX"; exit 0; fi
+          for vsix in dist/*.vsix; do npx --yes ovsx publish "$vsix" -p "$OVSX_PAT"; done

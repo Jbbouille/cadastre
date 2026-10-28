@@ -14,7 +14,7 @@ The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly mod
 
 ## Unreleased
 
-Nothing yet.
+- Releases publish the crates on crates.io (`cargo install cadastre`: the package of the command is now named `cadastre`, formerly `cadastre-cli`) and the VS Code extension on the Visual Studio Marketplace and Open VSX.
 
 ## 0.1.0
 
