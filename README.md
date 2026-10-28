@@ -6,6 +6,8 @@ Cadastre is a language and a compiler to describe an information system (sites, 
 
 The idea is that of a land registry (*cadastre* in French): a **single registry** of resources and their relations, from which you draw as many **plans** as you want, without ever rewriting anything.
 
+**Try it in your browser**, nothing to install: [the playground](https://cadastre-lang.org/playground/), and [the sites of the examples](https://cadastre-lang.org/) as `cadastre site` publishes them for their readers.
+
 > Status: 0.x. The language, the compiler, a language server, a VS Code extension and an IntelliJ plugin work on real projects. Until 1.0 the syntax may still change between minor versions, with the old form reported by the compiler; see [Stability](#stability).
 
 ## Why
@@ -116,7 +118,7 @@ check every-app-has-an-owner {
 
 ## Getting started
 
-Install `cadastre` from the releases (Linux, macOS, Windows), or build it with Rust:
+Install `cadastre` from the [releases](https://github.com/Jbbouille/cadastre/releases) (Linux, macOS, Windows), or build it with Rust:
 
 ```bash
 cargo install --path compiler/crates/cadastre-cli

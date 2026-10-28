@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "publisher": "cadastre",
   "license": "MIT OR Apache-2.0",
+  "homepage": "https://cadastre-lang.org/",
   "repository": {
     "type": "git",
     "url": "https://github.com/Jbbouille/cadastre.git",
