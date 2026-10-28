@@ -3,20 +3,75 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cadastre · demo</title>
+<title>Cadastre · your IT landscape, as code</title>
+<meta name="description" content="Cadastre is a language and a compiler to describe an information system in text, versioned in Git, and draw every diagram of it from one registry.">
 <style>
-:root { --bg: #fff; --fg: #1f2328; --muted: #6b7280; --line: #d0d7de; --accent: #1d4ed8; --panel: #f6f8fa; }
-@media (prefers-color-scheme: dark) { :root { --bg: #1b1f23; --fg: #d1d5db; --muted: #9ca3af; --line: #30363d; --accent: #60a5fa; --panel: #22272e; } }
-body { margin: 0; font: 15px/1.5 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: var(--fg); background: var(--bg); }
-main { max-width: 60rem; margin: 0 auto; padding: 2rem 1.5rem; }
+:root {
+  --bg: #ffffff; --fg: #142033; --muted: #55657d; --line: #d6dfec; --panel: #f3f6fb;
+  --accent: #1d4ed8; --blueprint: #17408b; --blueprint-deep: #0f2f6b; --grid: rgba(255,255,255,.09);
+  --code: #f3f6fb; --kw: #1d4ed8; --str: #0f766e; --com: #6b7a90;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0b1424; --fg: #dbe4f3; --muted: #93a3bd; --line: #24344f; --panel: #111d33;
+          --accent: #7aa7ff; --blueprint: #12336f; --blueprint-deep: #0b2350; --code: #0f1a2e;
+          --kw: #8ab4ff; --str: #5eead4; --com: #7d8ca6; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.55 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: var(--fg); background: var(--bg); }
 a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
-h1 { font-size: 2rem; margin: 0 0 .3rem; } .lead { color: var(--muted); font-size: 1.1rem; margin-top: 0; }
-.projects { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; margin: 2rem 0; }
-.project { border: 1px solid var(--line); border-radius: 8px; padding: 1rem; background: var(--panel); }
-.project h2 { margin: 0 0 .3rem; font-size: 1.1rem; } .project p { margin: 0 0 .8rem; color: var(--muted); font-size: .95rem; }
-.project .actions a { display: inline-block; margin-right: 1rem; }
-.project .actions a.main { font-weight: 600; }
-footer { color: var(--muted); font-size: .9rem; margin-top: 3rem; }
+code, pre { font: 13.5px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.wrap { max-width: 68rem; margin: 0 auto; padding: 0 1.25rem; }
+
+/* The blueprint: a blue sheet with its grid. */
+.hero { color: #fff; background-color: var(--blueprint);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+  background-size: 96px 96px, 96px 96px, 24px 24px, 24px 24px; border-bottom: 4px solid var(--blueprint-deep); }
+.hero nav { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; align-items: center; padding: 1rem 0; font-size: .95rem; }
+.hero nav .brand { font-weight: 700; font-size: 1.1rem; margin-right: auto; color: #fff; letter-spacing: .02em; }
+.hero nav a { color: #dbe6ff; }
+.hero .pitch { padding: 3rem 0 3.5rem; max-width: 46rem; }
+.hero h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.15; margin: 0 0 1rem; letter-spacing: -.01em; }
+.hero p { font-size: 1.15rem; color: #dbe6ff; margin: 0 0 1.75rem; }
+.hero .version { display: inline-block; font: 12px ui-monospace, Consolas, monospace; border: 1px solid rgba(255,255,255,.4);
+  border-radius: 999px; padding: .15rem .6rem; margin-bottom: 1.25rem; color: #dbe6ff; }
+.buttons { display: flex; flex-wrap: wrap; gap: .75rem; }
+.button { display: inline-block; padding: .65rem 1.1rem; border-radius: 6px; font-weight: 600; border: 1px solid rgba(255,255,255,.55); color: #fff; }
+.button.primary { background: #fff; color: var(--blueprint-deep); border-color: #fff; }
+.button:hover { text-decoration: none; filter: brightness(1.08); }
+
+section { padding: 3.5rem 0; border-bottom: 1px solid var(--line); }
+h2 { font-size: 1.6rem; margin: 0 0 .5rem; letter-spacing: -.01em; }
+.sub { color: var(--muted); margin: 0 0 2rem; max-width: 46rem; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1.25rem; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 1.1rem 1.2rem; background: var(--panel); }
+.card h3 { margin: 0 0 .35rem; font-size: 1.05rem; } .card p { margin: 0; color: var(--muted); font-size: .95rem; }
+.card .ext { font: 12px ui-monospace, Consolas, monospace; color: var(--accent); border: 1px solid var(--line); border-radius: 4px;
+  padding: 0 .35rem; margin-left: .35rem; background: var(--bg); }
+
+/* The example: its files beside the diagram drawn from them. */
+.example { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+.tabs { display: flex; gap: .25rem; border-bottom: 1px solid var(--line); }
+.tabs button { font: 13px ui-monospace, Consolas, monospace; padding: .45rem .8rem; border: 1px solid transparent; border-bottom: none;
+  border-radius: 6px 6px 0 0; background: none; color: var(--muted); cursor: pointer; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { background: var(--code); border-color: var(--line); color: var(--fg); }
+pre { margin: 0; padding: 1rem; background: var(--code); border: 1px solid var(--line); border-top: none; border-radius: 0 0 8px 8px;
+  overflow: auto; max-height: 30rem; }
+pre .k { color: var(--kw); font-weight: 600; } pre .s { color: var(--str); } pre .c { color: var(--com); font-style: italic; }
+/* The diagram follows the theme of the reader, as on the sites. */
+.figure { margin: 0; border: 1px solid var(--line); border-radius: 8px; padding: 1rem; background: var(--bg); }
+.figure img { display: block; width: 100%; max-width: 42rem; height: auto; margin: 0 auto; }
+.figure figcaption { color: var(--muted); font-size: .9rem; margin-top: .6rem; }
+
+.compare { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; }
+@media (max-width: 52rem) { .compare { grid-template-columns: minmax(0, 1fr); } }
+.compare ul { margin: .5rem 0 0; padding-left: 1.1rem; color: var(--muted); font-size: .95rem; } .compare li { margin-bottom: .35rem; }
+.projects .card .actions { margin-top: .8rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+.projects .card .actions a.main { font-weight: 600; }
+.install pre { border-top: 1px solid var(--line); border-radius: 8px; }
+.caption { color: var(--muted); font-size: .9rem; margin-top: .6rem; }
+footer { color: var(--muted); font-size: .9rem; padding: 2rem 0 3rem; }
+footer a { margin-right: 1rem; }
 </style>
 <script>
 // The links of the former playground at the root (#example=…&view=…) still work.
@@ -24,28 +79,238 @@ if (/[#&?](example|view|q)=/.test(location.hash)) location.replace("playground/"
 </script>
 </head>
 <body>
+<header class="hero">
+  <div class="wrap">
+    <nav>
+      <a class="brand" href="./">Cadastre</a>
+      <a href="playground/">Playground</a>
+      <a href="https://github.com/Jbbouille/cadastre/blob/master/docs/guide.md">Guide</a>
+      <a href="https://github.com/Jbbouille/cadastre/blob/master/docs/reference.md">Reference</a>
+      <a href="https://github.com/Jbbouille/cadastre">GitHub</a>
+    </nav>
+    <div class="pitch">
+      <span class="version">0.1.0 · MIT or Apache-2.0</span>
+      <h1>Your IT landscape, as code.</h1>
+      <p>Describe sites, networks, servers, applications, flows, data and teams in plain text, versioned in Git. Cadastre compiles it: it draws every diagram from that one registry, derives what you did not write, and tests it against your rules.</p>
+      <div class="buttons">
+        <a class="button primary" href="playground/#example=tutorial">Try it in the browser</a>
+        <a class="button" href="https://github.com/Jbbouille/cadastre#getting-started">Get started</a>
+        <a class="button" href="https://github.com/Jbbouille/cadastre/releases">Download 0.1.0</a>
+      </div>
+    </div>
+  </div>
+</header>
+
 <main>
-<h1>Cadastre</h1>
-<p class="lead">Your IT landscape, as code. Three example projects: browse each one as its readers would, or open it in the playground as its authors do.</p>
-<div class="projects">
-  <section class="project">
-    <h2>Retail</h2>
-    <p>A realistic, anonymized mapping workshop: four systems, two sites, SaaS, a file hub, a Kafka topic, business processes.</p>
-    <p class="actions"><a class="main" href="retail/">Browse the site</a><a href="playground/#example=retail">Open in the playground</a></p>
-  </section>
-  <section class="project">
-    <h2>Reference</h2>
-    <p>The complete example of the guide: every construct of the language, from racks and VPN tunnels to checks.</p>
-    <p class="actions"><a class="main" href="reference/">Browse the site</a><a href="playground/#example=reference">Open in the playground</a></p>
-  </section>
-  <section class="project">
-    <h2>Tutorial</h2>
-    <p>The small project of the tutorial: a site, a system, three views, a check.</p>
-    <p class="actions"><a class="main" href="tutorial/">Browse the site</a><a href="playground/#example=tutorial">Open in the playground</a></p>
-  </section>
-</div>
-<p>Each site is generated by <code>cadastre site</code>, exactly as a team would publish its own project on an intranet; its JSON model is under <code>api/</code> (<a href="retail/api/project.json">retail/api/project.json</a>). The <a href="playground/">playground</a> compiles in the browser: edit the examples, or open a folder of your own, nothing is uploaded.</p>
-<footer><a href="https://github.com/Jbbouille/cadastre">Cadastre on GitHub</a> · the language, the compiler, the editors.</footer>
+<section>
+  <div class="wrap">
+    <h2>One registry, as many plans as you need</h2>
+    <p class="sub">The idea of a land registry (<em>cadastre</em> in French): the facts are written once, and every map is drawn from them. A network diagram, a flow diagram and an application map stop being three files that drift apart.</p>
+    <div class="grid3">
+      <div class="card"><h3>The registry <span class="ext">.ca</span></h3><p>What exists, what contains what, who talks to whom and what goes through: sites, subnets, servers, clusters, apps, jobs, databases, SaaS, data, teams, processes.</p></div>
+      <div class="card"><h3>The views <span class="ext">.cav</span></h3><p>Select, filter, group and project the facts, then render them: SVG, Mermaid, sequence diagrams, draw.io, tables, text. Each view is laid out several ways and the most readable drawing is kept.</p></div>
+      <div class="card"><h3>The checks <span class="ext">.cac</span></h3><p>The rules the facts must follow, run like tests by <code>cadastre check</code> and shown in the editor: every system has an owner, every app runs somewhere.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>A small example</h2>
+    <p class="sub">The project of the tutorial: one site, one system, its flows. Its <code>apps</code> view is five lines, and the compiler draws the diagram from them.</p>
+    <div class="example">
+      <figure class="figure">
+        <a href="tutorial/views/apps.html"><img src="tutorial/views/apps.svg" alt="The apps view of the tutorial: shop, orders and orders-db in the sales system, with their flows"></a>
+        <figcaption>The <code>apps</code> view, as <code>cadastre site</code> publishes it. <a href="playground/#example=tutorial">Edit it in the playground</a>.</figcaption>
+      </figure>
+      <div>
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="true" data-file="registry">registry.ca</button>
+          <button role="tab" aria-selected="false" data-file="views">views.cav</button>
+          <button role="tab" aria-selected="false" data-file="checks">checks.cac</button>
+        </div>
+<pre id="registry">team ops
+team sales-team
+
+site dc1 {
+  hosting: on-prem
+  owner: ops
+  network lan {
+    subnet apps {
+      cidr: 10.0.1.0/24
+      server web01 { ip: 10.0.1.10 }
+      server db01  { ip: 10.0.1.20 }
+    }
+  }
+}
+
+data order
+
+system sales {
+  owner: sales-team
+  app shop {
+    on: web01
+    -> orders : https/443 [flow] { carries: [order] }
+  }
+  app orders {
+    on: web01
+    -> orders-db : tcp/5432 [flow] { carries: [order] }
+  }
+  database orders-db { on: db01 }
+}</pre>
+<pre id="views" hidden>view apps {
+  title: "Applications"
+  select app, database group-by system
+  edges  [flow]
+  render svg, text
+}
+
+// The flows between apps, lifted onto the servers they run on.
+view servers {
+  title: "Servers"
+  select server group-by site > subnet
+  edges  lift([flow], via: on)
+  render text
+}
+
+// Where an order goes, step by step, from the shop.
+view order-path {
+  title: "Order path"
+  select app, database without isolated
+  edges  follow(order, from: shop)
+  render text { edge_labels: [step, port] }
+}</pre>
+<pre id="checks" hidden>check owned {
+  select system where not exists(owner)
+  expect none
+  message: "every system has an owner"
+}</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>What it works out for you</h2>
+    <p class="sub">The registry holds the facts you know; the compiler derives the rest, in every view that asks for it.</p>
+    <div class="grid3">
+      <div class="card"><h3>Lifted flows</h3><p>The flows between servers, subnets or sites, from the flows between the apps they host: <code>lift([flow], via: on)</code>.</p></div>
+      <div class="card"><h3>The path of a data object</h3><p>Where a piece of data goes, step by step, from where it is produced: <code>follow(order, from: shop)</code>.</p></div>
+      <div class="card"><h3>Failures</h3><p>What becomes unavailable when a resource fails, alone or in pairs (what a redundancy really rests on), or in a scenario of your own, drawn in red.</p></div>
+      <div class="card"><h3>Network paths</h3><p>The route of a flow through the network devices, deduced from the cabling.</p></div>
+      <div class="card"><h3>Egress and ingress</h3><p>What leaves the network and what comes in, with the data it carries.</p></div>
+      <div class="card"><h3>Partial knowledge</h3><p>Confidence, open questions, incomplete elements: a model can say what is not known yet, and what is left to check.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Close to C4, with a compiler</h2>
+    <p class="sub">If you know the <a href="https://c4model.com/">C4 model</a> and <a href="https://structurizr.com/">Structurizr</a>, Cadastre will feel familiar: one model, many views, relations written with <code>-&gt;</code>. It takes the idea elsewhere.</p>
+    <div class="compare">
+      <div class="card">
+        <h3>What it shares with C4</h3>
+        <ul>
+          <li>A model written once, views drawn from it.</li>
+          <li>Elements nested in one another, relations between them.</li>
+          <li>Text in Git, reviewed like code.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Where it goes further</h3>
+        <ul>
+          <li><strong>A compiler</strong>: typed keys and references, diagnostics, checks run like tests, derived flows, paths and failures.</li>
+          <li><strong>The technical map of an information system</strong>, not only software architecture: sites, subnets, racks, firewalls, tunnels, schedulers, SaaS, teams.</li>
+          <li><strong>Views as queries</strong>: select, filter, group and lift instead of listing what each diagram shows.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="projects">
+  <div class="wrap">
+    <h2>Examples</h2>
+    <p class="sub">Each one is published with <code>cadastre site</code>, exactly as a team would publish its own project for its readers, with its JSON model under <code>api/</code>. Or open it in the playground, as its authors do: it compiles in your browser, nothing is uploaded.</p>
+    <div class="grid3">
+      <div class="card">
+        <h3>Tutorial</h3>
+        <p>The small project above: a site, a system, four views, a check.</p>
+        <p class="actions"><a class="main" href="tutorial/">Browse the site</a><a href="playground/#example=tutorial">Open in the playground</a></p>
+      </div>
+      <div class="card">
+        <h3>Retail</h3>
+        <p>A realistic, anonymized mapping workshop: four systems, two sites, SaaS, a file hub, a Kafka topic, business processes.</p>
+        <p class="actions"><a class="main" href="retail/">Browse the site</a><a href="playground/#example=retail">Open in the playground</a></p>
+      </div>
+      <div class="card">
+        <h3>Reference</h3>
+        <p>The complete example of the guide: every construct of the language, from racks and VPN tunnels to checks.</p>
+        <p class="actions"><a class="main" href="reference/">Browse the site</a><a href="playground/#example=reference">Open in the playground</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Where you write it</h2>
+    <p class="sub">Text files are only pleasant with good tools around them.</p>
+    <div class="grid3">
+      <div class="card"><h3>Command line</h3><p><code>cadastre check</code>, <code>build</code>, <code>fmt</code>, <code>site</code>, <code>serve</code>; imports from a Terraform state or a CSV inventory; exports to ArchiMate, GraphML and JSON.</p></div>
+      <div class="card"><h3>Editors</h3><p>A language server with diagnostics, completion, navigation, renaming and formatting; a VS Code extension and an IntelliJ plugin with live previews of the views.</p></div>
+      <div class="card"><h3>Agents</h3><p>An MCP server, so that an AI agent can read the model, query it and check what it writes, as a human does in the editor.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="install">
+  <div class="wrap">
+    <h2>Install</h2>
+    <p class="sub">Binaries for Linux, macOS and Windows, and the VS Code extension, are on the <a href="https://github.com/Jbbouille/cadastre/releases">releases page</a>. Or build it with Rust:</p>
+<pre>cargo install --git https://github.com/Jbbouille/cadastre cadastre-cli
+cadastre init my-system
+cadastre check my-system/src</pre>
+    <p class="caption">SVG needs <a href="https://graphviz.org/">Graphviz</a> on the <code>PATH</code>. Cadastre is 0.x: until 1.0 the syntax may still change, with the old form reported by the compiler.</p>
+  </div>
+</section>
 </main>
+
+<footer>
+  <div class="wrap">
+    <a href="https://github.com/Jbbouille/cadastre">GitHub</a>
+    <a href="https://github.com/Jbbouille/cadastre/blob/master/docs/guide.md">Guide</a>
+    <a href="https://github.com/Jbbouille/cadastre/blob/master/docs/reference.md">Reference</a>
+    <a href="https://github.com/Jbbouille/cadastre/blob/master/CHANGELOG.md">Changelog</a>
+    <a href="https://github.com/Jbbouille/cadastre/issues">Issues</a>
+  </div>
+</footer>
+
+<script>
+// The tabs of the example.
+for (const tab of document.querySelectorAll(".tabs button")) {
+  tab.addEventListener("click", () => {
+    for (const other of document.querySelectorAll(".tabs button")) {
+      other.setAttribute("aria-selected", String(other === tab));
+      document.getElementById(other.dataset.file).hidden = other !== tab;
+    }
+  });
+}
+// A light highlighting of the example: keywords, strings, comments.
+const KEYWORDS = /(?<![\w-])(team|site|network|subnet|server|data|system|app|database|view|check|select|edges|render|group-by|where|expect|without|none|not|exists|lift|follow|via|from|on|title|message|owner|carries|hosting|cidr|ip)(?![\w-])/g;
+const escape = text => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+for (const pre of document.querySelectorAll(".example pre")) {
+  pre.innerHTML = pre.textContent.split("\n").map(line => {
+    const at = line.indexOf("//");
+    const [code, comment] = at >= 0 ? [line.slice(0, at), line.slice(at)] : [line, ""];
+    const body = code.split(/("[^"]*")/).map((part, i) => i % 2
+      ? `<span class="s">${escape(part)}</span>`
+      : escape(part).replace(KEYWORDS, '<span class="k">$1</span>')).join("");
+    return body + (comment ? `<span class="c">${escape(comment)}</span>` : "");
+  }).join("\n");
+}
+</script>
 </body>
 </html>

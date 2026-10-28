@@ -1003,7 +1003,7 @@ fn svg_body(svg: &str) -> String {
 }
 
 const CSS: &str = r#"
-:root { --bg: #ffffff; --fg: #1f2328; --muted: #6b7280; --line: #d0d7de; --accent: #1d4ed8; --ok: #15803d; --ko: #b91c1c; --panel: #f6f8fa; }
+:root { --bg: #ffffff; --fg: #1f2328; --muted: #6b7280; --line: #d6dfec; --accent: #1d4ed8; --ok: #15803d; --ko: #b91c1c; --panel: #f3f6fb; }
 @media (prefers-color-scheme: dark) { :root { --bg: #1b1f23; --fg: #d1d5db; --muted: #9ca3af; --line: #30363d; --accent: #60a5fa; --ok: #4ade80; --ko: #f87171; --panel: #22272e; } }
 * { box-sizing: border-box; }
 body { margin: 0; font: 15px/1.5 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: var(--fg); background: var(--bg); }
