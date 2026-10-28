@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/cadastre-core", "crates/cadastre-project", "crates/cadastre-mcp", "crates/cadastre-cli", "crates/cadastre-lsp", "crates/cadastre-wasm"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Jbbouille/cadastre"
@@ -11,10 +11,10 @@ homepage = "https://cadastre-lang.org/"
 
 [workspace.dependencies]
 # The crates of the workspace, at the version of the workspace: published together (crates.io).
-cadastre-core = { path = "crates/cadastre-core", version = "0.1.0" }
-cadastre-project = { path = "crates/cadastre-project", version = "0.1.0" }
-cadastre-lsp = { path = "crates/cadastre-lsp", version = "0.1.0" }
-cadastre-mcp = { path = "crates/cadastre-mcp", version = "0.1.0" }
+cadastre-core = { path = "crates/cadastre-core", version = "0.1.1" }
+cadastre-project = { path = "crates/cadastre-project", version = "0.1.1" }
+cadastre-lsp = { path = "crates/cadastre-lsp", version = "0.1.1" }
+cadastre-mcp = { path = "crates/cadastre-mcp", version = "0.1.1" }
 # Without `std`: no regular expressions for query predicates, which our queries do not use
 # (a third smaller WebAssembly module).
 tree-sitter = { version = "0.27", default-features = false }

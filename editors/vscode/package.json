@@ -2,7 +2,7 @@
   "name": "cadastre",
   "displayName": "Cadastre",
   "description": "Cadastre language support: highlighting, diagnostics, outline, go to definition, hover, live preview and build of views.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "cadastre",
   "license": "MIT OR Apache-2.0",
   "homepage": "https://cadastre-lang.org/",
