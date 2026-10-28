@@ -34,6 +34,11 @@ jobs:
         run: |
           rustup show active-toolchain || rustup toolchain install
           rustup target add wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: compiler
+      - working-directory: compiler
+        run: |
           cargo build -p cadastre-wasm --target wasm32-unknown-unknown --profile wasm
           cargo build -p cadastre --release
       # The self-hosted playground, as the releases ship it, under /playground/.
