@@ -426,6 +426,11 @@ function colorize(editor, target, prefix = "", suffix = "") {
 }
 
 function syncScroll(editor, target) {
+  // The scrollbars of the textarea let it scroll further than the copy beneath: as much room
+  // after the copy, or its text lags behind the caret and the ▶ at the end of a long file.
+  const style = getComputedStyle(editor);
+  target.style.paddingBottom = `${parseFloat(style.paddingBottom) + editor.offsetHeight - editor.clientHeight}px`;
+  target.style.paddingRight = `${parseFloat(style.paddingRight) + editor.offsetWidth - editor.clientWidth}px`;
   target.scrollTop = editor.scrollTop;
   target.scrollLeft = editor.scrollLeft;
 }

@@ -136,10 +136,10 @@ view fw01-failure {
 // A scenario: several resources failing together, what fails and what is unavailable in red.
 view web-servers-failure {
   title: "If both web servers fail"
-  description: "web01 and web02 down together: in red, what fails and what becomes unavailable through it."
+  description: "web01 and web02 down together: in red, the apps and data that become unavailable."
   failing: [web01, web02]
-  select app, database, saas, server
-  edges  [flow], on
+  select app, database, saas
+  edges  [flow]
   render svg { legend: true }
 }
 
