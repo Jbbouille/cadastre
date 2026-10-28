@@ -158,8 +158,8 @@ jobs:
           cargo publish --workspace --exclude cadastre-wasm --allow-dirty
 
   # The extension of each platform on the Visual Studio Marketplace and on Open VSX (VSCodium,
-  # Cursor…). The Marketplace by Trusted Publishing (OIDC, no token), once its policy names this
-  # workflow and the repository variable MARKETPLACE is `true`; Open VSX with the OVSX_PAT secret.
+  # Cursor…), by Trusted Publishing on both (OIDC, no token): each one once its trusted publisher
+  # names this workflow and the repository variable MARKETPLACE, or OPENVSX, is `true`.
   extension:
     needs: [version, release]
     runs-on: ubuntu-latest
@@ -168,7 +168,7 @@ jobs:
       id-token: write
     env:
       MARKETPLACE: ${{ vars.MARKETPLACE }}
-      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+      OPENVSX: ${{ vars.OPENVSX }}
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -184,5 +184,5 @@ jobs:
           npx --yes @vscode/vsce publish --oidc --packagePath dist/*.vsix
       - name: Open VSX
         run: |
-          if [ -z "$OVSX_PAT" ]; then echo "::notice::no OVSX_PAT secret, not published on Open VSX"; exit 0; fi
-          for vsix in dist/*.vsix; do npx --yes ovsx publish "$vsix" -p "$OVSX_PAT"; done
+          if [ "$OPENVSX" != true ]; then echo "::notice::no OPENVSX variable, not published on Open VSX"; exit 0; fi
+          for vsix in dist/*.vsix; do npx --yes ovsx publish "$vsix" --trusted-publishing; done

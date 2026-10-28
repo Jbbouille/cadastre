@@ -88,7 +88,7 @@ The release holds the `cadastre` binaries for Linux (static), macOS (Apple silic
 |---|---|---|
 | crates.io | the secret `CARGO_REGISTRY_TOKEN` | `cadastre-core`, `cadastre-project`, `cadastre-lsp`, `cadastre-mcp` and `cadastre` (the command: `cargo install cadastre`) |
 | Visual Studio Marketplace | a Trusted Publishing policy of the publisher `cadastre` for `release.yml`, and the variable `MARKETPLACE` set to `true` | the extension of each platform (no token: OIDC) |
-| Open VSX | the secret `OVSX_PAT` | the same, for VSCodium, Cursor and the other editors that read Open VSX |
+| Open VSX | a trusted publisher of the namespace `cadastre` for `release.yml`, and the variable `OPENVSX` set to `true` | the same, for VSCodium, Cursor and the other editors that read Open VSX |
 
 The crates embed files of the repository outside their directory (the grammar for `cadastre-core`, the documentation of the language for `cadastre-mcp`): a clone reads them in place, a package from a copy in `vendor/` that `compiler/vendor.sh` makes before publishing. To check the packages without publishing them:
 
