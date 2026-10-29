@@ -75,20 +75,21 @@ cargo test --workspace
 
 ## Releases
 
-A version tag publishes a release. Before tagging, move the entries of `CHANGELOG.md` from *Unreleased* to the version, with what a project must change to upgrade. The tag must match the version of `compiler/Cargo.toml` (the workspace, and the versions its crates require of one another in `[workspace.dependencies]`) and of `editors/vscode/package.json`:
+A version tag publishes a release. Before tagging, move the entries of `CHANGELOG.md` from *Unreleased* to the version, with what a project must change to upgrade. The tag must match the version of `compiler/Cargo.toml` (the workspace, and the versions its crates require of one another in `[workspace.dependencies]`) of `editors/vscode/package.json` and of `editors/intellij/gradle.properties`:
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-The release holds the `cadastre` binaries for Linux (static), macOS (Apple silicon and Intel) and Windows, the VS Code extension of each platform with its binary, the WebAssembly module with `cadastre.js`, and their checksums. Then, each one once it is set up in the repository:
+The release holds the `cadastre` binaries for Linux (static), macOS (Apple silicon and Intel) and Windows, the VS Code extension of each platform with its binary, the IntelliJ plugin, the WebAssembly module with `cadastre.js`, and their checksums. Then, each one once it is set up in the repository:
 
 | Where | Set up | What |
 |---|---|---|
 | crates.io | the secret `CARGO_REGISTRY_TOKEN` | `cadastre-core`, `cadastre-project`, `cadastre-lsp`, `cadastre-mcp` and `cadastre` (the command: `cargo install cadastre`) |
 | Visual Studio Marketplace | a Trusted Publishing policy of the publisher `cadastre` for `release.yml`, and the variable `MARKETPLACE` set to `true` | the extension of each platform (no token: OIDC) |
 | Open VSX | a trusted publisher of the namespace `cadastre` for `release.yml`, and the variable `OPENVSX` set to `true` | the same, for VSCodium, Cursor and the other editors that read Open VSX |
+| JetBrains Marketplace | the secret `JETBRAINS_MARKETPLACE_TOKEN` (its first version uploaded by hand on plugins.jetbrains.com) | the IntelliJ plugin |
 
 The crates embed files of the repository outside their directory (the grammar for `cadastre-core`, the documentation of the language for `cadastre-mcp`): a clone reads them in place, a package from a copy in `vendor/` that `compiler/vendor.sh` makes before publishing. To check the packages without publishing them:
 

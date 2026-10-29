@@ -36,6 +36,10 @@ intellijPlatform {
             untilBuild = provider { null }
         }
     }
+    // `./gradlew publishPlugin`, by the release workflow.
+    publishing {
+        token = providers.environmentVariable("JETBRAINS_MARKETPLACE_TOKEN")
+    }
 }
 
 // The grammar and the editing rules of the VS Code extension, one source for both editors: the
