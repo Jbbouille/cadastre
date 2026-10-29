@@ -181,8 +181,8 @@ jobs:
       - name: Visual Studio Marketplace
         run: |
           if [ "$MARKETPLACE" != true ]; then echo "::notice::no MARKETPLACE variable, not published on the Marketplace"; exit 0; fi
-          npx --yes @vscode/vsce publish --oidc --packagePath dist/*.vsix
+          npx --yes @vscode/vsce publish --oidc --skip-duplicate --packagePath dist/*.vsix
       - name: Open VSX
         run: |
           if [ "$OPENVSX" != true ]; then echo "::notice::no OPENVSX variable, not published on Open VSX"; exit 0; fi
-          for vsix in dist/*.vsix; do npx --yes ovsx publish "$vsix" --trusted-publishing; done
+          for vsix in dist/*.vsix; do npx --yes ovsx publish "$vsix" --trusted-publishing --skip-duplicate; done
