@@ -23,7 +23,7 @@ Results are capped at 200 nodes, edges or links, with their totals, so that a la
 
 ## Configuring a client
 
-The `cadastre` executable must be installed (the releases, or `cargo install --path compiler/crates/cadastre-cli`).
+The `cadastre` executable must be installed (the releases, or `cargo install cadastre`).
 
 **Claude Code**, in the directory of the project:
 

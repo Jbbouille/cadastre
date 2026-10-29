@@ -23,12 +23,12 @@ A project is the workspace folder containing the file (or, outside any workspace
 
 ## Installation
 
-Download the `.vsix` of your platform from the releases (`cadastre-0.1.0-win32-x64.vsix`, `linux-x64`, `darwin-arm64`, `darwin-x64`) and install it with **Extensions: Install from VSIX…**, or `code --install-extension cadastre-0.1.0-win32-x64.vsix`. It ships the `cadastre` executable, started as `cadastre lsp`.
+Install **Cadastre** from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=cadastre.cadastre) or [Open VSX](https://open-vsx.org/extension/cadastre/cadastre) (VSCodium, Cursor…): `code --install-extension cadastre.cadastre`. Or download the `.vsix` of your platform from the releases (`cadastre-0.1.1-win32-x64.vsix`, `linux-x64`, `darwin-arm64`, `darwin-x64`) and install it with **Extensions: Install from VSIX…**. It ships the `cadastre` executable, started as `cadastre lsp`.
 
 The executable is looked up in this order: the `cadastre.server.path` setting, the `CADASTRE_SERVER` environment variable, the executable shipped with the extension, then `cadastre` from the `PATH` (a `.vsix` built locally has none). Without it, highlighting still works.
 
 ```bash
-cargo install --path compiler/crates/cadastre-cli
+cargo install cadastre
 ```
 
 ## Settings

@@ -126,10 +126,10 @@ One compiled model, three ways in:
 
 ## Getting started
 
-Install `cadastre` from the [releases](https://github.com/Jbbouille/cadastre/releases) (Linux, macOS, Windows), or build it with Rust:
+Install `cadastre` from the [releases](https://github.com/Jbbouille/cadastre/releases) (Linux, macOS, Windows), or from [crates.io](https://crates.io/crates/cadastre) with Rust:
 
 ```bash
-cargo install --path compiler/crates/cadastre-cli
+cargo install cadastre
 # then rebuild the playground beside it, if you publish sites with it (web/README.md)
 ```
 

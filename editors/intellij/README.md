@@ -15,7 +15,7 @@ Unlike VS Code, the preview needs Graphviz for the diagrams, and the Mermaid plu
 
 ## Installing
 
-1. Install `cadastre` (the command line of the [releases](https://github.com/Jbbouille/cadastre/releases), or `cargo install --path compiler/crates/cadastre-cli`), on the `PATH` or anywhere: its path then goes in *Settings > Tools > Cadastre*.
+1. Install `cadastre` (the command line of the [releases](https://github.com/Jbbouille/cadastre/releases), or `cargo install cadastre`), on the `PATH` or anywhere: its path then goes in *Settings > Tools > Cadastre*.
 2. Install LSP4IJ from the JetBrains Marketplace, then the plugin: *Settings > Plugins > ⚙ > Install Plugin from Disk…*, with the archive built below.
 
 ## Building
