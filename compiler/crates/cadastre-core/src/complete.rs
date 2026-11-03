@@ -484,6 +484,7 @@ impl Completer<'_> {
             Values::Number => self.symbols(&["10"]),
             Values::Numbers => self.symbols(&["1.5", "[1, 2]"]),
             Values::MergeLabel => self.symbols(&["list", "count", "5"]),
+            Values::Rows => self.symbols(&["nodes", "edges", "\"each(on)\""]),
             Values::Columns => self.symbols(&["name", "kind", "label", "source", "target", "port", "carries"]),
             _ => {}
         }

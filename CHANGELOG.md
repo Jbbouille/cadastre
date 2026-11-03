@@ -14,6 +14,7 @@ The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly mod
 
 ## Unreleased
 
+- **Tables**: a column can give its header (`"on.ancestor(site) as Site"`) and count the items of a path (`"count(on) as Servers"`), and `rows: "each(on.on)"` writes a row per item of a path, the columns starting with that path read from the item of the row: one row per app and physical server, as the general sheet of a CMDB.
 - **`merge: pair`** in `lift(…)`: one edge per pair of nodes whatever the direction of its links, drawn with a head at each end when both directions are present.
 - **`stack`**: an info names the edges between items of a level, which `stack` takes out of the layout (`view storage: 2 edges between items of a level of stack, drawn after the layout: …`).
 - **`satellites` is `false` by default**: every node drawn once, the copies in each frame kept for the views that ask for them (`satellites: true`). A project sets its own default in `cadastre.toml`, `[render] satellites = true`, a view still deciding for itself. To keep the drawings of 0.1, add that line to `cadastre.toml`.

@@ -151,3 +151,21 @@ view invoicing-process {
   edges  process(monthly-invoicing)
   render svg, sequence { edge_labels: [step, port] }
 }
+
+// A table: a row per app and server hosting it, as the general sheet of a CMDB.
+view inventory {
+  title: "Inventory"
+  description: "Each app with the servers hosting it, their address and their site."
+  select app, database
+  render xlsx, html {
+    rows: "each(on)"
+    columns: [
+      "name as Application",
+      "ancestor(system) as System",
+      "on as Server",
+      "on.ip as Address",
+      "on.ancestor(site) as Site",
+      "count(on) as Servers"
+    ]
+  }
+}

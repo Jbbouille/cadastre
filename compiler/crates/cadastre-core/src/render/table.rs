@@ -33,9 +33,36 @@ th { background: var(--head); position: sticky; top: 0; }
 tbody tr:hover { background: var(--head); }
 ";
 
-/// A column written in `columns`, parsed as a path: `ip`, `on.label`, `ancestor(site)`,
-/// `on?.ancestor(site)`. `None` when it is not one.
-pub fn column(text: &str) -> Option<Path> {
+/// A column of a table: its header, and what its cells hold.
+pub struct Column {
+    pub header: String,
+    pub path: Path,
+    /// `count(path)`: the number of distinct items of the path, rather than the items.
+    pub count: bool,
+}
+
+/// A column written in `columns`: a path (`ip`, `on.label`, `ancestor(site)`,
+/// `on?.ancestor(site)`) or the count of its items (`count(on)`), then its header when it is not
+/// the text of the column (`on.ancestor(site) as Site`). `None` when it is not one.
+pub fn column(text: &str) -> Option<Column> {
+    let (value, header) = match text.rsplit_once(" as ") {
+        Some((value, header)) if !header.trim().is_empty() => (value.trim(), header.trim()),
+        _ => (text.trim(), text.trim()),
+    };
+    let (inner, count) = match value.strip_prefix("count(").and_then(|r| r.strip_suffix(')')) {
+        Some(inner) => (inner, true),
+        None => (value, false),
+    };
+    Some(Column { header: header.to_owned(), path: path(inner)?, count })
+}
+
+/// `rows: "each(path)"`: the path whose items each give a row; `None` for `nodes`, `edges`.
+pub fn each(text: &str) -> Option<Path> {
+    path(text.strip_prefix("each(")?.strip_suffix(')')?)
+}
+
+/// A path written in a column or in `rows`.
+fn path(text: &str) -> Option<Path> {
     let span = Span { file: FileId(0), start: 0, end: 0, line: 0, column: 0 };
     let mut steps = Vec::new();
     for part in split_steps(text)? {
@@ -91,7 +118,8 @@ pub fn table(scene: &Scene, format: Table) -> String {
     render(scene, format, &names, &rows)
 }
 
-/// The rows of a view: one per node, or per edge (`rows`), its `columns` or the default ones.
+/// The rows of a view: one per node, or per edge (`rows`), or per item of a path from each
+/// (`rows: "each(on)"`); its `columns` or the default ones.
 pub(super) fn grid(scene: &Scene) -> Grid {
     let options = &scene.graph.options;
     let edges = match options.rows.as_deref() {
@@ -99,16 +127,43 @@ pub(super) fn grid(scene: &Scene) -> Grid {
         Some("edges") => true,
         _ => scene.graph.has_edge_clause,
     };
-    let names: Vec<String> = if options.columns.is_empty() {
+    let each = options.rows.as_deref().and_then(each);
+    let written: Vec<String> = if options.columns.is_empty() {
         (if edges { EDGE_COLUMNS } else { NODE_COLUMNS }).iter().map(|c| (*c).to_owned()).collect()
     } else {
         options.columns.clone()
     };
-    let paths: Vec<Option<Path>> = names.iter().map(|n| column(n)).collect();
+    let columns: Vec<Option<Column>> = written.iter().map(|n| column(n)).collect();
+    let names: Vec<String> = written
+        .iter()
+        .zip(&columns)
+        .map(|(text, column)| column.as_ref().map_or_else(|| text.clone(), |c| c.header.clone()))
+        .collect();
     let ctx = scene.ctx();
-    let cell = |subject: &Subject, path: &Option<Path>| -> String {
-        let Some(path) = path else { return String::new() };
-        let items = ctx.path(subject, path);
+    // The items of a column on a row: from the item of the `each` path the column starts with,
+    // from the node or the edge of the row otherwise.
+    let items = |subject: &Subject, chain: &[Item], path: &Path| -> Vec<Item> {
+        let shared = each
+            .as_ref()
+            .map_or(0, |each| each.steps.iter().zip(&path.steps).take_while(|(a, b)| a.kind == b.kind).count());
+        let shared = shared.min(chain.len());
+        if shared == 0 {
+            return ctx.path(subject, path);
+        }
+        let rest = &path.steps[shared..];
+        match &chain[shared - 1] {
+            item if rest.is_empty() => vec![item.clone()],
+            Item::Resource(id) => ctx.path(&Subject::Node(*id), &Path { steps: rest.to_vec(), span: path.span }),
+            Item::Value(_) => Vec::new(),
+        }
+    };
+    let cell = |subject: &Subject, chain: &[Item], column: &Option<Column>| -> String {
+        let Some(column) = column else { return String::new() };
+        // A count is that of the node or the edge, the same on each of its rows.
+        if column.count {
+            return ctx.path(subject, &column.path).len().to_string();
+        }
+        let items = items(subject, chain, &column.path);
         let texts: Vec<String> = items
             .iter()
             .map(|item| match item {
@@ -118,16 +173,24 @@ pub(super) fn grid(scene: &Scene) -> Grid {
             .collect();
         texts.join(", ")
     };
-    let rows: Vec<Vec<String>> = if edges {
-        scene.graph.edges.iter().map(|edge| paths.iter().map(|p| cell(&Subject::Edge(edge), p)).collect()).collect()
-    } else {
-        scene.graph.nodes.iter().map(|&id| paths.iter().map(|p| cell(&Subject::Node(id), p)).collect()).collect()
+    let row = |subject: &Subject| -> Vec<Vec<String>> {
+        let chains = match &each {
+            Some(each) => chains(&ctx, subject, each),
+            None => vec![Vec::new()],
+        };
+        chains.iter().map(|chain| columns.iter().map(|c| cell(subject, chain, c)).collect()).collect()
     };
-    let numeric = paths
+    let rows: Vec<Vec<String>> = if edges {
+        scene.graph.edges.iter().flat_map(|edge| row(&Subject::Edge(edge))).collect()
+    } else {
+        scene.graph.nodes.iter().flat_map(|&id| row(&Subject::Node(id))).collect()
+    };
+    let numeric = columns
         .iter()
-        .map(|path| match path.as_ref().and_then(|p| p.steps.last()).map(|s| &s.kind) {
-            Some(StepKind::Name(key)) if key == "port" || key == "step" => true,
-            Some(StepKind::Name(key)) => {
+        .map(|column| match column.as_ref().map(|c| (c.count, c.path.steps.last().map(|s| &s.kind))) {
+            Some((true, _)) => true,
+            Some((_, Some(StepKind::Name(key)))) if key == "port" || key == "step" => true,
+            Some((_, Some(StepKind::Name(key)))) => {
                 let mut types = crate::schema::KINDS
                     .iter()
                     .flat_map(|k| k.attrs.iter())
@@ -141,6 +204,36 @@ pub(super) fn grid(scene: &Scene) -> Grid {
         })
         .collect();
     Grid { names, numeric, rows }
+}
+
+/// The chains of items the `each` path goes through from a node or an edge, one per row: a step
+/// giving nothing ends its chain there, so that every node or edge keeps a row.
+fn chains(ctx: &crate::query::Ctx, subject: &Subject, each: &Path) -> Vec<Vec<Item>> {
+    let mut done = Vec::new();
+    let mut chains: Vec<Vec<Item>> = vec![Vec::new()];
+    for step in &each.steps {
+        let single = Path { steps: vec![step.clone()], span: each.span };
+        let mut next = Vec::new();
+        for chain in chains {
+            let produced = match chain.last() {
+                None => ctx.path(subject, &single),
+                Some(Item::Resource(id)) => ctx.path(&Subject::Node(*id), &single),
+                Some(Item::Value(_)) => Vec::new(),
+            };
+            if produced.is_empty() {
+                done.push(chain);
+                continue;
+            }
+            for item in produced {
+                let mut longer = chain.clone();
+                longer.push(item);
+                next.push(longer);
+            }
+        }
+        chains = next;
+    }
+    done.extend(chains);
+    done
 }
 
 fn render(scene: &Scene, format: Table, names: &[String], rows: &[Vec<String>]) -> String {
@@ -233,11 +326,15 @@ mod tests {
 
     #[test]
     fn columns_are_paths() {
-        let path = column("on?.ancestor(site)").unwrap();
-        assert_eq!(path.steps.len(), 2);
+        let written = column("on?.ancestor(site)").unwrap();
+        let path = &written.path;
+        assert_eq!((path.steps.len(), written.header.as_str(), written.count), (2, "on?.ancestor(site)", false));
         assert!(path.steps[0].optional && path.steps[1].kind == StepKind::Ancestor("site".into()));
         assert!(column("ip").is_some() && column("on.label").is_some());
         assert!(column("ancestor(site").is_none() && column("a..b").is_none() && column("x y").is_none());
+        let sites = column("count(on.ancestor(site)) as Sites").unwrap();
+        assert_eq!((sites.header.as_str(), sites.count, sites.path.steps.len()), ("Sites", true, 2));
+        assert!(column("count(on as x").is_none() && each("each(on.on)").is_some() && each("nodes").is_none());
     }
 
     #[test]

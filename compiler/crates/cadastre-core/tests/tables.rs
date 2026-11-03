@@ -93,8 +93,58 @@ fn a_row_per_edge() {
 
 #[test]
 fn invalid_columns() {
-    let c = compilation("view v {\n  select server\n  render csv { columns: [\"ancestor(site\", ipp] }\n}");
+    let c = compilation(
+        "view v {\n  select server\n  render csv { columns: [\"ancestor(site\", ipp, \"count(onn) as N\"]  rows: \"each(on\" }\n}",
+    );
     let found = errors(&c);
     assert!(found.contains(&"invalid column: ancestor(site".to_owned()), "{found:?}");
     assert!(found.iter().any(|m| m.contains("ipp")), "{found:?}");
+    assert!(found.iter().any(|m| m.contains("onn")), "{found:?}");
+    assert!(found.contains(&"invalid value for rows: each(on".to_owned()), "{found:?}");
+}
+
+/// Instances on logical servers, on physical servers in two buildings.
+const CMDB: &str = r#"
+site north { server phys-1 }
+site south { server phys-2 }
+virtual server vm-1 { on: phys-1 }
+virtual server vm-2 { on: phys-2 }
+virtual server vm-3 { on: phys-2 }
+app ledger { on: [vm-1, vm-2] }
+app wiki { on: vm-3 }
+app draft
+"#;
+
+fn cmdb(render: &str) -> String {
+    let views = format!("view v {{\n  select app\n  render markdown {{ {render} }}\n}}\n");
+    let c = compile(&[
+        SourceFile { path: "a.ca".into(), text: CMDB.into() },
+        SourceFile { path: "v.cav".into(), text: views },
+    ]);
+    assert!(errors(&c).is_empty(), "{:?}", errors(&c));
+    output(&c, "markdown")
+}
+
+#[test]
+fn headers_and_counts() {
+    assert_eq!(
+        cmdb("columns: [\"name as Application\", \"count(on) as Servers\", \"count(on.on.ancestor(site))\"]"),
+        "| Application | Servers | count(on.on.ancestor(site)) |\n|---|---|---|\n\
+         | ledger | 2 | 2 |\n| wiki | 1 | 1 |\n| draft | 0 | 0 |\n"
+    );
+}
+
+#[test]
+fn a_row_per_item_of_a_path() {
+    // A row per app and physical server, each column read from the item of the chain it starts
+    // with: `on` is the logical server of the row, not every server of the app. A count stays
+    // that of the app.
+    assert_eq!(
+        cmdb("rows: \"each(on.on)\"  columns: [name, on, \"on.on\", \"on.on.ancestor(site) as Site\", \"count(on)\"]"),
+        "| name | on | on.on | Site | count(on) |\n|---|---|---|---|---|\n\
+         | ledger | vm-1 | phys-1 | north | 2 |\n\
+         | ledger | vm-2 | phys-2 | south | 2 |\n\
+         | wiki | vm-3 | phys-2 | south | 1 |\n\
+         | draft |  |  |  | 0 |\n"
+    );
 }

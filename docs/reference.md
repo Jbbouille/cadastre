@@ -542,8 +542,8 @@ A group stands for its kinds wherever a kind is expected (`ref(transit)`, `selec
 | `satellites` | `true \| false` | `false` | a node exchanging with two frames or more drawn once in each of them, in gray, rather than once with every edge pulled to it (SVG); the default of a project in `cadastre.toml` (`[render] satellites = true`) |
 | `twins` | `true \| false` | `true` | in a frame, the nodes of one kind with exactly the same edges drawn as one box listing them, with one edge per shared exchange (SVG) |
 | `title` | `true \| false` | `true` | title of a sequence diagram drawing a single process: its label |
-| `columns` | `[<key or path>, …]` |  | columns of a table (`csv`, `tsv`, `markdown`): keys, pseudo-attributes or paths, `"ancestor(site)"` quoted |
-| `rows` | `nodes \| edges` |  | rows of a table: one per node, or one per edge; by default per edge when the view has edges |
+| `columns` | `[<key or path>, …]` |  | columns of a table (`csv`, `tsv`, `markdown`, `html`, `xlsx`): keys, pseudo-attributes or paths, or their count, then a header, quoted: `"on.ancestor(site) as Site"`, `"count(on) as Servers"` |
+| `rows` | `nodes \| edges \| "each(<path>)"` |  | rows of a table: one per node, or one per edge, by default per edge when the view has edges; or one per item of a path from each, quoted: `"each(on)"` |
 | `merge_label` | `list \| count \| <number>` | `list` | label of an edge merging links: their labels, or a summary (`sftp ×9`, the detail in the tooltip) from 2 links (`count`) or from a number of links |
 
 #### Layout hints

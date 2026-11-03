@@ -175,7 +175,7 @@ impl RenderOptions {
                 ("columns", _) => {
                     options.columns = option.value.items().iter().map(|v| crate::query::value_text(v)).collect()
                 }
-                ("rows", v) => options.rows = Some(v.to_owned()),
+                ("rows", _) => options.rows = Some(crate::query::value_text(&option.value)),
                 ("merge_label", "count") => options.summary_from = Some(2),
                 ("merge_label", v) => options.summary_from = v.parse().ok().filter(|&n| n >= 2),
                 ("edge_labels_wrap", "values") => options.wrap = Some(Wrap::Values),
@@ -548,20 +548,25 @@ impl Validator<'_> {
                         for value in option.value.items() {
                             let text = crate::query::value_text(value);
                             match crate::render::table::column(&text) {
-                                Some(mut path) => {
-                                    // Diagnostics on the column as written.
-                                    path.span = value.span;
-                                    for step in &mut path.steps {
-                                        step.span = value.span;
-                                    }
-                                    self.path(&path)
-                                }
+                                Some(column) => self.written_path(column.path, value.span),
                                 None => self.diagnostics.push(
                                     Diagnostic::error(format!("invalid column: {text}"), value.span).with_help(
-                                        "a key, a pseudo-attribute or a path: `ip`, `on.label`, \"ancestor(site)\"",
+                                        "a key, a pseudo-attribute or a path, its count, then its header: `ip`, \"on.ancestor(site) as Site\", \"count(on) as Servers\"",
                                     ),
                                 ),
                             }
+                        }
+                        None
+                    }
+                    Values::Rows => {
+                        let text = crate::query::value_text(&option.value);
+                        if let Some(path) = crate::render::table::each(&text) {
+                            self.written_path(path, option.value.span);
+                        } else if !vocabulary::ROWS.contains(&text.as_str()) {
+                            self.diagnostics.push(
+                                Diagnostic::error(format!("invalid value for rows: {text}"), option.value.span)
+                                    .with_help("`nodes`, `edges`, or a row per item of a path: \"each(on)\""),
+                            );
                         }
                         None
                     }
@@ -899,6 +904,15 @@ impl Validator<'_> {
                 crate::check::record_name(self.names, value.span, &resolution);
             }
         }
+    }
+
+    /// A path written in a string of a render option: its diagnostics on the string.
+    fn written_path(&mut self, mut path: Path, span: crate::source::Span) {
+        path.span = span;
+        for step in &mut path.steps {
+            step.span = span;
+        }
+        self.path(&path)
     }
 
     fn path(&mut self, path: &Path) {

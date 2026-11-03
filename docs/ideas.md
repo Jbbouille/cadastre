@@ -164,16 +164,11 @@ paths, gives most of the flat sheets:
 - **One workbook, several sheets.** An `xlsx` is one sheet named after its view. A CMDB is one
   file of ten sheets: a `workbook` grouping views (`render xlsx { sheets: [servers, instances, vlans] }`,
   or a project option) would write them together, with links between sheets on the names.
-- **One row per pair.** A multi-valued path gives one cell, `"srv-a, srv-b"`. The sheet of the
-  instances wants one row per instance *and* server, as the general view of a CMDB does
-  (instance, logical server, physical server, building): `rows: each(on)`, or a path in `rows`.
-- **Column headers.** A column is titled by its path (`on.ancestor(site)`). A sheet given to others
-  wants its own words: `columns: ["on.ancestor(site)" as "Site", …]`.
-- **Counts and pivots.** `count(path)` exists in filters, not in columns: the number of flows per
-  application, of servers per application, of addresses used per subnet (free, allocated,
-  reserved) are columns of these sheets. Then the pivot tables: the applications by status and
-  criticality, the flows by kind of exchange, the services by consumer. `columns: ["count(on)"]`
-  first, then rows grouped by a key with counts (`group: status`, `count: [criticality]`).
+- **Pivots.** One row per pair (`rows: "each(on.on)"`), column headers (`"… as Site"`) and
+  counts in columns (`"count(on)"`) are done. Left: the pivot tables, the applications by status
+  and criticality, the flows by kind of exchange, the services by consumer: rows grouped by a key
+  with counts (`group: status`, `count: [criticality]`); and the counts a path does not give,
+  such as the flows of an application, which are links rather than keys.
 - **Computed keys.** A security criticality derived from four ratings (availability, integrity,
   confidentiality, traceability: the highest of them), a business criticality from the impacts
   (money, reputation, people, health): a key defined in the schema from other keys,

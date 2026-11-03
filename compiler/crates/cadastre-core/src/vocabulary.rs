@@ -29,6 +29,8 @@ pub enum Values {
     MergeLabel,
     /// A list of keys, pseudo-attributes or paths, quoted when they hold parentheses.
     Columns,
+    /// `nodes`, `edges`, or `each(path)` quoted.
+    Rows,
     /// A list of kinds or groups.
     Kinds,
     /// A positive number.
@@ -223,13 +225,13 @@ pub static RENDER_OPTIONS: &[OptionDef] = &[
         "columns",
         Values::Columns,
         "",
-        "columns of a table (`csv`, `tsv`, `markdown`): keys, pseudo-attributes or paths, `\"ancestor(site)\"` quoted",
+        "columns of a table (`csv`, `tsv`, `markdown`, `html`, `xlsx`): keys, pseudo-attributes or paths, or their count, then a header, quoted: `\"on.ancestor(site) as Site\"`, `\"count(on) as Servers\"`",
     ),
     option(
         "rows",
-        Values::Closed(ROWS),
+        Values::Rows,
         "",
-        "rows of a table: one per node, or one per edge; by default per edge when the view has edges",
+        "rows of a table: one per node, or one per edge, by default per edge when the view has edges; or one per item of a path from each, quoted: `\"each(on)\"`",
     ),
     option(
         "merge_label",
@@ -419,6 +421,7 @@ pub fn values_text(values: Values) -> String {
         Values::Wrap => "<number> | values".to_owned(),
         Values::MergeLabel => "list | count | <number>".to_owned(),
         Values::Columns => "[<key or path>, …]".to_owned(),
+        Values::Rows => "nodes | edges | \"each(<path>)\"".to_owned(),
         Values::Kinds => "[<kind or resource>, …]".to_owned(),
         Values::Number => "<number>".to_owned(),
         Values::Numbers => "<number> | [<number>, <number>]".to_owned(),
