@@ -14,6 +14,7 @@ The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly mod
 
 ## Unreleased
 
+- **`stack`**: an info names the edges between items of a level, which `stack` takes out of the layout (`view storage: 2 edges between items of a level of stack, drawn after the layout: …`).
 - **`satellites` is `false` by default**: every node drawn once, the copies in each frame kept for the views that ask for them (`satellites: true`). A project sets its own default in `cadastre.toml`, `[render] satellites = true`, a view still deciding for itself. To keep the drawings of 0.1, add that line to `cadastre.toml`.
 - **`stack`**: the items of a level are placed in the order they are written, across the direction, rather than where Graphviz puts them; `cross` still orders them. A view whose level was written in another order than drawn is drawn in the written order: swap its items to keep the drawing.
 - **`cadastre anonymize`**: the copy builds when the original does. The names a `for_each` generates are renamed through their template (a reference to `srv-lil` no longer dangles); the networks are renumbered whole, a network still containing what it contained and none overlapping another unless they did; masks, `0.0.0.0` and the loopback are kept, as are the colors of the styles.

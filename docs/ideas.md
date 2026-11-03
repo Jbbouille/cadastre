@@ -148,7 +148,6 @@ Ideas:
 - an edge that enters nested frames routed through their nearest side;
 - the edges between the items of a level kept in the layout across the rank (as a flat edge in
   Graphviz) rather than freed, when they do not go against the order of the stack;
-- a warning, or a line in the hover of the view, naming the edges that `stack` freed.
 
 ## A view that gives back a whole CMDB
 

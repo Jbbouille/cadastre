@@ -1302,6 +1302,20 @@ impl<'a> Scene<'a> {
         }
         conflicts
     }
+
+    /// The edges between two items of a level of `stack`, which leave the layout to keep the
+    /// items side by side (`across_level`): `host-a2 -> store-b`, once each.
+    pub fn stack_freed(&self) -> Vec<String> {
+        let mut freed = Vec::new();
+        for edge in self.graph.edges.iter().filter(|e| self.edge_drawn(e) && self.across_level(e)) {
+            let (from, to, _) = self.drawn(edge);
+            let line = format!("{} -> {}", self.name(from), self.name(to));
+            if !freed.contains(&line) {
+                freed.push(line);
+            }
+        }
+        freed
+    }
 }
 
 /// A frame or a node named by the `stack` render option.

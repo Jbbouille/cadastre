@@ -150,7 +150,8 @@ fn stack_levels_hold_several_items() {
     );
     for stack in ["[[cluster-a, cluster-b], veeam]", "[esx1, esx2, veeam]", "[esx1, [esx2, veeam]]"] {
         let (_, diagnostics) = build(&compilation(&format!("dot {{ stack: {stack} }}"), ""), None);
-        assert!(diagnostics.is_empty(), "{stack}: {diagnostics:?}");
+        // No warning; the edges between the clusters of a level, an info (`cross_orders_a_level_of_stack`).
+        assert!(diagnostics.iter().all(|d| d.severity == Severity::Info), "{stack}: {diagnostics:?}");
     }
 
     // Elsewhere, a list cannot contain a list.
@@ -407,6 +408,16 @@ fn cross_orders_a_level_of_stack() {
     assert!(
         same.contains("remincross=false") && same.contains(&format!("  {datacore01} -> {esx4} [dir=back,")),
         "{same}"
+    );
+    // The iSCSI flows between the two clusters leave the layout: an info names them.
+    let c = compilation("dot { direction: tb, stack: [[cluster-a, cluster-b]] }", "");
+    let (_, diagnostics) = build(&c, None);
+    let info = diagnostics.iter().find(|d| d.message.contains("drawn after the layout")).expect("an info");
+    assert_eq!(info.severity, Severity::Info);
+    assert!(
+        info.message.contains("esx4 -> datacore01") || info.message.contains("datacore01 -> esx4"),
+        "{}",
+        info.message
     );
     // Written the other way, cluster-b first.
     let dot = output(&compilation("dot { direction: tb, stack: [[cluster-b, cluster-a]] }", ""), "dot");

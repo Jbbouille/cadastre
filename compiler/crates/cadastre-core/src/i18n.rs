@@ -620,6 +620,18 @@ const FR_MESSAGES: &[(&str, &str)] = &[
         "mettez-les sur des niveaux adjacents, ou groupez la vue pour qu'ils ne soient pas dans le même cadre",
     ),
     (
+        "view {}: an edge between items of a level of stack, drawn after the layout: {}",
+        "vue {1} : une arête entre des éléments d'un niveau de stack, dessinée après la mise en page : {2}",
+    ),
+    (
+        "view {}: {} edges between items of a level of stack, drawn after the layout: {}",
+        "vue {1} : {2} arêtes entre des éléments d'un niveau de stack, dessinées après la mise en page : {3}",
+    ),
+    (
+        "to lay them out with the others, put their ends on different levels",
+        "pour les placer avec les autres, mettez leurs extrémités sur des niveaux différents",
+    ),
+    (
         "view {}: render sequence draws the steps of a process",
         "vue {1} : render sequence dessine les étapes d'un processus",
     ),
