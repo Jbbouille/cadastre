@@ -175,6 +175,7 @@ Not everything in the language carries the same promise. Three tiers, so that a 
 | [Project layout](docs/project-layout.md) | organizing the files of a project |
 | [Design](docs/design.md) | the decisions in short, the architecture, the rejected options |
 | [Roadmap](ROADMAP.md) | what is done and what is planned |
+| [Ideas](docs/ideas.md) | ideas met while writing real maps, not decided yet |
 | [Changelog](CHANGELOG.md) | what changes for a project from one version to the next, and the version policy |
 | [Contributing](CONTRIBUTING.md) | building, checking a change, releasing |
 
