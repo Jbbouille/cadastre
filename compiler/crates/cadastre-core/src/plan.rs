@@ -195,6 +195,9 @@ pub enum Loops {
 pub enum Merge {
     #[default]
     Endpoints,
+    /// One edge per pair of nodes, whatever its direction: drawn with a head at each end when
+    /// both directions are present.
+    Pair,
     Port,
     None,
 }
@@ -623,6 +626,7 @@ impl Ctx<'_> {
                 ("loops", Some("drop")) => lift.loops = Loops::Drop,
                 ("loops", Some("keep")) => lift.loops = Loops::Keep,
                 ("merge", Some("endpoints")) => lift.merge = Merge::Endpoints,
+                ("merge", Some("pair")) => lift.merge = Merge::Pair,
                 ("merge", Some("port")) => lift.merge = Merge::Port,
                 ("merge", Some("none")) => lift.merge = Merge::None,
                 _ => lift.invalid_options.push((format!("{key_text}: {}", path.text()), self.span(&option))),

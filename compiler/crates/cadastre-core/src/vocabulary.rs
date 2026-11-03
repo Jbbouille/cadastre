@@ -90,7 +90,7 @@ pub const EDGE_ROUTINGS: &[&str] = &["straight"];
 pub const LOOPS: &[&str] = &["drop", "keep"];
 pub const ROUTINGS: &[&str] = &["curved", "polyline", "straight", "orthogonal"];
 pub const LABEL_LAYOUTS: &[&str] = &["nodes", "free"];
-pub const MERGES: &[&str] = &["endpoints", "port", "none"];
+pub const MERGES: &[&str] = &["endpoints", "pair", "port", "none"];
 pub const SEVERITIES: &[&str] = &["error", "warning", "info"];
 
 /// The expectations of a check.
@@ -313,7 +313,7 @@ pub static LIFT_OPTIONS: &[OptionDef] = &[
         "merge",
         Values::Closed(MERGES),
         "endpoints",
-        "one edge per pair of ends, per pair and `port_spec`, or no merging",
+        "one edge per (source, target), per pair of nodes whatever the direction (`pair`, a head at each end when both are present), per (source, target) and `port_spec`, or no merging",
     ),
 ];
 

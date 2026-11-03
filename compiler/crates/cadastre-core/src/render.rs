@@ -1158,6 +1158,7 @@ impl<'a> Scene<'a> {
             return Arrow::None;
         }
         match self.graph.options.orientation {
+            Orientation::Connection if edge.both_ways => Arrow::Both,
             Orientation::Connection => Arrow::Forward,
             Orientation::Data => match edge.exchange {
                 Some(Exchange::Push) => Arrow::Forward,

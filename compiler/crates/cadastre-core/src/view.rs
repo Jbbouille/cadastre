@@ -1062,6 +1062,15 @@ pub enum Exchange {
 }
 
 impl Exchange {
+    /// The same exchange seen from the other end.
+    fn reversed(self) -> Self {
+        match self {
+            Self::Push => Self::Pull,
+            Self::Pull => Self::Push,
+            Self::Both => Self::Both,
+        }
+    }
+
     fn combine(a: Option<Self>, b: Option<Self>) -> Option<Self> {
         match (a, b) {
             (None, x) | (x, None) => x,
@@ -1299,6 +1308,8 @@ pub struct GraphEdge {
     pub source: ResourceId,
     pub target: ResourceId,
     pub symmetric: bool,
+    /// Merged with edges going the other way (`merge: pair`): drawn with a head at each end.
+    pub both_ways: bool,
     /// Relation or connector kind; `None` for flows.
     pub relation: Option<String>,
     pub ports: BTreeSet<String>,
@@ -2290,6 +2301,7 @@ fn pre_edge(ctx: &Ctx, edge: &BaseEdge, source: ResourceId, target: ResourceId, 
         source,
         target,
         symmetric: false,
+        both_ways: false,
         relation: None,
         ports: BTreeSet::new(),
         layers: BTreeSet::new(),
@@ -2410,13 +2422,18 @@ fn split_through(edges: Vec<GraphEdge>, selected: &HashSet<ResourceId>) -> Vec<G
 fn merge_edges(edges: Vec<GraphEdge>, merge: Merge) -> Vec<GraphEdge> {
     let mut out: Vec<GraphEdge> = Vec::new();
     let mut index: HashMap<(ResourceId, ResourceId, Option<String>, String), usize> = HashMap::new();
+    // `merge: pair`: the links of each merged edge going its way, and the other way.
+    let mut ways: Vec<(usize, usize)> = Vec::new();
     for (n, mut edge) in edges.into_iter().enumerate() {
         if edge.symmetric && edge.target < edge.source {
             std::mem::swap(&mut edge.source, &mut edge.target);
         }
-        let (a, b) = (edge.source, edge.target);
+        let (a, b) = match merge {
+            Merge::Pair => (edge.source.min(edge.target), edge.source.max(edge.target)),
+            _ => (edge.source, edge.target),
+        };
         let port = match merge {
-            Merge::Endpoints => String::new(),
+            Merge::Endpoints | Merge::Pair => String::new(),
             Merge::Port => edge.ports.iter().cloned().collect::<Vec<_>>().join(","),
             Merge::None => format!("#{n}"),
         };
@@ -2427,6 +2444,14 @@ fn merge_edges(edges: Vec<GraphEdge>, merge: Merge) -> Vec<GraphEdge> {
         match index.get(&key) {
             Some(&i) => {
                 let target = &mut out[i];
+                // The other way: its exchange is seen from the ends of the merged edge.
+                if !edge.symmetric && edge.source != target.source {
+                    edge.exchange = edge.exchange.map(Exchange::reversed);
+                    target.both_ways = true;
+                    ways[i].1 += edge.links.len().max(1);
+                } else {
+                    ways[i].0 += edge.links.len().max(1);
+                }
                 target.ports.extend(edge.ports);
                 target.layers.extend(edge.layers);
                 target.carries.extend(edge.carries);
@@ -2472,8 +2497,16 @@ fn merge_edges(edges: Vec<GraphEdge>, merge: Merge) -> Vec<GraphEdge> {
             }
             None => {
                 index.insert(key, out.len());
+                ways.push((edge.links.len().max(1), 0));
                 out.push(edge);
             }
+        }
+    }
+    // A pair laid out the way most of its links go, the first written on a tie.
+    for (edge, (along, against)) in out.iter_mut().zip(ways) {
+        if against > along {
+            std::mem::swap(&mut edge.source, &mut edge.target);
+            edge.exchange = edge.exchange.map(Exchange::reversed);
         }
     }
     out

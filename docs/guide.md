@@ -1484,7 +1484,7 @@ Links are written once, between the resources that exchange; the selectors deriv
 ### `lift`
 
 ```
-lift(<selector>, via: <path>, loops: drop | keep, merge: endpoints | port | none)
+lift(<selector>, via: <path>, loops: drop | keep, merge: endpoints | pair | port | none)
 ```
 
 The first argument is any edge selector (layers, relation, connector, `parent`, `follow`), with its own `where`, which filters the links before lifting. A `where` written after `lift(…)` filters the lifted edges, whose ends are already folded: `lift([flow] where carries has customer, via: on) where target.ancestor(subnet) = dmz` keeps the flows carrying customer details, then those lifted onto a server of the DMZ. For each selected edge `a → b`:
@@ -1497,10 +1497,10 @@ The first argument is any edge selector (layers, relation, connector, `parent`, 
 | `via` | path | required |
 | `via_<kind>` | path for the ends of that kind or group, before `via`: `lift([flow], via: ancestor(system)?, via_job: on)` takes a job to its server and anything else to its system | none |
 | `loops` | `drop`: removes `x → x` edges; `keep`: keeps them | `drop` |
-| `merge` | `endpoints`: one edge per (source, target); `port`: one per (source, target, `port_spec`); `none`: multigraph | `endpoints` |
+| `merge` | `endpoints`: one edge per (source, target); `pair`: one per pair of nodes, whatever the direction; `port`: one per (source, target, `port_spec`); `none`: multigraph | `endpoints` |
 
 Common rules:
-- Edges remain **directed** (`a → b` and `b → a` do not merge), except for symmetric relations (`peer`, connectors), merged regardless of direction and drawn without arrows.
+- Edges remain **directed** (`a → b` and `b → a` do not merge), except for symmetric relations (`peer`, connectors), merged regardless of direction and drawn without arrows, and with `merge: pair`: a pair of nodes talking both ways (a backup server and its proxy) is drawn as one edge, a head at each end, its labels those of both directions, laid out the way most of its links go (the first written on a tie); with `orientation: data`, the `exchange` of the links going the other way is seen from the ends of the edge (a `push` back is a `pull`).
 - Label after merging: for flows, the sorted union of `port_spec`s; for references and connectors, the relation name followed by `×n` when n > 1, unless `edge_labels` gives other labels (§ 6, `render`).
 - A merged edge carries the union of the original layers, `carries` and `through` (unordered). `description`s and the order of `through` remain available through provenance.
 - Each lifted edge keeps its **provenance** (identifiers of the original edges), used for SVG tooltips, text output and debugging.

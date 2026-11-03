@@ -611,7 +611,7 @@ The selectors of `edges`: a list of layers (`[flow, auth]`), `lift(…)`, `follo
 | `via` | `<path>` |  | the path replacing each end (required, unless every kind has its own) |
 | `via_<kind>` | `<path>` |  | the path replacing the ends of a kind or a group, before `via`: `via_job: on` |
 | `loops` | `drop \| keep` | `drop` | edges whose two ends are replaced by the same resource |
-| `merge` | `endpoints \| port \| none` | `endpoints` | one edge per pair of ends, per pair and `port_spec`, or no merging |
+| `merge` | `endpoints \| pair \| port \| none` | `endpoints` | one edge per (source, target), per pair of nodes whatever the direction (`pair`, a head at each end when both are present), per (source, target) and `port_spec`, or no merging |
 
 #### Options of `follow`
 

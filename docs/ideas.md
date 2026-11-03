@@ -2,24 +2,15 @@
 
 Ideas met while writing a real map, not decided yet: what they would change, and what is open.
 
-## `merge: pair`: one arrow for the two directions
+## `merge: pair`: what is left
 
-`lift(…, merge: endpoints)` merges the edges going the same way between two nodes. A flow A → B
-and a flow B → A stay two arrows: only symmetric relations (`peer`) are put back in one direction
-before merging. On a view of a backup (a backup server and its proxy, a hypervisor manager and the
-backup server), each pair talking both ways draws two arrows side by side, their labels mixed.
+`merge: pair` draws one edge per pair of nodes, a head at each end when both directions are
+present, its labels those of both directions in one list. Open:
 
-`merge: pair` would merge the edges of a pair of nodes whatever their direction:
-
-- one arrow, with a head at each end when the two directions are present, a single head otherwise;
-- the labels of each direction kept apart, `→ jobs, data` and
-  `← disk-blocks`, or a single list when the direction does not matter;
-- the tooltip listing the merged links, as `merge: endpoints` does;
-- `orientation: data`: the layout follows the direction carrying the most links, or the first one
-  written.
-
-Open: the style of an edge merging links of two styles (solid one way, dashed the other); `pair`
-on a `follow`, whose steps stay apart today.
+- the labels of each direction kept apart, `→ jobs, data` and `← disk-blocks`;
+- the style of an edge merging links of two styles (solid one way, dashed the other): today, the
+  style rules apply to the merged edge as to any other;
+- `pair` on a `follow`, whose steps stay apart.
 
 ## Edges drawn after the layout: where they go
 
