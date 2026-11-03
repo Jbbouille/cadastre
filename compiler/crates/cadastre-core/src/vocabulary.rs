@@ -178,8 +178,8 @@ pub static RENDER_OPTIONS: &[OptionDef] = &[
     option(
         "satellites",
         Values::Closed(BOOLEANS),
-        "true",
-        "a node exchanging with two frames or more drawn once in each of them, in gray, rather than once with every edge pulled to it (SVG)",
+        "false",
+        "a node exchanging with two frames or more drawn once in each of them, in gray, rather than once with every edge pulled to it (SVG); the default of a project in `cadastre.toml` (`[render] satellites = true`)",
     ),
     option(
         "twins",

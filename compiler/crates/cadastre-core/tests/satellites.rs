@@ -1,6 +1,6 @@
 //! Satellites: a node exchanging with several frames is drawn once in each of them (SVG).
 
-use cadastre_core::{Compilation, Severity, SourceFile, build, compile};
+use cadastre_core::{Compilation, Options, Severity, SourceFile, build, compile_with};
 
 /// A directory used by the apps of three systems, and a database used by one.
 const REGISTRY: &str = r#"
@@ -17,10 +17,17 @@ system billing {
 "#;
 
 fn dot(views: &str) -> String {
-    let c: Compilation = compile(&[
-        SourceFile { path: "a.ca".into(), text: REGISTRY.into() },
-        SourceFile { path: "v.cav".into(), text: views.into() },
-    ]);
+    dot_with(views, Options::default())
+}
+
+fn dot_with(views: &str, options: Options) -> String {
+    let c: Compilation = compile_with(
+        &[
+            SourceFile { path: "a.ca".into(), text: REGISTRY.into() },
+            SourceFile { path: "v.cav".into(), text: views.into() },
+        ],
+        options,
+    );
     assert!(c.diagnostics.iter().all(|d| d.severity != Severity::Error), "{:?}", c.diagnostics);
     let (outputs, _) = build(&c, None);
     outputs.into_iter().find(|o| o.format == "svg").unwrap().content
@@ -35,7 +42,9 @@ fn directory_id(dot: &str) -> String {
 
 #[test]
 fn a_shared_node_is_drawn_once_per_frame() {
-    let dot = dot("view v { select app, database, saas group-by system\n  edges [auth], [flow]\n  render svg }");
+    let dot = dot(
+        "view v { select app, database, saas group-by system\n  edges [auth], [flow]\n  render svg { satellites: true } }",
+    );
     // Three copies, one per system frame, in gray.
     assert_eq!(dot.matches(" satellite\"").count(), 3, "{dot}");
     assert!(dot.contains("color=\"#9ca3af\""), "{dot}");
@@ -51,9 +60,12 @@ fn a_shared_node_is_drawn_once_per_frame() {
 }
 
 #[test]
-fn satellites_off() {
-    let dot = dot(
-        "view v { select app, database, saas group-by system\n  edges [auth], [flow]\n  render svg { satellites: false } }",
-    );
-    assert_eq!(dot.matches(" satellite\"").count(), 0, "{dot}");
+fn satellites_off_by_default() {
+    let view = "view v { select app, database, saas group-by system\n  edges [auth], [flow]\n  render svg }";
+    assert_eq!(dot(view).matches(" satellite\"").count(), 0);
+    // On for the project (`[render] satellites = true`), off again for a view that says so.
+    let on = Options { satellites: true, ..Options::default() };
+    assert_eq!(dot_with(view, on).matches(" satellite\"").count(), 3);
+    let off = "view v { select app, database, saas group-by system\n  edges [auth], [flow]\n  render svg { satellites: false } }";
+    assert_eq!(dot_with(off, on).matches(" satellite\"").count(), 0);
 }

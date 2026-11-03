@@ -1,0 +1,3 @@
+# The test bench of the readable diagrams: dense views, their shared nodes drawn in each frame.
+[render]
+satellites = true

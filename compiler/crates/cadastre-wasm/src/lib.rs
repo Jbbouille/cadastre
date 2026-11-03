@@ -47,6 +47,9 @@ struct Request {
     view: Option<String>,
     #[serde(default)]
     strict: bool,
+    /// The `satellites` of the views that do not write it (`[render] satellites` of the project).
+    #[serde(default)]
+    satellites: bool,
     /// Formats to render, instead of those declared by each view.
     #[serde(default)]
     formats: Option<Vec<String>>,
@@ -167,7 +170,8 @@ pub fn run(request: &str) -> String {
     let modules: Vec<Module> =
         request.modules.into_iter().map(|m| Module { name: m.name, files: m.files[0]..m.files[1] }).collect();
     let language = request.language.as_deref().and_then(cadastre_core::Language::parse).unwrap_or_default();
-    let compilation = compile_modules(&files, &modules, Options { strict: request.strict, language });
+    let compilation =
+        compile_modules(&files, &modules, Options { strict: request.strict, language, satellites: request.satellites });
 
     let mut diagnostics: Vec<Diagnostic> = compilation.diagnostics.iter().map(|d| d.in_language(language)).collect();
     let mut outputs = Vec::new();

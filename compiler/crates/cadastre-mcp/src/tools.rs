@@ -118,7 +118,11 @@ fn compile(project: &cadastre_project::Project, proposed: Option<&str>) -> (Comp
     if let Some(text) = proposed {
         files.push(SourceFile { path: proposed_path(text), text: text.to_owned() });
     }
-    let options = cadastre_core::Options { strict: project.strict(), language: project.language() };
+    let options = cadastre_core::Options {
+        strict: project.strict(),
+        language: project.language(),
+        satellites: project.satellites(),
+    };
     (compile_modules(&files, &project.modules, options), files)
 }
 

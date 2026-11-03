@@ -116,7 +116,7 @@ pub struct RenderOptions {
 }
 
 impl RenderOptions {
-    fn of(view: &View) -> Self {
+    fn of(view: &View, model: &Model) -> Self {
         let mut options = Self {
             formats: vec!["svg".to_owned()],
             direction: Direction::LeftRight,
@@ -128,7 +128,7 @@ impl RenderOptions {
             elk: false,
             title: true,
             icons: true,
-            satellites: true,
+            satellites: model.satellites,
             twins: true,
             stack: Vec::new(),
             cross: Vec::new(),
@@ -1480,7 +1480,7 @@ pub fn evaluate(view: &View, registry: &Registry, model: &Model, diagnostics: &m
     let failing = failing_of(view, registry);
     let down = crate::impact::down(registry, model, &failing.iter().copied().collect::<Vec<_>>());
     let ctx = Ctx { registry, model, down: &down };
-    let options = RenderOptions::of(view);
+    let options = RenderOptions::of(view, model);
     let mut graph = Graph {
         view: view.name.clone(),
         nodes: Vec::new(),

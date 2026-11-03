@@ -16,7 +16,7 @@ view network {
   description: "The servers by site and subnet, with the application flows lifted onto the machines that host them."
   select server, saas group-by site > subnet
   edges  lift([flow], via: on)
-  render svg
+  render svg { satellites: true }
 }
 
 view macro {
@@ -97,7 +97,7 @@ view security {
   description: "The servers and firewalls by site and subnet, every flow split at the devices it traverses."
   select server, firewall group-by site > subnet
   edges  lift([flow], via: on), through: show
-  render svg
+  render svg { satellites: true }
 }
 
 view physical {

@@ -570,7 +570,7 @@ function drawioBar(files, view, dot) {
   const button = Object.assign(document.createElement("button"), { textContent: t("Download {file}", { file: `${view}.drawio` }) });
   button.onclick = () => {
     const layout = viz.renderString(dot, { format: "json" });
-    const result = cadastre.build({ modules: state.modules ?? [], language: lang, files, view, strict: $("strict").checked, formats: ["drawio"], layout });
+    const result = cadastre.build({ modules: state.modules ?? [], language: lang, satellites: state.satellites, files, view, strict: $("strict").checked, formats: ["drawio"], layout });
     const output = result.outputs.find((o) => o.view === view);
     if (output) save(`${view}.drawio`, new Blob([output.content], { type: "application/xml" }));
   };
@@ -582,7 +582,7 @@ function drawioBar(files, view, dot) {
 function tableBar(files, view) {
   const bar = Object.assign(document.createElement("div"), { className: "drawio" });
   const download = (format, type) => {
-    const result = cadastre.build({ modules: state.modules ?? [], language: lang, files, view, strict: $("strict").checked, formats: [format] });
+    const result = cadastre.build({ modules: state.modules ?? [], language: lang, satellites: state.satellites, files, view, strict: $("strict").checked, formats: [format] });
     const output = result.outputs.find((o) => o.view === view);
     if (!output) return;
     // A binary output (xlsx) comes in base64.
@@ -599,7 +599,7 @@ function tableBar(files, view) {
 
 // The whole registry in an export format, saved by the browser.
 function exportModel(format) {
-  const result = cadastre.build({ modules: state.modules ?? [], language: lang, files: state.files, strict: $("strict").checked, formats: [], export: format });
+  const result = cadastre.build({ modules: state.modules ?? [], language: lang, satellites: state.satellites, files: state.files, strict: $("strict").checked, formats: [], export: format });
   if (!result.export) {
     alert("Fix the errors of the project to export it.");
     return;
@@ -622,7 +622,7 @@ function run() {
   let result;
   try {
     result = cadastre.build({
-      modules: state.modules ?? [], language: lang,
+      modules: state.modules ?? [], language: lang, satellites: state.satellites,
       files,
       view: (query ? QUERY_VIEW : state.view) ?? undefined,
       strict: $("strict").checked,
@@ -876,6 +876,8 @@ if (project) {
   state.files = project.files;
   // The modules of the project (its dependencies), read only: their views are not built.
   state.modules = project.modules ?? [];
+  // `[render] satellites` of its `cadastre.toml`: the default of its views.
+  state.satellites = project.satellites ?? false;
   state.current = Math.max(0, project.files.findIndex((f) => f.path.endsWith(".cav")));
   showFiles();
 }

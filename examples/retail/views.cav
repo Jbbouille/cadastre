@@ -13,7 +13,7 @@ view building-blocks {
   description: "The four systems of the retail landscape, their apps, jobs and databases, and every flow, authentication and trigger between them."
   select app, job, database, saas, server group-by system
   edges  [flow], [auth], [trigger]
-  render svg, mermaid { node_labels: [label], legend: true }
+  render svg, mermaid { satellites: true, node_labels: [label], legend: true }
 }
 
 // Flows between systems, in the direction of the data. Root-level apps and SaaS
@@ -93,5 +93,5 @@ view systems-stacked {
   style {
     layer trigger { layout: free }
   }
-  render svg { direction: tb, stack: [pricing, product, labels, catalog] }
+  render svg { satellites: true, direction: tb, stack: [pricing, product, labels, catalog] }
 }

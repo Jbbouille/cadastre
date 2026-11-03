@@ -38,7 +38,7 @@ export class Cadastre {
 
   /**
    * Compiles a project and renders its views.
-   * @param {{ files: { path: string, text: string }[], view?: string, strict?: boolean }} request
+   * @param {{ files: { path: string, text: string }[], view?: string, strict?: boolean, satellites?: boolean }} request
    */
   build(request) {
     const result = JSON.parse(this.call("build", JSON.stringify(request)));

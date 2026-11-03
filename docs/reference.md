@@ -539,7 +539,7 @@ A group stands for its kinds wherever a kind is expected (`ref(transit)`, `selec
 | `edge_labels` | `[<label>, …]` | `[port]` | labels of the edges; unless written, a diagram of more than 20 edges leaves them to the tooltips |
 | `legend` | `true \| false` | `false` | legend of the style rules carrying a `legend` |
 | `icons` | `true \| false` | `true` | icon of its kind in each node and frame |
-| `satellites` | `true \| false` | `true` | a node exchanging with two frames or more drawn once in each of them, in gray, rather than once with every edge pulled to it (SVG) |
+| `satellites` | `true \| false` | `false` | a node exchanging with two frames or more drawn once in each of them, in gray, rather than once with every edge pulled to it (SVG); the default of a project in `cadastre.toml` (`[render] satellites = true`) |
 | `twins` | `true \| false` | `true` | in a frame, the nodes of one kind with exactly the same edges drawn as one box listing them, with one edge per shared exchange (SVG) |
 | `title` | `true \| false` | `true` | title of a sequence diagram drawing a single process: its label |
 | `columns` | `[<key or path>, …]` |  | columns of a table (`csv`, `tsv`, `markdown`): keys, pseudo-attributes or paths, `"ancestor(site)"` quoted |

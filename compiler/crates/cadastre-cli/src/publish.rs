@@ -70,7 +70,8 @@ pub fn title(root: &Path, given: Option<&str>) -> String {
     }
 }
 
-/// `project.json` of the playground: `{ name, files: [{ path, text }], modules, site, language }`;
+/// `project.json` of the playground: `{ name, files: [{ path, text }], modules, site, language,
+/// satellites }`;
 /// `site` is where the site the playground is published in starts, relative to the page (`../`).
 fn project_json(project: &cadastre_project::Project, title: &str, language: Language) -> String {
     let files: Vec<_> = project.files.iter().map(|f| serde_json::json!({ "path": f.path, "text": f.text })).collect();
@@ -85,6 +86,7 @@ fn project_json(project: &cadastre_project::Project, title: &str, language: Lang
         "modules": modules,
         "site": "../",
         "language": language.code(),
+        "satellites": project.satellites(),
         "compiler": cadastre_core::version(),
     })
     .to_string()
@@ -101,8 +103,11 @@ pub fn generate(
 ) -> std::io::Result<Vec<(String, Vec<u8>)>> {
     let project = cadastre_project::load(root).map_err(std::io::Error::other)?;
     let language = language.unwrap_or_else(|| project.language());
-    let compilation =
-        compile_modules(&project.files, &project.modules, CompileOptions { strict: project.strict(), language });
+    let compilation = compile_modules(
+        &project.files,
+        &project.modules,
+        CompileOptions { strict: project.strict(), language, satellites: project.satellites() },
+    );
     let mut svgs = HashMap::new();
     for (view, dot) in site::dots(&compilation) {
         if let Some(svg) = crate::svg_of(&dot) {

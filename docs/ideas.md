@@ -21,24 +21,6 @@ backup server), each pair talking both ways draws two arrows side by side, their
 Open: the style of an edge merging links of two styles (solid one way, dashed the other); `pair`
 on a `follow`, whose steps stay apart today.
 
-## `satellites: false` by default
-
-`satellites` is `true` by default: a node exchanging with two frames or more is drawn once in each
-of them, in gray, with `×N`. On a small view grouped by site (two data centers, a few servers
-each), the copies make the view harder to read than the edges they replace: the reader looks for
-the node in several places, and has to write `satellites: false` on view after view.
-
-Making it `false` by default would draw every node once, and keep the satellites for the dense
-views that ask for them (`satellites: true`). Alternatives:
-
-- a project default, in `cadastre.toml` (`[render] satellites = false`), the view still able to
-  override it;
-- `true` only from a threshold: a node drawn as satellites when it exchanges with more than N
-  frames, or when the view has more than N edges.
-
-Open: the views of the examples and of the tests that rely on the current default, to be given
-`satellites: true`.
-
 ## Edges drawn after the layout: where they go
 
 Two views of a real map, anonymized here, where an edge that does not take part in the layout ends

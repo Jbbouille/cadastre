@@ -766,41 +766,43 @@ impl Server<'_> {
     /// Compiles a project and publishes the diagnostics of each of its files.
     fn compile(&mut self, root: &Path) -> Result<()> {
         // With a `cadastre.toml`: its sources and its modules, as `cadastre check` reads them.
-        let (paths, names, modules, strict, language) = match cadastre_project::find_root(root).filter(|r| r == root) {
-            Some(_) => match cadastre_project::load(root) {
-                Ok(project) => {
-                    for path in &project.paths {
-                        if !self.disk.contains_key(path) {
-                            self.read(path);
+        let (paths, names, modules, strict, language, satellites) =
+            match cadastre_project::find_root(root).filter(|r| r == root) {
+                Some(_) => match cadastre_project::load(root) {
+                    Ok(project) => {
+                        for path in &project.paths {
+                            if !self.disk.contains_key(path) {
+                                self.read(path);
+                            }
                         }
+                        let names: Vec<String> = project.files.iter().map(|f| f.path.clone()).collect();
+                        let strict = project.strict();
+                        let language = project.language();
+                        let satellites = project.satellites();
+                        (project.paths, names, project.modules, strict, language, satellites)
                     }
-                    let names: Vec<String> = project.files.iter().map(|f| f.path.clone()).collect();
-                    let strict = project.strict();
-                    let language = project.language();
-                    (project.paths, names, project.modules, strict, language)
+                    Err(error) => {
+                        self.show_error(&format!("Cadastre: {error}"))?;
+                        return Ok(());
+                    }
+                },
+                None => {
+                    self.scan(root);
+                    let paths: BTreeSet<PathBuf> = self
+                        .disk
+                        .keys()
+                        .chain(self.open.keys())
+                        .filter(|path| path.starts_with(root) && is_cadastre(path))
+                        .cloned()
+                        .collect();
+                    let paths: Vec<PathBuf> = paths.into_iter().collect();
+                    let names: Vec<String> = paths
+                        .iter()
+                        .map(|path| path.strip_prefix(root).unwrap_or(path).to_string_lossy().replace('\\', "/"))
+                        .collect();
+                    (paths, names, Vec::new(), false, cadastre_core::Language::default(), false)
                 }
-                Err(error) => {
-                    self.show_error(&format!("Cadastre: {error}"))?;
-                    return Ok(());
-                }
-            },
-            None => {
-                self.scan(root);
-                let paths: BTreeSet<PathBuf> = self
-                    .disk
-                    .keys()
-                    .chain(self.open.keys())
-                    .filter(|path| path.starts_with(root) && is_cadastre(path))
-                    .cloned()
-                    .collect();
-                let paths: Vec<PathBuf> = paths.into_iter().collect();
-                let names: Vec<String> = paths
-                    .iter()
-                    .map(|path| path.strip_prefix(root).unwrap_or(path).to_string_lossy().replace('\\', "/"))
-                    .collect();
-                (paths, names, Vec::new(), false, cadastre_core::Language::default())
-            }
-        };
+            };
         let files: Vec<SourceFile> = paths
             .iter()
             .zip(names)
@@ -811,7 +813,7 @@ impl Server<'_> {
             .collect();
 
         self.language = language;
-        let options = Options { strict: self.config.strict || strict, language };
+        let options = Options { strict: self.config.strict || strict, language, satellites };
         let mut compilation = cadastre_core::compile_modules(&files, &modules, options);
         let mut per_file: Vec<Vec<Diagnostic>> = vec![Vec::new(); paths.len()];
         for diagnostic in &compilation.diagnostics {

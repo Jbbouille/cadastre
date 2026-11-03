@@ -19,6 +19,9 @@ pub struct Options {
     pub strict: bool,
     /// The language of what is written for the readers: the site, the words of the diagrams.
     pub language: crate::i18n::Language,
+    /// The `satellites` of the views that do not write it: `[render] satellites` in
+    /// `cadastre.toml`, `false` otherwise.
+    pub satellites: bool,
 }
 
 /// Holder of an attribute.
@@ -43,6 +46,8 @@ pub struct Model {
     pub incomplete_reasons: HashMap<ResourceId, Vec<String>>,
     /// Resource → the resources whose `on` designates it (what a server, a cluster… hosts).
     pub hosts: HashMap<ResourceId, Vec<ResourceId>>,
+    /// The `satellites` of the views that do not write it (`Options::satellites`).
+    pub satellites: bool,
     /// Links whose `through` is deduced from an `egress` or an `ingress`, with where it comes
     /// from (`egress of site paris-dc1`).
     pub deduced_through: HashMap<usize, Vec<String>>,
@@ -117,8 +122,13 @@ impl Model {
 }
 
 pub fn check(registry: &Registry, options: Options, diagnostics: &mut Vec<Diagnostic>) -> Model {
-    let mut checker =
-        Checker { registry, options, resolver: Resolver::new(registry), model: Model::default(), diagnostics };
+    let mut checker = Checker {
+        registry,
+        options,
+        resolver: Resolver::new(registry),
+        model: Model { satellites: options.satellites, ..Model::default() },
+        diagnostics,
+    };
     checker.resources();
     checker.links();
     checker.processes();

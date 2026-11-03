@@ -127,7 +127,11 @@ fn main() -> ExitCode {
     let Some(project) = read_project(&mut options) else { return ExitCode::from(2) };
     let (files, invalid) = (&project.files, &project.invalid);
     let language = options.language.unwrap_or_else(|| project.language());
-    let compilation = compile_modules(files, &project.modules, CompileOptions { strict: options.strict, language });
+    let compilation = compile_modules(
+        files,
+        &project.modules,
+        CompileOptions { strict: options.strict, language, satellites: project.satellites() },
+    );
     let mut diagnostics = compilation.diagnostics.clone();
     diagnostics.extend(invalid.iter().map(|(file, error)| error.diagnostic(*file)));
     if let Some(name) = &options.only {

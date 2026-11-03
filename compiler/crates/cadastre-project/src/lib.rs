@@ -13,6 +13,9 @@
 //! strict = false           # as --strict
 //! language = "fr"          # the language of the site and of the words of the diagrams (en, fr)
 //!
+//! [render]
+//! satellites = true        # the default of the views that do not write it; false otherwise
+//!
 //! [dependencies]
 //! shared = { path = "../acme-shared" }
 //! ```
@@ -36,6 +39,8 @@ pub struct Manifest {
     pub strict: bool,
     /// The language of what is written for the readers (`en`, `fr`); English by default.
     pub language: Option<String>,
+    /// `[render] satellites`: the default of the views that do not write it.
+    pub satellites: bool,
     /// Name → path of the module, relative to the project.
     pub dependencies: BTreeMap<String, String>,
 }
@@ -78,6 +83,11 @@ impl Project {
             .and_then(|m| m.language.as_deref())
             .and_then(cadastre_core::Language::parse)
             .unwrap_or_default()
+    }
+
+    /// The `satellites` of the views that do not write it, from `cadastre.toml`.
+    pub fn satellites(&self) -> bool {
+        self.manifest.as_ref().is_some_and(|m| m.satellites)
     }
 }
 
@@ -208,6 +218,17 @@ pub fn parse(text: &str) -> Result<Manifest, String> {
                     }
                 }
             }
+            "render" => {
+                let render = value.as_table().ok_or("[render] is a table")?;
+                for (key, value) in render {
+                    match key.as_str() {
+                        "satellites" => {
+                            manifest.satellites = value.as_bool().ok_or("render.satellites is true or false")?
+                        }
+                        other => return Err(format!("unknown key render.{other}: satellites")),
+                    }
+                }
+            }
             "dependencies" => {
                 let dependencies = value.as_table().ok_or("[dependencies] is a table")?;
                 for (name, dependency) in dependencies {
@@ -222,7 +243,7 @@ pub fn parse(text: &str) -> Result<Manifest, String> {
                     manifest.dependencies.insert(name.clone(), path.to_owned());
                 }
             }
-            other => return Err(format!("unknown table [{other}]: [project], [dependencies]")),
+            other => return Err(format!("unknown table [{other}]: [project], [render], [dependencies]")),
         }
     }
     Ok(manifest)
@@ -280,7 +301,25 @@ mod tests {
         assert_eq!(manifest.sources, ["src"]);
         assert_eq!(manifest.dependencies["shared"], "../shared");
         assert!(manifest.strict);
-        assert_eq!(parse("[projet]\n").unwrap_err(), "unknown table [projet]: [project], [dependencies]");
+        assert_eq!(parse("[projet]\n").unwrap_err(), "unknown table [projet]: [project], [render], [dependencies]");
+        assert!(
+            parse(
+                "[render]
+satellites = true
+"
+            )
+            .unwrap()
+            .satellites
+        );
+        assert_eq!(
+            parse(
+                "[render]
+satelites = true
+"
+            )
+            .unwrap_err(),
+            "unknown key render.satelites: satellites"
+        );
         assert!(parse("[dependencies]\nx = { git = \"…\" }\n").is_err());
     }
 
