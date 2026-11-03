@@ -1215,9 +1215,10 @@ impl<'a> Scene<'a> {
         }
     }
 
-    /// The items of each level of `stack` that `cross` names, in its order across the direction
-    /// of the layout; reversed for `lr` and `rl`, which Graphviz turns after the layout. The
-    /// other items are left where Graphviz puts them.
+    /// The items of each level of `stack` in their order across the direction of the layout: the
+    /// order of `cross` when it names some of them (the others then left where Graphviz puts
+    /// them), the order the level is written in otherwise; reversed for `lr` and `rl`, which
+    /// Graphviz turns after the layout.
     fn level_orders(&self) -> Vec<Vec<Placed>> {
         let cross = &self.graph.options.cross;
         let position = |item: &Placed| {
@@ -1230,9 +1231,10 @@ impl<'a> Scene<'a> {
             .into_iter()
             .filter_map(|level| {
                 let mut named: Vec<(usize, Placed)> =
-                    level.into_iter().filter_map(|item| position(&item).map(|p| (p, item))).collect();
+                    level.iter().filter_map(|item| position(item).map(|p| (p, *item))).collect();
                 named.sort_by_key(|(p, _)| *p);
-                let mut ordered: Vec<Placed> = named.into_iter().map(|(_, item)| item).collect();
+                let mut ordered: Vec<Placed> =
+                    if named.is_empty() { level } else { named.into_iter().map(|(_, item)| item).collect() };
                 if !self.graph.options.direction.vertical() {
                     ordered.reverse();
                 }

@@ -14,6 +14,9 @@ The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly mod
 
 ## Unreleased
 
+- **`stack`**: the items of a level are placed in the order they are written, across the direction, rather than where Graphviz puts them; `cross` still orders them. A view whose level was written in another order than drawn is drawn in the written order: swap its items to keep the drawing.
+- **`cadastre anonymize`**: the copy builds when the original does. The names a `for_each` generates are renamed through their template (a reference to `srv-lil` no longer dangles); the networks are renumbered whole, a network still containing what it contained and none overlapping another unless they did; masks, `0.0.0.0` and the loopback are kept, as are the colors of the styles.
+
 ## 0.1.1
 
 Nothing changes for a project: the same language and renderings, published in more places.

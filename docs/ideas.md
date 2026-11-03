@@ -168,22 +168,6 @@ Ideas:
   Graphviz) rather than freed, when they do not go against the order of the stack;
 - a warning, or a line in the hover of the view, naming the edges that `stack` freed.
 
-Also: `stack: [[dc-a, dc-b], …]` drew `dc-b` left of `dc-a` here: the order inside a level is
-not kept without `cross`.
-
-## `cadastre anonymize`: what got in the way
-
-Making the two examples above from the real map, `cadastre anonymize` gave a copy that does not
-build:
-
-- a reference renamed on one side only (`dangling reference: server-407`, did you mean
-  `server-207`?);
-- addresses renumbered into subnets that overlap (`10.0.27.0/16` and `10.0.28.0/16`), errors that
-  the original does not have;
-- colors replaced by words (`color: "sed dox"`), where a color is not something that identifies.
-
-A copy that builds, and draws the same views, would make it the way to report a layout problem.
-
 ## A view that gives back a whole CMDB
 
 Two spreadsheets of the kind a company keeps beside its map: the CMDB kept by an outsourcer (data

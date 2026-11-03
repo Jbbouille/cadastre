@@ -113,7 +113,7 @@ fn stack_levels_hold_several_items() {
     let dot = output(&c, "dot");
     let hints: Vec<&str> = dot
         .lines()
-        .filter(|l| l.contains("style=invis") && !l.trim_start().starts_with("level"))
+        .filter(|l| l.contains("style=invis") && !l.trim_start().starts_with("level") && !l.contains("minlen=0"))
         .map(str::trim)
         .collect();
     let node = |name: &str| id(&dot, &format!("server dc.lan.servers.{name}"));
@@ -391,7 +391,8 @@ fn a_straight_edge() {
 
 #[test]
 fn cross_orders_a_level_of_stack() {
-    // The two clusters on a level, cluster-a first across the direction: the iSCSI flows from
+    // The two clusters on a level, cluster-a first across the direction (the order of `cross`,
+    // or the order written): the iSCSI flows from
     // cluster-b to cluster-a are written from cluster-a, their arrows turned, so that Graphviz puts
     // cluster-a first; without its second crossing minimization, which would undo it.
     let c = compilation("dot { direction: tb, stack: [[cluster-a, cluster-b]], cross: [cluster-a, cluster-b] }", "");
@@ -401,8 +402,13 @@ fn cross_orders_a_level_of_stack() {
     assert!(dot.contains("remincross=false"), "{dot}");
     assert!(dot.contains(&format!("  {datacore01} -> {esx4} [dir=back,")), "{dot}");
     assert!(dot.lines().any(|l| l.ends_with("[style=invis, minlen=0];")), "{dot}");
-    // Without `cross`, Graphviz orders the level.
-    let dot = output(&compilation("dot { direction: tb, stack: [[cluster-a, cluster-b]] }", ""), "dot");
-    assert!(!dot.contains("remincross") && !dot.contains("minlen=0"), "{dot}");
+    // Without `cross`, the order the level is written in: the same drawing.
+    let same = output(&compilation("dot { direction: tb, stack: [[cluster-a, cluster-b]] }", ""), "dot");
+    assert!(
+        same.contains("remincross=false") && same.contains(&format!("  {datacore01} -> {esx4} [dir=back,")),
+        "{same}"
+    );
+    // Written the other way, cluster-b first.
+    let dot = output(&compilation("dot { direction: tb, stack: [[cluster-b, cluster-a]] }", ""), "dot");
     assert!(dot.contains(&format!("  {esx4} -> {datacore01} [dir=forward,")), "{dot}");
 }
