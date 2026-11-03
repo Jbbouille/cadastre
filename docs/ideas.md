@@ -183,10 +183,6 @@ paths, gives most of the flat sheets:
 - **Services as resources.** Services exposed by an application and consumed by others, with
   their inputs and outputs: an `api` or `component` per service and a link per consumer work,
   but a table of consumptions would want the service as the row and the consumer as the column.
-- **Policies referenced by servers.** Backup policies (retention per day, week, month, year, logs
-  of databases), classes of service, disaster recovery levels: small shared records that many
-  servers designate. A custom kind of the schema does it; what is missing is a table that writes
-  the record with, for each, what refers to it (`"referrers(backup_policy)"`).
 - **Rack elevations.** The building views of a CMDB draw each rack with its units: `rack` and `u`
   exist, there is no rendering of them (`render racks`, a column per rack, a box per device at its
   height).

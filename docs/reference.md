@@ -643,6 +643,7 @@ The keys of the resources and links, and these pseudo-attributes. Order comparis
 | `parent` | nodes | the parent resource |
 | `step` | edges | step of a `follow` edge |
 | `hosts` | nodes | the resources whose `on` designates the node, usable at the head of a path |
+| `referrers(key)` | nodes | the resources whose `key` designates the node: `referrers(backup_policy)`, the servers of a policy |
 | `shared` | nodes | true if what the node hosts belongs to at least two systems |
 | `virtual` | nodes | true if the node is a virtual machine (`virtual server web01 { on: esx01 }`) |
 | `down` | nodes | true if the node is unavailable in the scenario of the view or the check (`failing: [fw01, fw02]`), failing or through them |

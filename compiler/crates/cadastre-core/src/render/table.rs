@@ -74,6 +74,14 @@ fn path(text: &str) -> Option<Path> {
             Some(kind) if is_name(kind) => StepKind::Ancestor(kind.to_owned()),
             Some(_) => return None,
             None if is_name(part) => StepKind::Name(part.to_owned()),
+            // A key with an argument: `referrers(backup_policy)`, `failures(hosting)`.
+            None if part
+                .strip_suffix(')')
+                .and_then(|r| r.split_once('('))
+                .is_some_and(|(function, argument)| is_name(function) && is_name(argument)) =>
+            {
+                StepKind::Name(part.to_owned())
+            }
             None => return None,
         };
         steps.push(Step { kind, optional, span });

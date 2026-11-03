@@ -148,3 +148,37 @@ fn a_row_per_item_of_a_path() {
          | draft |  |  |  | 0 |\n"
     );
 }
+
+#[test]
+fn what_refers_to_a_resource() {
+    let registry = "kind backup_policy { like: data  retention: string }
+kind server { backup: ref(backup_policy) }
+backup_policy daily { retention: \"30 days\" }
+backup_policy weekly { retention: \"1 year\" }
+backup_policy unused
+server db01 { backup: daily }
+server web01 { backup: daily }
+server erp01 { backup: weekly }
+";
+    let views = "view policies {
+  select backup_policy
+  render markdown { columns: [name, retention, \"referrers(backup) as Servers\", \"count(referrers(backup))\"] }
+}
+view wrong { select backup_policy  render markdown { columns: [\"referrers(backups)\"] } }
+view unused { select backup_policy where count(referrers(backup)) = 0  render markdown }
+";
+    let c = compile(&[
+        SourceFile { path: "a.ca".into(), text: registry.into() },
+        SourceFile { path: "v.cav".into(), text: views.into() },
+    ]);
+    assert_eq!(errors(&c), ["unknown key: backups"], "{:?}", c.diagnostics);
+    let (outputs, _) = build(&c, Some("policies"));
+    assert_eq!(
+        outputs[0].content,
+        "| name | retention | Servers | count(referrers(backup)) |\n|---|---|---|---|\n\
+         | daily | 30 days | db01, web01 | 2 |\n| weekly | 1 year | erp01 | 1 |\n| unused |  |  | 0 |\n"
+    );
+    // In a filter too: the policies no server refers to.
+    let (outputs, _) = build(&c, Some("unused"));
+    assert!(outputs[0].content.ends_with("|---|---|---|\n| unused | backup_policy |  |\n"), "{}", outputs[0].content);
+}

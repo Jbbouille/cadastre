@@ -369,6 +369,11 @@ pub static PSEUDO: &[(&str, Styled, &str)] = &[
     ("parent", Styled::Nodes, "the parent resource"),
     ("step", Styled::Edges, "step of a `follow` edge"),
     ("hosts", Styled::Nodes, "the resources whose `on` designates the node, usable at the head of a path"),
+    (
+        "referrers(key)",
+        Styled::Nodes,
+        "the resources whose `key` designates the node: `referrers(backup_policy)`, the servers of a policy",
+    ),
     ("shared", Styled::Nodes, "true if what the node hosts belongs to at least two systems"),
     ("virtual", Styled::Nodes, "true if the node is a virtual machine (`virtual server web01 { on: esx01 }`)"),
     (

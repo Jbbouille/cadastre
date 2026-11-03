@@ -944,6 +944,11 @@ impl Validator<'_> {
                 StepKind::Ancestor(k) if self.registry.schema.expand(k).is_empty() => {
                     self.unknown("kind", k, step.span, self.registry.schema.kind_names());
                 }
+                StepKind::Name(n) if let Some(key) = n.strip_prefix("referrers(").and_then(|r| r.strip_suffix(')')) => {
+                    if !self.keys.contains(key) {
+                        self.unknown("key", key, step.span, self.keys.iter().map(String::as_str));
+                    }
+                }
                 StepKind::Name(n) if !vocabulary::PSEUDO.iter().any(|p| p.0 == n) && !self.keys.contains(n) => {
                     let candidates: Vec<&str> =
                         self.keys.iter().map(String::as_str).chain(vocabulary::PSEUDO.iter().map(|p| p.0)).collect();

@@ -181,6 +181,21 @@ impl Ctx<'_> {
                 "owner" | "operator" => {
                     self.model.inherited(self.registry, id, name).map(Item::Resource).into_iter().collect()
                 }
+                // `referrers(backup_policy)`: the resources whose key designates this one.
+                call if call.starts_with("referrers(") && call.ends_with(')') => {
+                    let key = &call["referrers(".len()..call.len() - 1];
+                    let mut referrers: Vec<ResourceId> = self
+                        .model
+                        .references
+                        .iter()
+                        .filter_map(|((holder, k), targets)| match holder {
+                            Holder::Resource(r) if k == key && targets.contains(&id) => Some(*r),
+                            _ => None,
+                        })
+                        .collect();
+                    referrers.sort();
+                    referrers.into_iter().map(Item::Resource).collect()
+                }
                 key => {
                     let references = self.model.reference(Holder::Resource(id), key);
                     if !references.is_empty() {
