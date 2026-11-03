@@ -259,7 +259,7 @@ pub fn build_with(
                 // Laid out by the compiler; hosts with Graphviz lay it out like the SVG ([`drawio`]).
                 "drawio" => crate::render::drawio::drawio(&scene, None),
                 // Binary: in base64 (see [`xlsx`] for the bytes).
-                "xlsx" => crate::render::base64(&crate::render::xlsx::xlsx(&scene)),
+                "xlsx" => crate::render::base64(&workbook(compilation, &scene)),
                 "html" => crate::render::table::table(&scene, crate::render::table::Table::Html),
                 // `layout: elk`: laid out by ELK and drawn by the compiler; Graphviz otherwise,
                 // and when ELK cannot lay it out.
@@ -330,7 +330,29 @@ pub fn xlsx(compilation: &Compilation, view: &str) -> Option<Vec<u8>> {
     let graph = crate::view::evaluate(view, &compilation.registry, &compilation.model, &mut Vec::new());
     let scene = crate::render::Scene::new(&graph, &compilation.plans, &compilation.registry, &compilation.model)
         .with_language(compilation.language);
-    Some(crate::render::xlsx::xlsx(&scene))
+    Some(workbook(compilation, &scene))
+}
+
+/// The workbook of a view: its sheet, then those of the views of its `sheets`.
+fn workbook(compilation: &Compilation, scene: &crate::render::Scene) -> Vec<u8> {
+    let graphs: Vec<crate::view::Graph> = scene
+        .graph
+        .options
+        .sheets
+        .iter()
+        .filter(|name| **name != scene.graph.view)
+        .filter_map(|name| compilation.plans.views.iter().find(|v| &v.name == name))
+        .map(|view| crate::view::evaluate(view, &compilation.registry, &compilation.model, &mut Vec::new()))
+        .collect();
+    let others: Vec<crate::render::Scene> = graphs
+        .iter()
+        .map(|graph| {
+            crate::render::Scene::new(graph, &compilation.plans, &compilation.registry, &compilation.model)
+                .with_language(compilation.language)
+        })
+        .collect();
+    let scenes: Vec<&crate::render::Scene> = std::iter::once(scene).chain(&others).collect();
+    crate::render::xlsx::workbook(&scenes)
 }
 
 /// A qualified name can only be declared once (spec § 5, Names).

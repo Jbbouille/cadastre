@@ -159,6 +159,7 @@ view inventory {
   select app, database
   render xlsx, html {
     rows: "each(on)"
+    sheets: [fw01-matrix]
     columns: [
       "name as Application",
       "ancestor(system) as System",

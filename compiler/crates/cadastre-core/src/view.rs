@@ -107,6 +107,8 @@ pub struct RenderOptions {
     /// The columns of a table view, as written; the rows, `nodes` or `edges`.
     pub columns: Vec<String>,
     pub rows: Option<String>,
+    /// The views whose tables follow that of the view in its workbook (`xlsx`).
+    pub sheets: Vec<String>,
     /// Factors of the space between the nodes and between the ranks (`spacing`).
     pub spacing: (f64, f64),
     /// Sizes of the text, in points: nodes, edge labels, frame titles.
@@ -140,6 +142,7 @@ impl RenderOptions {
             summary_from: None,
             columns: Vec::new(),
             rows: None,
+            sheets: Vec::new(),
             spacing: (1.0, 1.0),
             node_label_size: 10.0,
             edge_label_size: 9.0,
@@ -176,6 +179,7 @@ impl RenderOptions {
                     options.columns = option.value.items().iter().map(|v| crate::query::value_text(v)).collect()
                 }
                 ("rows", _) => options.rows = Some(crate::query::value_text(&option.value)),
+                ("sheets", _) => options.sheets = words,
                 ("merge_label", "count") => options.summary_from = Some(2),
                 ("merge_label", v) => options.summary_from = v.parse().ok().filter(|&n| n >= 2),
                 ("edge_labels_wrap", "values") => options.wrap = Some(Wrap::Values),
@@ -240,8 +244,16 @@ pub fn validate(
 
     let keys = known_keys(registry);
     let layers: BTreeSet<&str> = registry.links.iter().flat_map(|l| l.layers.iter().map(|(n, _)| n.as_str())).collect();
-    let mut validator =
-        Validator { registry, resolver: Resolver::new(registry), keys: &keys, layers: &layers, names, diagnostics };
+    let views: Vec<&str> = plans.views.iter().map(|v| v.name.as_str()).collect();
+    let mut validator = Validator {
+        registry,
+        resolver: Resolver::new(registry),
+        keys: &keys,
+        layers: &layers,
+        views: &views,
+        names,
+        diagnostics,
+    };
 
     let mut names: HashMap<&str, crate::source::Span> = HashMap::new();
     for view in &plans.views {
@@ -286,6 +298,8 @@ struct Validator<'a> {
     resolver: Resolver<'a>,
     keys: &'a BTreeSet<String>,
     layers: &'a BTreeSet<&'a str>,
+    /// The names of the views, for `sheets`.
+    views: &'a [&'a str],
     names: &'a mut Vec<(crate::source::Span, Vec<crate::registry::ResourceId>)>,
     diagnostics: &'a mut Vec<Diagnostic>,
 }
@@ -554,6 +568,15 @@ impl Validator<'_> {
                                         "a key, a pseudo-attribute or a path, its count, then its header: `ip`, \"on.ancestor(site) as Site\", \"count(on) as Servers\"",
                                     ),
                                 ),
+                            }
+                        }
+                        None
+                    }
+                    Values::Views => {
+                        for value in option.value.items() {
+                            if !self.views.contains(&value.raw.as_str()) {
+                                let views = self.views;
+                                self.unknown("view", &value.raw, value.span, views.iter().copied());
                             }
                         }
                         None

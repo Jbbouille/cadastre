@@ -544,6 +544,7 @@ A group stands for its kinds wherever a kind is expected (`ref(transit)`, `selec
 | `title` | `true \| false` | `true` | title of a sequence diagram drawing a single process: its label |
 | `columns` | `[<key or path>, …]` |  | columns of a table (`csv`, `tsv`, `markdown`, `html`, `xlsx`): keys, pseudo-attributes or paths, or their count, then a header, quoted: `"on.ancestor(site) as Site"`, `"count(on) as Servers"` |
 | `rows` | `nodes \| edges \| "each(<path>)"` |  | rows of a table: one per node, or one per edge, by default per edge when the view has edges; or one per item of a path from each, quoted: `"each(on)"` |
+| `sheets` | `[<view>, …]` |  | views whose tables follow that of the view in its `xlsx` workbook, a sheet per view in their order |
 | `merge_label` | `list \| count \| <number>` | `list` | label of an edge merging links: their labels, or a summary (`sftp ×9`, the detail in the tooltip) from 2 links (`count`) or from a number of links |
 
 #### Layout hints

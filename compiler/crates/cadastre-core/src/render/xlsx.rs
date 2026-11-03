@@ -1,4 +1,4 @@
-//! Excel workbooks (`.xlsx`) of the table views: a sheet named after the view, the header in
+//! Excel workbooks (`.xlsx`) of the table views: a sheet per view, named after it, the header in
 //! bold and frozen, an automatic filter, columns as wide as their content, the URLs as links.
 //!
 //! An `.xlsx` file is a zip archive of XML parts (Office Open XML, SpreadsheetML); the archive is
@@ -12,8 +12,97 @@ use super::table::{Grid, grid, urls};
 
 /// The workbook of a table view.
 pub fn xlsx(scene: &Scene) -> Vec<u8> {
+    workbook(&[scene])
+}
+
+/// A workbook of several table views, a sheet per view in their order (`sheets`).
+pub fn workbook(scenes: &[&Scene]) -> Vec<u8> {
+    let mut names: Vec<String> = Vec::new();
+    let mut sheets: Vec<Sheet> = Vec::new();
+    for scene in scenes {
+        let base = sheet_name(&scene.graph.view);
+        // Names are unique in a workbook, whatever their case; cut at 31 characters, two views
+        // could give the same.
+        let mut name = base.clone();
+        let mut n = 2;
+        while names.iter().any(|other| other.to_lowercase() == name.to_lowercase()) {
+            let suffix = format!(" ({n})");
+            name = format!("{}{suffix}", base.chars().take(31 - suffix.len()).collect::<String>());
+            n += 1;
+        }
+        names.push(name);
+        sheets.push(sheet(scene));
+    }
+
+    let mut list = String::new();
+    let mut filters = String::new();
+    let mut types = String::new();
+    let mut relationships = String::new();
+    for (i, (name, sheet)) in names.iter().zip(&sheets).enumerate() {
+        let n = i + 1;
+        let _ = write!(list, "<sheet name=\"{}\" sheetId=\"{n}\" r:id=\"rId{n}\"/>", xml(name));
+        let _ = write!(
+            filters,
+            "<definedName name=\"_xlnm._FilterDatabase\" localSheetId=\"{i}\" hidden=\"1\">'{}'!$A$1:${}${}</definedName>",
+            xml(&name.replace('\'', "''")),
+            column_letters(sheet.columns - 1),
+            sheet.rows + 1
+        );
+        let _ = write!(
+            types,
+            "<Override PartName=\"/xl/worksheets/sheet{n}.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"
+        );
+        let _ = write!(
+            relationships,
+            "<Relationship Id=\"rId{n}\" Type=\"{WORKSHEET}\" Target=\"worksheets/sheet{n}.xml\"/>"
+        );
+    }
+    let workbook = format!(
+        "{HEADER}<workbook xmlns=\"{MAIN}\" xmlns:r=\"{RELATIONSHIPS}\"><sheets>{list}</sheets>\
+         <definedNames>{filters}</definedNames></workbook>"
+    );
+    let content_types = format!(
+        "{HEADER}<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">\
+         <Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>\
+         <Default Extension=\"xml\" ContentType=\"application/xml\"/>\
+         <Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>\
+         {types}\
+         <Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>\
+         </Types>"
+    );
+    let workbook_rels = format!(
+        "{HEADER}<Relationships xmlns=\"{PACKAGE_RELATIONSHIPS}\">{relationships}\
+         <Relationship Id=\"rId{}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>\
+         </Relationships>",
+        sheets.len() + 1
+    );
+
+    let mut parts: Vec<(String, String)> = vec![
+        ("[Content_Types].xml".to_owned(), content_types),
+        ("_rels/.rels".to_owned(), ROOT_RELS.to_owned()),
+        ("xl/workbook.xml".to_owned(), workbook),
+        ("xl/_rels/workbook.xml.rels".to_owned(), workbook_rels),
+        ("xl/styles.xml".to_owned(), STYLES.to_owned()),
+    ];
+    for (i, sheet) in sheets.into_iter().enumerate() {
+        parts.push((format!("xl/worksheets/sheet{}.xml", i + 1), sheet.worksheet));
+        if let Some(rels) = sheet.rels {
+            parts.push((format!("xl/worksheets/_rels/sheet{}.xml.rels", i + 1), rels));
+        }
+    }
+    zip(&parts)
+}
+
+/// The worksheet of a view, its links, and its size for the filter of the workbook.
+struct Sheet {
+    worksheet: String,
+    rels: Option<String>,
+    columns: usize,
+    rows: usize,
+}
+
+fn sheet(scene: &Scene) -> Sheet {
     let Grid { names, numeric, rows } = grid(scene);
-    let sheet = sheet_name(&scene.graph.view);
     let columns = names.len().max(1);
     let last = format!("{}{}", column_letters(columns - 1), rows.len() + 1);
 
@@ -62,46 +151,25 @@ pub fn xlsx(scene: &Scene) -> Vec<u8> {
          <sheetViews><sheetView workbookViewId=\"0\"><pane ySplit=\"1\" topLeftCell=\"A2\" activePane=\"bottomLeft\" state=\"frozen\"/></sheetView></sheetViews>\
          <sheetFormatPr defaultRowHeight=\"15\"/><cols>{cols}</cols><sheetData>{data}</sheetData><autoFilter ref=\"A1:{last}\"/>"
     );
-    let mut sheet_rels = None;
+    let mut rels = None;
     if !links.is_empty() {
         worksheet.push_str("<hyperlinks>");
-        let mut rels = format!("{HEADER}<Relationships xmlns=\"{PACKAGE_RELATIONSHIPS}\">");
+        let mut targets = format!("{HEADER}<Relationships xmlns=\"{PACKAGE_RELATIONSHIPS}\">");
         for (i, (cell, url)) in links.iter().enumerate() {
             let _ = write!(worksheet, "<hyperlink ref=\"{cell}\" r:id=\"rId{}\"/>", i + 1);
             let _ = write!(
-                rels,
+                targets,
                 "<Relationship Id=\"rId{}\" Type=\"{HYPERLINK}\" Target=\"{}\" TargetMode=\"External\"/>",
                 i + 1,
                 xml(url)
             );
         }
         worksheet.push_str("</hyperlinks>");
-        rels.push_str("</Relationships>");
-        sheet_rels = Some(rels);
+        targets.push_str("</Relationships>");
+        rels = Some(targets);
     }
     worksheet.push_str("</worksheet>");
-
-    let workbook = format!(
-        "{HEADER}<workbook xmlns=\"{MAIN}\" xmlns:r=\"{RELATIONSHIPS}\"><sheets><sheet name=\"{0}\" sheetId=\"1\" r:id=\"rId1\"/></sheets>\
-         <definedNames><definedName name=\"_xlnm._FilterDatabase\" localSheetId=\"0\" hidden=\"1\">'{1}'!$A$1:${2}${3}</definedName></definedNames></workbook>",
-        xml(&sheet),
-        xml(&sheet.replace('\'', "''")),
-        column_letters(columns - 1),
-        rows.len() + 1
-    );
-
-    let mut parts: Vec<(&str, String)> = vec![
-        ("[Content_Types].xml", CONTENT_TYPES.to_owned()),
-        ("_rels/.rels", ROOT_RELS.to_owned()),
-        ("xl/workbook.xml", workbook),
-        ("xl/_rels/workbook.xml.rels", WORKBOOK_RELS.to_owned()),
-        ("xl/styles.xml", STYLES.to_owned()),
-        ("xl/worksheets/sheet1.xml", worksheet),
-    ];
-    if let Some(rels) = sheet_rels {
-        parts.push(("xl/worksheets/_rels/sheet1.xml.rels", rels));
-    }
-    zip(&parts)
+    Sheet { worksheet, rels, columns, rows: rows.len() }
 }
 
 const HEADER: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n";
@@ -109,25 +177,11 @@ const MAIN: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 const RELATIONSHIPS: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 const PACKAGE_RELATIONSHIPS: &str = "http://schemas.openxmlformats.org/package/2006/relationships";
 const HYPERLINK: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
-
-const CONTENT_TYPES: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n\
-<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">\
-<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>\
-<Default Extension=\"xml\" ContentType=\"application/xml\"/>\
-<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>\
-<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>\
-<Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>\
-</Types>";
+const WORKSHEET: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet";
 
 const ROOT_RELS: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n\
 <Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\
 <Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>\
-</Relationships>";
-
-const WORKBOOK_RELS: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n\
-<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\
-<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>\
-<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>\
 </Relationships>";
 
 /// Styles: 0 the default, 1 the header (bold), 2 a link (blue, underlined).
@@ -179,7 +233,7 @@ fn xml(text: &str) -> String {
 // Zip archive, entries stored without compression
 // ---------------------------------------------------------------------------
 
-fn zip(parts: &[(&str, String)]) -> Vec<u8> {
+fn zip(parts: &[(String, String)]) -> Vec<u8> {
     // 1980-01-01 00:00, the first date of the format: a stable archive for a stable content.
     const DATE: u16 = (1 << 5) | 1;
     let mut out = Vec::new();

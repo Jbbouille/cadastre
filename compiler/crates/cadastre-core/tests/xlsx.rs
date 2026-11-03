@@ -16,7 +16,8 @@ system shop { owner: t
 const VIEWS: &str = "view racks { select rack render xlsx { columns: [name, units] } }
 view servers { select server render xlsx { columns: [name, ip, console] } }
 view flows { select app, database edges [flow] render xlsx { columns: [source, target, port] } }
-view apps { select app render xlsx { columns: [name, version] } }";
+view apps { select app render xlsx { columns: [name, version] } }
+view cmdb { select app render xlsx { columns: [name] sheets: [servers, flows] } }";
 
 /// The workbook of a view, as text: its entries are stored without compression.
 fn workbook(view: &str) -> String {
@@ -48,6 +49,44 @@ fn numbers_and_text() {
     assert!(workbook("racks").contains("<c r=\"B2\" t=\"inlineStr\"><is><t xml:space=\"preserve\">42</t></is></c>"));
     let apps = workbook("apps");
     assert!(apps.contains("<c r=\"B2\" t=\"inlineStr\"><is><t xml:space=\"preserve\">16.2</t></is></c>"), "{apps}");
+}
+
+#[test]
+fn a_sheet_per_view() {
+    // The sheet of the view, then those of `sheets`, each with its filter and its links.
+    let book = workbook("cmdb");
+    for part in ["xl/worksheets/sheet1.xml", "xl/worksheets/sheet2.xml", "xl/worksheets/sheet3.xml"] {
+        assert_eq!(book.matches(part).count(), 3, "{part}: an entry, its central record and its content type");
+    }
+    assert!(book.contains("<sheet name=\"cmdb\" sheetId=\"1\" r:id=\"rId1\"/><sheet name=\"servers\" sheetId=\"2\" r:id=\"rId2\"/><sheet name=\"flows\" sheetId=\"3\" r:id=\"rId3\"/>"), "{book}");
+    assert!(book.contains("localSheetId=\"2\" hidden=\"1\">'flows'!$A$1:$C$2"), "{book}");
+    assert!(
+        book.contains("xl/worksheets/_rels/sheet2.xml.rels")
+            && book.contains(
+                "Id=\"rId4\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\""
+            ),
+        "{book}"
+    );
+}
+
+#[test]
+fn unknown_sheets() {
+    let c = compile(&[
+        SourceFile { path: "a.ca".into(), text: REGISTRY.into() },
+        SourceFile {
+            path: "v.cav".into(),
+            text: "view v { select app render xlsx { sheets: [servrs] } }
+view servers { select server }"
+                .into(),
+        },
+    ]);
+    let errors: Vec<_> = c.diagnostics.iter().filter(|d| d.severity == cadastre_core::Severity::Error).collect();
+    assert!(
+        errors
+            .iter()
+            .any(|d| d.message == "unknown view: servrs" && d.help.as_deref() == Some("did you mean `servers`?")),
+        "{errors:?}"
+    );
 }
 
 #[test]
