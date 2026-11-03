@@ -245,7 +245,5 @@ paths, gives most of the flat sheets:
 
 ### Open
 
-Whether the spreadsheet stays a source for some of it (`for_each … in csv(…)` reads a sheet
-saved as CSV, not an `.xlsx`), and how an export from the CMDB of the outsourcer is compared with
-the map (`cadastre import csv` bootstraps; a diff, what is in one and not the other, is the next
-step).
+Whether the spreadsheet stays a source for some of it: `for_each … in csv(…)` reads a sheet
+saved as CSV, not an `.xlsx`, and `cadastre import csv` bootstraps a project from an export.
