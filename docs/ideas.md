@@ -87,9 +87,9 @@ Ideas:
   or `cross`, rather than as an isolated node;
 - free edges routed around the other edges (a channel along the outside of the frames they leave),
   or at least a `side: left | right | top | bottom` on the style rule of an edge;
-- with `layout: elk` on the real map, the colocation lands at the end of the row it links and its
-  links are routed orthogonally, without crossing the cables: to check on this example, and to
-  say in the guide as the way out today if it holds.
+- with `layout: elk`, on the real map as on this example, the colocation lands next to the frames
+  it links and its links are routed orthogonally, without crossing the cables: the way out today,
+  said in the guide.
 
 ### Links between the items of a `stack` level
 
