@@ -133,11 +133,11 @@ impl Site<'_> {
         for (name, svg) in self.options.svgs {
             out.push(File { path: format!("views/{}.svg", file_name(name)), content: svg.clone() });
         }
-        // The own renderings of the views drawn as a sequence or a traversal.
+        // The own renderings of the views drawn as a sequence, a traversal or racks.
         let own = self.own_renderings();
         for (name, (format, content)) in &own {
-            if format == "traversal" {
-                out.push(File { path: format!("views/{}.traversal.svg", file_name(name)), content: content.clone() });
+            if format == "traversal" || format == "racks" {
+                out.push(File { path: format!("views/{}.{format}.svg", file_name(name)), content: content.clone() });
             }
         }
         // The views each resource appears in.
@@ -185,8 +185,8 @@ impl Site<'_> {
         self.options.language.text(english)
     }
 
-    /// The views whose `render` is a sequence diagram or a traversal, with that rendering: the
-    /// sequence as Mermaid text, the traversal as SVG. The first of the two when a view has both.
+    /// The views whose `render` is a sequence diagram, a traversal or racks, with that rendering:
+    /// the sequence as Mermaid text, the others as SVG. The first of them when a view has several.
     fn own_renderings(&self) -> BTreeMap<String, (String, String)> {
         let mut out = BTreeMap::new();
         if self.compilation.diagnostics.iter().any(|d| d.severity == crate::diagnostic::Severity::Error) {
@@ -195,7 +195,8 @@ impl Site<'_> {
         for view in &self.compilation.plans.views {
             let formats: Vec<String> =
                 view.render.iter().flat_map(|r| r.formats.iter().map(|f| f.text.clone())).collect();
-            let Some(format) = ["sequence", "traversal"].into_iter().find(|f| formats.iter().any(|w| w == f)) else {
+            let Some(format) = ["sequence", "traversal", "racks"].into_iter().find(|f| formats.iter().any(|w| w == f))
+            else {
                 continue;
             };
             // Drawn here rather than by `build`: the participants link to the pages of the site.
@@ -207,6 +208,7 @@ impl Site<'_> {
                 .with_page_links("../resources/");
             let content = match format {
                 "sequence" => crate::render::sequence::sequence(&scene),
+                "racks" => crate::render::racks::racks(&scene).0,
                 _ => crate::render::traversal::traversal(&scene),
             };
             out.insert(view.name.clone(), (format.to_owned(), content));
@@ -655,9 +657,10 @@ impl Site<'_> {
             ));
         }
         body.push_str(&format!("<p class=\"actions\">{}</p>\n", actions.join(" · ")));
-        // A view drawn as a sequence diagram or a traversal: that drawing first, the graph after.
+        // A view drawn as a sequence diagram, a traversal or racks: that drawing first, the graph
+        // after.
         match own {
-            Some((format, content)) if format == "traversal" => {
+            Some((format, content)) if format == "traversal" || format == "racks" => {
                 body.push_str(&format!("<figure class=\"diagram\">{}</figure>\n", svg_body(content)));
             }
             Some((_, mermaid)) => {

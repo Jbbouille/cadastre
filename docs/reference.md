@@ -521,6 +521,7 @@ A group stands for its kinds wherever a kind is expected (`ref(transit)`, `selec
 | `mermaid` | Mermaid flowchart (ELK layout) |
 | `sequence` | Mermaid sequence diagram of the steps of the processes the view selects (`edges process(orders)`) |
 | `traversal` | SVG of the devices traversed, a row per path (`edges path(a, b)`) and per step of the processes (`edges process(orders)`) |
+| `racks` | SVG of the racks, a column per rack and a box per device at its height (`u`, `height`): the racks selected, with what they hold, and those of the devices selected |
 | `ascii` | ASCII art, laid out by the compiler |
 | `csv` | table, comma-separated values: a row per node, or per edge when the view has edges |
 | `tsv` | table, tab-separated values, as Excel pastes them |

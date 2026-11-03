@@ -843,14 +843,15 @@ site paris-dc1 {
 
   network lan {
     subnet erp {
-      server erp01 { rack: r12, u: 10 }
+      server erp01 { rack: r12, u: 10, height: 2 }
     }
   }
 }
 ```
 
 - `rack` is a resource whose parent is a `site`.
-- Servers and network devices reference it with `rack: ref(rack)`. `u` and `room` are free keys.
+- Servers and network devices reference it with `rack: ref(rack)`. `u`, `height` and `room` are free keys.
+- `render racks` draws them (§ 6, Formats): `u` is the lowest unit of a device, numbered from 1 at the bottom, `height` its number of units (1 by default), `units` that of the rack (42 by default).
 - The rack of a resource must be in the **same site** as the resource, otherwise it is an error.
 
 ### VPNs and connectors
@@ -1567,6 +1568,7 @@ Each format produces its own file: `out/<view>.svg`, `out/<view>.dot`, `out/<vie
 | `text` | nodes by frame, then edges with their provenance |
 | `mermaid` | Mermaid flowchart |
 | `sequence` | Mermaid sequence diagram of the processes the view selects (`edges process(…)`, § 3, Processes): a participant per resource, those of `participants` first, then in their order of appearance; a numbered arrow per step (`->>` a call, `-)` an asynchronous one, `-->>` a reply, an arrow on itself for a processing), its `label` followed by the protocol of its link, an acronym in capitals, a name as usually written, with its port unless it is the usual one (`reads the invoices (JDBC 5432)`, `calls the CRM (HTTPS)`, `writes (OpenEdge)`), unless `edge_labels` leaves out `port`; loops and notes; the label of the process as title, unless `title: false`; `out/<view>.sequence.mmd` |
+| `racks` | SVG of the racks, drawn by the compiler: a column per rack, its units numbered from the bottom, a box per device from its `u` up over its `height` (§ 3, Racks), in its style; the racks of a site side by side under its name, the room after the name of the rack. The racks the view selects are drawn with everything placed in them, those of the devices it selects (`select server, switch group-by site > rack`) with these devices only; a device without `u` is listed under its rack. Two devices on one unit, or a device beyond the top of its rack, are drawn in red and warned about; `out/<view>.racks.svg` |
 | `traversal` | SVG of the paths the view selects, drawn by the compiler: a row per path between two resources (`edges path(a, b)`, headed `a → b`, or why there is none), from the first to the second through the devices of the cabling; a row per step between two participants of the processes it selects (`edges process(…)`), before the paths, numbered as in the sequence diagram (a processing has a number, but no row), its text as there; from its source to its target, a box at each device its flow goes through, those of the `through` of its link (written, or deduced from the cabling, § 3, Network paths), the other way for a reply; redundant devices in one box (`col-sw10-01`, `or col-sw10-02`), an end with the machines it runs on (`on proxy01`, `on esx01`); a dashed arrow for a reply, a dotted one over the internet; `edge_labels: [interface]` writes the interfaces of the cables between two boxes, redundant ones together (`p1, p2 → eth1-11`); `out/<view>.traversal.svg` |
 | `ascii` | the diagram drawn with Unicode box-drawing characters, for terminals, commit messages and Markdown code blocks |
 | `csv`, `tsv`, `markdown`, `html` | a table: a row per node, or per edge when the view has an `edges` clause (`rows`), the `columns` chosen; CSV and TSV start with a byte order mark, for Excel to read them as UTF-8, and TSV is what Excel pastes; `html` is a whole page, to open in a browser (`out/<view>.html`), its header kept in sight while scrolling |

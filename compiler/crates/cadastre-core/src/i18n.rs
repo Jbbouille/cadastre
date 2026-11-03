@@ -696,8 +696,21 @@ const FR_MESSAGES: &[(&str, &str)] = &[
     ),
     ("invalid column: {}", "colonne invalide : {1}"),
     (
-        "a key, a pseudo-attribute or a path: `ip`, `on.label`, \"ancestor(site)\"",
-        "une clé, un pseudo-attribut ou un chemin : `ip`, `on.label`, \"ancestor(site)\"",
+        "a key, a pseudo-attribute or a path, its count, then its header: `ip`, \"on.ancestor(site) as Site\", \"count(on) as Servers\"",
+        "une clé, un pseudo-attribut ou un chemin, son compte, puis son titre : `ip`, \"on.ancestor(site) as Site\", \"count(on) as Serveurs\"",
+    ),
+    (
+        "`nodes`, `edges`, or a row per item of a path: \"each(on)\"",
+        "`nodes`, `edges`, ou une ligne par élément d'un chemin : \"each(on)\"",
+    ),
+    ("view {}: {} and {} in {}: on the same units", "vue {1} : {2} et {3} dans {4} : sur les mêmes unités"),
+    (
+        "view {}: {} in {}: units {} to {} beyond the {} units of the rack",
+        "vue {1} : {2} dans {3} : unités {4} à {5} au-delà des {6} unités de la baie",
+    ),
+    (
+        "`u` is the lowest unit of a device, from 1 at the bottom, `height` its number of units",
+        "`u` est l'unité la plus basse d'un équipement, à partir de 1 en bas, `height` son nombre d'unités",
     ),
     (
         "`list`, `count`, or a number of merged links from 2 on",

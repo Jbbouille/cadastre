@@ -241,6 +241,7 @@ const LANGUAGES = {
     "Text": "Texte",
     "Sequence": "Séquence",
     "Traversal": "Traversée",
+    "Racks": "Baies",
     "Show the view {name}": "Afficher la vue {name}",
     "Show the view {name} (Ctrl+Enter in it)": "Afficher la vue {name} (Ctrl+Entrée dedans)",
     "(local)": "(local)",
@@ -282,7 +283,7 @@ function applyLanguage() {
   showFormats();
 }
 
-const FORMATS = [["svg", "Diagram"], ["drawio", "draw.io"], ["html", "Table"], ["ascii", "ASCII"], ["text", "Text"], ["mermaid", "Mermaid"], ["sequence", "Sequence"], ["traversal", "Traversal"], ["dot", "DOT"]];
+const FORMATS = [["svg", "Diagram"], ["drawio", "draw.io"], ["html", "Table"], ["ascii", "ASCII"], ["text", "Text"], ["mermaid", "Mermaid"], ["sequence", "Sequence"], ["traversal", "Traversal"], ["racks", "Racks"], ["dot", "DOT"]];
 
 const $ = (id) => document.getElementById(id);
 // `project`: the name of a project published with the compiler (`cadastre serve`, `cadastre site`),
@@ -655,8 +656,8 @@ function run() {
       className: "empty",
       textContent: t(s.errors ? "Fix the errors to render the views." : "No view to render."),
     }));
-  } else if ((state.format === "svg" || state.format === "traversal") && output.content.trimStart().startsWith("<svg")) {
-    // `layout: elk` and `render traversal`: already drawn by the compiler.
+  } else if (["svg", "traversal", "racks"].includes(state.format) && output.content.trimStart().startsWith("<svg")) {
+    // `layout: elk`, `render traversal` and `render racks`: already drawn by the compiler.
     target.append(document.importNode(new DOMParser().parseFromString(output.content, "image/svg+xml").documentElement, true));
   } else if ((state.format === "svg" || state.format === "drawio") && viz) {
     if (state.format === "drawio") {

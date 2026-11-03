@@ -252,6 +252,16 @@ pub fn build_with(
                     }
                     crate::render::traversal::traversal(&scene)
                 }
+                "racks" => {
+                    let (svg, problems) = crate::render::racks::racks(&scene);
+                    for problem in problems {
+                        diagnostics
+                            .push(Diagnostic::warning(format!("view {}: {problem}", view.name), view.span).with_help(
+                            "`u` is the lowest unit of a device, from 1 at the bottom, `height` its number of units",
+                        ));
+                    }
+                    svg
+                }
                 "ascii" => crate::render::ascii(&scene),
                 "csv" => crate::render::table::table(&scene, crate::render::table::Table::Csv),
                 "tsv" => crate::render::table::table(&scene, crate::render::table::Table::Tsv),

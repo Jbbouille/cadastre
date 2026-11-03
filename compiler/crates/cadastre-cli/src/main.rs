@@ -429,6 +429,7 @@ fn render(compilation: &Compilation, options: &Options) -> std::io::Result<(Vec<
             "mermaid" => ("mmd", output.content),
             "sequence" => ("sequence.mmd", output.content),
             "traversal" => ("traversal.svg", output.content),
+            "racks" => ("racks.svg", output.content),
             "ascii" => ("ascii.txt", output.content),
             "csv" => ("csv", output.content),
             "tsv" => ("tsv", output.content),

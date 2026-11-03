@@ -14,6 +14,7 @@ The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly mod
 
 ## Unreleased
 
+- **`render racks`**: rack elevations, a column per rack and a box per device at its height (`u`, its lowest unit, and `height`), the racks of a site side by side; two devices on one unit, or a device beyond the top of its rack, are warned about. In the site, the playground and the previews of the editors.
 - **`referrers(key)`**: the resources whose key designates a node, the inverse of any reference key as `hosts` is of `on`. In filters (`count(referrers(backup)) = 0`, the backup policies no server uses) and in tables (`"referrers(backup) as Servers"`).
 - **Workbooks**: `render xlsx { sheets: [servers, instances] }` writes the tables of other views as the following sheets of the workbook of a view, one file for a whole CMDB.
 - **Tables**: a column can give its header (`"on.ancestor(site) as Site"`) and count the items of a path (`"count(on) as Servers"`), and `rows: "each(on.on)"` writes a row per item of a path, the columns starting with that path read from the item of the row: one row per app and physical server, as the general sheet of a CMDB.

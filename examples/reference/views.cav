@@ -105,7 +105,7 @@ view physical {
   description: "The servers, switches and firewalls by site and rack, with their cabling."
   select server, switch, firewall group-by site > rack
   edges  lift(peer, via: parent)
-  render svg
+  render svg, racks
 }
 
 view deployment {

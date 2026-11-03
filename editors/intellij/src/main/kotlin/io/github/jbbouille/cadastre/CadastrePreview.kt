@@ -170,6 +170,7 @@ class CadastrePreview(private val project: Project) : Disposable {
             "mermaid" to "mmd",
             "sequence" to "sequence.mmd",
             "traversal" to "traversal.svg",
+            "racks" to "racks.svg",
             "ascii" to "ascii.txt",
             "csv" to "csv",
             "tsv" to "tsv",
@@ -179,6 +180,6 @@ class CadastrePreview(private val project: Project) : Disposable {
         )
 
         /** The output opened, by order of preference. */
-        private val MAIN = listOf("svg", "traversal.svg", "sequence.mmd", "mmd", "html", "md", "drawio", "dot", "ascii.txt", "txt")
+        private val MAIN = listOf("svg", "traversal.svg", "racks.svg", "sequence.mmd", "mmd", "html", "md", "drawio", "dot", "ascii.txt", "txt")
     }
 }

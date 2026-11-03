@@ -194,18 +194,18 @@ export function previewHtml(view: string, resources: PreviewResources): string {
       b.onclick = () => { state.format = e.label; save(); show(); };
       return b;
     }));
-    const rendered = ["svg", "traversal", "dot", "mermaid", "sequence", "html", "markdown", "drawio"].includes(current.format);
+    const rendered = ["svg", "traversal", "racks", "dot", "mermaid", "sequence", "html", "markdown", "drawio"].includes(current.format);
     // A workbook has no readable source: no source button.
     const asSource = rendered && state.source;
     source.hidden = !rendered;
     source.textContent = state.source ? "Rendering" : "Source";
-    zoom.hidden = asSource || !["svg", "traversal", "dot", "mermaid", "sequence", "drawio"].includes(current.format);
+    zoom.hidden = asSource || !["svg", "traversal", "racks", "dot", "mermaid", "sequence", "drawio"].includes(current.format);
     zoom.textContent = state.fit ? "Actual size" : "Fit to width";
     const turn = ++shown;
     let element;
     if (asSource) {
       element = text(current.content);
-    } else if (current.format === "svg" || current.format === "traversal") {
+    } else if (current.format === "svg" || current.format === "traversal" || current.format === "racks") {
       element = canvas(current.content);
     } else if (current.format === "dot") {
       element = current.svg ? canvas(current.svg) : text(current.content);

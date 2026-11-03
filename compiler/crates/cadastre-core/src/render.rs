@@ -15,6 +15,7 @@ pub mod drawio;
 #[cfg(feature = "elk")]
 pub mod elk;
 pub mod icons;
+pub mod racks;
 pub mod sequence;
 mod svg;
 pub mod table;
@@ -2232,7 +2233,7 @@ fn swatch(entry: &LegendEntry) -> String {
 
 /// Whether a background color is dark enough to need white text: hexadecimal colors by their
 /// luminance, CSS names from a short list of dark ones.
-fn is_dark(color: &str) -> bool {
+pub(super) fn is_dark(color: &str) -> bool {
     let hex = color.trim_start_matches('#');
     if color.starts_with('#') && hex.chars().all(|c| c.is_ascii_hexdigit()) {
         let channel =
