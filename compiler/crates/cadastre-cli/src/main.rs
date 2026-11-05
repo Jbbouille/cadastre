@@ -515,8 +515,10 @@ fn graphviz_all(dots: &[&str], format: &str) -> Vec<Option<String>> {
     let share = dots.len().div_ceil(workers).max(1);
     std::thread::scope(|scope| {
         let handles: Vec<_> =
-            dots.chunks(share).map(|chunk| scope.spawn(move || graphviz_batch(chunk, format))).collect();
-        handles.into_iter().flat_map(|h| h.join().unwrap_or_default()).collect()
+            dots.chunks(share).map(|chunk| (chunk.len(), scope.spawn(move || graphviz_batch(chunk, format)))).collect();
+        // A share whose thread panics gives no drawing, but as many `None` as graphs: the
+        // drawings of the next shares stay with their graphs.
+        handles.into_iter().flat_map(|(len, h)| h.join().unwrap_or_else(|_| vec![None; len])).collect()
     })
 }
 
@@ -787,7 +789,48 @@ fn read_project(options: &mut Options) -> Option<Project> {
 
 #[cfg(test)]
 mod tests {
-    use super::anchors_from_zero;
+    use super::{anchors_from_zero, graphviz, graphviz_batch};
+
+    /// The graphs of a batch drawn as each would be by a process of its own, what Graphviz
+    /// numbers per process included (links, gradients), and those of the views of an example;
+    /// skipped without Graphviz.
+    #[test]
+    fn a_batch_draws_as_one_process_per_graph() {
+        if graphviz("digraph {}", "-Tsvg").is_none() {
+            eprintln!("Graphviz is not installed: skipped");
+            return;
+        }
+        let linked = r#"digraph { subgraph cluster_a { URL="https://a"; label="a"; x [URL="https://x", tooltip="x"] }
+            y [URL="https://y"]; x -> y [URL="https://e", label="e"]; y -> x [URL="https://f"] }"#;
+        let gradients = r#"digraph { a [style=filled, fillcolor="red:blue"]; b [style=radial, fillcolor="white:green"];
+            subgraph cluster_c { style=filled; fillcolor="yellow:orange"; c } a -> b -> c }"#;
+        let html = r#"digraph { n [shape=plaintext, label=<<table><tr><td href="https://t">t</td></tr></table>>]; n -> m [URL="https://g"] }"#;
+        // The DOT of every view of an example, each of its variants.
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../examples/reference");
+        let files: Vec<cadastre_core::SourceFile> = std::fs::read_dir(&root)
+            .unwrap()
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|x| ["ca", "cav", "cac"].contains(&x.to_str().unwrap())))
+            .map(|p| cadastre_core::SourceFile {
+                path: p.file_name().unwrap().to_string_lossy().into_owned(),
+                text: std::fs::read_to_string(&p).unwrap(),
+            })
+            .collect();
+        let compilation = cadastre_core::compile(&files);
+        let (outputs, _) = cadastre_core::build_with(&compilation, None, Some(&["svg".to_owned()]));
+        let mut dots: Vec<String> = [linked, gradients, html, linked].iter().map(|d| (*d).to_owned()).collect();
+        for output in outputs.iter().filter(|o| !cadastre_core::render::is_drawn(&o.content)) {
+            dots.extend(cadastre_core::render::dot_variants(&output.content));
+        }
+        // A dozen graphs: each graph run alone costs Graphviz its start (about a second here).
+        dots.truncate(12);
+        assert_eq!(dots.len(), 12);
+        let dots: Vec<&str> = dots.iter().map(String::as_str).collect();
+        let batch = graphviz_batch(&dots, "-Tsvg");
+        for (i, dot) in dots.iter().enumerate() {
+            assert_eq!(batch[i], graphviz(dot, "-Tsvg"), "graph {i}:\n{dot}");
+        }
+    }
 
     #[test]
     fn anchors_numbered_from_zero() {
