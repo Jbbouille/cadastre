@@ -528,14 +528,48 @@ fn graphviz_batch(dots: &[&str], format: &str) -> Vec<Option<String>> {
     if dots.len() > 1 && format == "-Tsvg" {
         let input: String = dots.iter().map(|d| format!("{d}\n")).collect();
         if let Some(output) = graphviz(&input, format) {
-            let drawings: Vec<String> =
-                output.split("<?xml ").skip(1).map(|svg| anchors_from_zero(&format!("<?xml {svg}"))).collect();
+            let drawings: Vec<String> = output
+                .split("<?xml ")
+                .skip(1)
+                .map(|svg| unpaged(&anchors_from_zero(&format!("<?xml {svg}"))))
+                .collect();
             if drawings.len() == dots.len() {
                 return drawings.into_iter().map(Some).collect();
             }
         }
     }
     dots.iter().map(|d| graphviz(d, format)).collect()
+}
+
+/// Some versions of Graphviz (14) take the graphs after the first of a batch for pages, and
+/// prefix the ids of their drawing with it (`id="page0,1_graph0"`): the prefix is removed, as a
+/// process of its own does not write it.
+fn unpaged(svg: &str) -> String {
+    const ID: &str = "id=\"page";
+    let mut out = String::with_capacity(svg.len());
+    let mut rest = svg;
+    while let Some(at) = rest.find(ID) {
+        let start = at + ID.len();
+        // `page<n>,<n>_`: digits, a comma, digits, an underscore.
+        let prefix = rest[start..].find('_').filter(|&end| {
+            let page = &rest[start..start + end];
+            page.split_once(',')
+                .is_some_and(|(a, b)| [a, b].iter().all(|n| !n.is_empty() && n.bytes().all(|c| c.is_ascii_digit())))
+        });
+        match prefix {
+            Some(end) => {
+                out.push_str(&rest[..at]);
+                out.push_str("id=\"");
+                rest = &rest[start + end + 1..];
+            }
+            None => {
+                out.push_str(&rest[..start]);
+                rest = &rest[start..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 /// The ids Graphviz gives the links of a drawing (`id="a_node6_0"`) end with a counter of the
@@ -789,7 +823,14 @@ fn read_project(options: &mut Options) -> Option<Project> {
 
 #[cfg(test)]
 mod tests {
-    use super::{anchors_from_zero, graphviz, graphviz_batch};
+    use super::{anchors_from_zero, graphviz, graphviz_batch, unpaged};
+
+    #[test]
+    fn pages_of_a_batch_removed() {
+        let svg = r#"<g id="page0,1_graph0" class="graph"><g id="node1"/><g id="pager"/><g id="page2"/>"#;
+        assert_eq!(unpaged(svg), r#"<g id="graph0" class="graph"><g id="node1"/><g id="pager"/><g id="page2"/>"#);
+        assert_eq!(unpaged(r#"id="page12,34_node5""#), r#"id="node5""#);
+    }
 
     /// The graphs of a batch drawn as each would be by a process of its own, what Graphviz
     /// numbers per process included (links, gradients), and those of the views of an example;
