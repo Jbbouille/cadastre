@@ -12,8 +12,11 @@ Cadastre is in **0.x**. Until 1.0:
 
 The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly module share one version number.
 
-## Unreleased
+## 0.2.0
 
+Two defaults change the drawings: `satellites` is `false`, and the items of a `stack` level are placed in the order written. To keep the drawings of 0.1, add `[render] satellites = true` to `cadastre.toml` and swap the items of the levels drawn in another order. The rest is added: tables for a CMDB, rack elevations, `merge: pair`, `referrers(…)`.
+
+- **Faster builds**: the views are laid out by a few Graphviz processes, one per core, rather than one per variant of each view: where Graphviz takes a second to start (its fonts, on Windows), the `tangled` example builds in 3 seconds rather than 67, the drawings unchanged.
 - **`render racks`**: rack elevations, a column per rack and a box per device at its height (`u`, its lowest unit, and `height`), the racks of a site side by side; two devices on one unit, or a device beyond the top of its rack, are warned about. In the site, the playground and the previews of the editors.
 - **`referrers(key)`**: the resources whose key designates a node, the inverse of any reference key as `hosts` is of `on`. In filters (`count(referrers(backup)) = 0`, the backup policies no server uses) and in tables (`"referrers(backup) as Servers"`).
 - **Workbooks**: `render xlsx { sheets: [servers, instances] }` writes the tables of other views as the following sheets of the workbook of a view, one file for a whole CMDB.
