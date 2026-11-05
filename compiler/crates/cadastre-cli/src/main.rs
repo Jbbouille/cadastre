@@ -415,10 +415,17 @@ fn render(compilation: &Compilation, options: &Options) -> std::io::Result<(Vec<
 
     let mut written = Vec::new();
     let mut graphviz_missing = false;
+    // The SVGs laid out by Graphviz, all of them at once.
+    let to_lay_out: Vec<&str> = outputs
+        .iter()
+        .filter(|o| o.format == "svg" && !cadastre_core::render::is_drawn(&o.content))
+        .map(|o| o.content.as_str())
+        .collect();
+    let mut laid_out = svgs_of(&to_lay_out).into_iter();
     for output in outputs {
         let (extension, content) = match output.format.as_str() {
             "svg" if cadastre_core::render::is_drawn(&output.content) => ("svg", output.content),
-            "svg" => match svg_of(&output.content) {
+            "svg" => match laid_out.next().flatten() {
                 Some(svg) => ("svg", svg),
                 None => {
                     graphviz_missing = true;
@@ -481,14 +488,84 @@ fn render(compilation: &Compilation, options: &Options) -> std::io::Result<(Vec<
     Ok((written, diagnostics))
 }
 
-/// The SVG of a view, with its icons: Graphviz draws each variant of its DOT (the ranks over the
+/// The SVGs of views, with their icons: Graphviz draws each variant of a DOT (the ranks over the
 /// whole view, or frame by frame) and the drawing that reads best is kept; `None` when Graphviz
-/// is not installed or fails.
-pub(crate) fn svg_of(dot: &str) -> Option<String> {
-    let drawings: Vec<String> =
-        cadastre_core::render::dot_variants(dot).iter().filter_map(|d| graphviz(d, "-Tsvg")).collect();
-    let best = drawings.get(cadastre_core::render::best_drawing(&drawings))?;
-    Some(cadastre_core::render::with_icons(best))
+/// is not installed or fails. The variants of all the views are laid out by a few `dot`
+/// processes rather than one process per variant: Graphviz takes about a second to start on some
+/// machines (its fonts), for a few milliseconds of layout.
+pub(crate) fn svgs_of<S: AsRef<str>>(dots: &[S]) -> Vec<Option<String>> {
+    let variants: Vec<Vec<String>> = dots.iter().map(|d| cadastre_core::render::dot_variants(d.as_ref())).collect();
+    let all: Vec<&str> = variants.iter().flatten().map(String::as_str).collect();
+    let mut drawings = graphviz_all(&all, "-Tsvg").into_iter();
+    variants
+        .iter()
+        .map(|v| {
+            let drawn: Vec<String> = drawings.by_ref().take(v.len()).flatten().collect();
+            let best = drawn.get(cadastre_core::render::best_drawing(&drawn))?;
+            Some(cadastre_core::render::with_icons(best))
+        })
+        .collect()
+}
+
+/// Runs `dot` on several graphs, in a few processes working at the same time, each given a share
+/// of the graphs one after the other in its input: one drawing per graph, `None` for a graph
+/// Graphviz fails on, or for all of them when it is not installed.
+fn graphviz_all(dots: &[&str], format: &str) -> Vec<Option<String>> {
+    let workers = std::thread::available_parallelism().map_or(1, usize::from).min(dots.len()).max(1);
+    let share = dots.len().div_ceil(workers).max(1);
+    std::thread::scope(|scope| {
+        let handles: Vec<_> =
+            dots.chunks(share).map(|chunk| scope.spawn(move || graphviz_batch(chunk, format))).collect();
+        handles.into_iter().flat_map(|h| h.join().unwrap_or_default()).collect()
+    })
+}
+
+/// One `dot` process for several graphs, its output cut back into one drawing per graph; when it
+/// does not give as many drawings as graphs (a graph Graphviz rejects), each graph is run alone.
+fn graphviz_batch(dots: &[&str], format: &str) -> Vec<Option<String>> {
+    if dots.len() > 1 && format == "-Tsvg" {
+        let input: String = dots.iter().map(|d| format!("{d}\n")).collect();
+        if let Some(output) = graphviz(&input, format) {
+            let drawings: Vec<String> =
+                output.split("<?xml ").skip(1).map(|svg| anchors_from_zero(&format!("<?xml {svg}"))).collect();
+            if drawings.len() == dots.len() {
+                return drawings.into_iter().map(Some).collect();
+            }
+        }
+    }
+    dots.iter().map(|d| graphviz(d, format)).collect()
+}
+
+/// The ids Graphviz gives the links of a drawing (`id="a_node6_0"`) end with a counter of the
+/// process: in a batch, the drawings after the first go on from the previous ones. They are
+/// numbered again from zero, as a process of its own would have, for a drawing that does not
+/// depend on the graphs drawn with it.
+fn anchors_from_zero(svg: &str) -> String {
+    const ID: &str = "id=\"a_";
+    let counter = |rest: &str| -> Option<(usize, usize, u64)> {
+        let id = &rest[..rest.find('"')?];
+        let underscore = id.rfind('_')?;
+        let digits = &id[underscore + 1..];
+        Some((underscore + 1, id.len(), digits.parse().ok()?))
+    };
+    let first = svg.match_indices(ID).filter_map(|(at, _)| counter(&svg[at + ID.len()..])).map(|(_, _, n)| n).min();
+    let Some(first) = first.filter(|&n| n > 0) else {
+        return svg.to_owned();
+    };
+    let mut out = String::with_capacity(svg.len());
+    let mut rest = svg;
+    while let Some(at) = rest.find(ID) {
+        let start = at + ID.len();
+        out.push_str(&rest[..start]);
+        rest = &rest[start..];
+        if let Some((digits, end, n)) = counter(rest) {
+            out.push_str(&rest[..digits]);
+            out.push_str(&(n - first).to_string());
+            rest = &rest[end..];
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 /// Runs `dot` with an output format (`-Tsvg`, `-Tjson`); `None` when Graphviz is not installed
@@ -501,9 +578,14 @@ pub(crate) fn graphviz(dot: &str, format: &str) -> Option<String> {
         .stderr(Stdio::null())
         .spawn()
         .ok()?;
-    child.stdin.take()?.write_all(dot.as_bytes()).ok()?;
+    // Written from another thread: a large input would otherwise fill the pipe of the output
+    // while `dot` waits for it to be read.
+    let mut stdin = child.stdin.take()?;
+    let input = dot.to_owned();
+    let writer = std::thread::spawn(move || stdin.write_all(input.as_bytes()).is_ok());
     let output = child.wait_with_output().ok()?;
-    output.status.success().then(|| String::from_utf8_lossy(&output.stdout).into_owned())
+    let written = writer.join().unwrap_or(false);
+    (written && output.status.success()).then(|| String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
 fn report(files: &[SourceFile], compilation: &Compilation, mut diagnostics: Vec<Diagnostic>, options: &Options) {
@@ -700,5 +782,21 @@ fn read_project(options: &mut Options) -> Option<Project> {
             eprintln!("cannot read {}: {error}", options.root.display());
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::anchors_from_zero;
+
+    #[test]
+    fn anchors_numbered_from_zero() {
+        let svg = r#"<g id="a_node6_4"><a xlink:href="x"/></g><g id="a_node7_5"/><g id="node8"/>"#;
+        assert_eq!(
+            anchors_from_zero(svg),
+            r#"<g id="a_node6_0"><a xlink:href="x"/></g><g id="a_node7_1"/><g id="node8"/>"#
+        );
+        let first = r#"<g id="a_node1_0"/><g id="a_node2_1"/>"#;
+        assert_eq!(anchors_from_zero(first), first);
     }
 }

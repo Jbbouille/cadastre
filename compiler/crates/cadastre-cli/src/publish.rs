@@ -108,12 +108,10 @@ pub fn generate(
         &project.modules,
         CompileOptions { strict: project.strict(), language, satellites: project.satellites() },
     );
-    let mut svgs = HashMap::new();
-    for (view, dot) in site::dots(&compilation) {
-        if let Some(svg) = crate::svg_of(&dot) {
-            svgs.insert(view, svg);
-        }
-    }
+    let dots = site::dots(&compilation);
+    let drawings = crate::svgs_of(&dots.iter().map(|(_, dot)| dot.as_str()).collect::<Vec<_>>());
+    let svgs: HashMap<String, String> =
+        dots.into_iter().zip(drawings).filter_map(|((view, _), svg)| Some((view, svg?))).collect();
     let viz = match playground {
         Some(dir) if dir.join("viz-standalone.js").is_file() => "playground/viz-standalone.js".to_owned(),
         _ => VIZ_CDN.to_owned(),
