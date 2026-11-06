@@ -17,17 +17,17 @@ use crate::registry::ResourceId;
 
 /// A box, in pixels, from the top left corner of the diagram.
 #[derive(Clone, Copy, Debug, PartialEq)]
-struct Bounds {
-    x: f64,
-    y: f64,
-    width: f64,
-    height: f64,
+pub(super) struct Bounds {
+    pub(super) x: f64,
+    pub(super) y: f64,
+    pub(super) width: f64,
+    pub(super) height: f64,
 }
 
 /// Where the nodes and the frames are.
-struct Placement {
-    nodes: HashMap<ResourceId, Bounds>,
-    frames: HashMap<usize, Bounds>,
+pub(super) struct Placement {
+    pub(super) nodes: HashMap<ResourceId, Bounds>,
+    pub(super) frames: HashMap<usize, Bounds>,
 }
 
 /// Margin around the diagram, and height of the title band of a frame.
@@ -46,7 +46,7 @@ pub fn drawio(scene: &Scene, layout: Option<&str>) -> String {
 
 /// Positions from Graphviz: nodes `n<id>` (`pos`, `width` and `height` in inches), frames
 /// `cluster_<group>` (`bb`), in points with the origin at the bottom left.
-fn from_graphviz(scene: &Scene, json: &str) -> Option<Placement> {
+pub(super) fn from_graphviz(scene: &Scene, json: &str) -> Option<Placement> {
     let value: serde_json::Value = serde_json::from_str(json).ok()?;
     let numbers = |text: &str| -> Vec<f64> { text.split(',').filter_map(|n| n.trim().parse().ok()).collect() };
     let bb = numbers(value.get("bb")?.as_str()?);
@@ -79,7 +79,7 @@ fn from_graphviz(scene: &Scene, json: &str) -> Option<Placement> {
 }
 
 /// Positions from the layout of the ASCII art: a cell is 8 pixels wide and 18 high.
-fn from_cells(scene: &Scene) -> Placement {
+pub(super) fn from_cells(scene: &Scene) -> Placement {
     let (boxes, frames) = ascii::cells(scene);
     let (cw, ch) = (8.0, 18.0);
     let bounds = |r: &ascii::Rect| Bounds {

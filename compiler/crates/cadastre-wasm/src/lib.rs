@@ -53,7 +53,8 @@ struct Request {
     /// Formats to render, instead of those declared by each view.
     #[serde(default)]
     formats: Option<Vec<String>>,
-    /// Graphviz's `-Tjson` output for the DOT of the view: the layout of its `drawio` output.
+    /// Graphviz's `-Tjson` output for the DOT of the view: the layout of its `drawio` and
+    /// `cytoscape` outputs.
     #[serde(default)]
     layout: Option<String>,
     /// An export of the whole registry (`archimate`, `graphml`, `json`), in `export` of the response.
@@ -191,6 +192,10 @@ pub fn run(request: &str) -> String {
                 let content = match (&request.layout, o.format.as_str()) {
                     (Some(layout), "drawio") => {
                         cadastre_core::drawio(&compilation, &o.view, Some(layout)).unwrap_or(o.content)
+                    }
+                    // The view to move by hand: its DOT without layout, its elements with it.
+                    (Some(layout), "cytoscape") => {
+                        cadastre_core::cytoscape(&compilation, &o.view, Some(layout)).unwrap_or(o.content)
                     }
                     _ => o.content,
                 };

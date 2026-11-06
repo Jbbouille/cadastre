@@ -334,6 +334,17 @@ pub fn drawio(compilation: &Compilation, view: &str, layout: Option<&str>) -> Op
     Some(crate::render::drawio::drawio(&scene, layout))
 }
 
+/// The elements of a view to move by hand, for Cytoscape.js (`render::cytoscape`), laid out by
+/// Graphviz: `layout` is the `-Tjson` output of the DOT of the view; without it, or when it does
+/// not match the view, the layout of the compiler. `None` for an unknown view.
+pub fn cytoscape(compilation: &Compilation, view: &str, layout: Option<&str>) -> Option<String> {
+    let view = compilation.plans.views.iter().find(|v| v.name == view)?;
+    let graph = crate::view::evaluate(view, &compilation.registry, &compilation.model, &mut Vec::new());
+    let scene = crate::render::Scene::new(&graph, &compilation.plans, &compilation.registry, &compilation.model)
+        .with_language(compilation.language);
+    Some(crate::render::cytoscape::cytoscape(&scene, layout))
+}
+
 /// The Excel workbook of a table view; `None` for an unknown view.
 pub fn xlsx(compilation: &Compilation, view: &str) -> Option<Vec<u8>> {
     let view = compilation.plans.views.iter().find(|v| v.name == view)?;
