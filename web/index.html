@@ -653,6 +653,13 @@ async function movable(target, files, view, dot) {
     addControlMenuItemTitle: false, removeControlMenuItemTitle: false, removeAllControlMenuItemTitle: false,
   });
   cy.add([...elements.nodes.map((e) => ({ group: "nodes", ...e })), ...elements.edges.map((e) => ({ group: "edges", ...e }))]);
+  // A straight edge gets a bend at its middle, still straight: the extension bends by dragging
+  // only an edge that has one.
+  for (const edge of cy.edges()) {
+    if (edge.data("bendPointPositions") || edge.source().same(edge.target())) continue;
+    const [a, b] = [edge.source().position(), edge.target().position()];
+    edge.data("bendPointPositions", [{ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }]);
+  }
   cy.edgeEditing("get").initAnchorPoints(cy.edges());
   cy.style().update();
   cy.fit(undefined, 20);
