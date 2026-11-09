@@ -601,7 +601,7 @@ impl Site<'_> {
         );
         row(
             "api/resources/<id>.json",
-            "the full record of a resource: the short record, then virtual, description, parent, path, module, attributes (every key written), references (each reference key resolved to qualified names), children, members, hosts (what runs on it), runs_here (what runs on what it contains), failures (the impact analysis), failure_pairs (the pairs of failures its redundancy rests on), questions, outgoing and incoming links (with, port, layers, carries, through, through_steps, through_deduced, attributes, declared)",
+            "the full record of a resource: the short record, then virtual, description, parent, path, module, attributes (every key written), references (each reference key resolved to qualified names), children, members, hosts (what runs on it), runs_here (what runs on what it contains), failures (the impact analysis), failure_pairs (the pairs of failures its redundancy rests on), questions, changed (date, author, commit of its last change, with `[history]`), outgoing and incoming links (with, name, port, layers, carries, through, through_steps, through_deduced, attributes, declared)",
             example_resource.map(|id| format!("api/resources/{}.json", file_name(&id))),
         );
         row(
@@ -945,8 +945,20 @@ impl Site<'_> {
             }
             body.push_str("</ul>\n");
         }
+        // Its last change, from git (`[history]`).
+        let changed = match &record["changed"] {
+            Value::Object(change) => format!(
+                " · {} {} {} {} (<code>{}</code>)",
+                self.t("changed on"),
+                esc(&text(&change["date"])),
+                self.t("by"),
+                esc(&text(&change["author"])),
+                esc(&text(&change["commit"]).chars().take(8).collect::<String>())
+            ),
+            _ => String::new(),
+        };
         body.push_str(&format!(
-            "<p class=\"muted\">{} <code>{}</code> · <a href=\"{root}api/resources/{}.json\">JSON</a></p>\n",
+            "<p class=\"muted\">{} <code>{}</code>{changed} · <a href=\"{root}api/resources/{}.json\">JSON</a></p>\n",
             self.t("Declared at"),
             esc(&text(&record["declared"])),
             file_name(&id)

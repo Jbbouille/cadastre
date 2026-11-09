@@ -134,8 +134,6 @@ paths, gives most of the flat sheets:
   or `component` per service and a link per consumer; the table of consumptions, the service as
   the row and the consumer as the column, is a pivot table (`select api`, `group: name`,
   `count: ["sources(flow)"]`). Left: their inputs and outputs as keys of their own.
-- **History.** The follow-up sheets (who changed what, when) are the history of the files: a
-  column with the date and author of the last change of a resource, from git, would replace them.
 
 ### Open
 

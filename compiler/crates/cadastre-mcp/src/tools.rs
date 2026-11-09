@@ -6,7 +6,7 @@ use std::path::Path;
 use cadastre_core::registry::{Registry, ResourceId};
 use cadastre_core::schema::{self, AttrDef, Ty};
 use cadastre_core::source::{FileId, SourceFile};
-use cadastre_core::{Compilation, Severity, compile_modules};
+use cadastre_core::{Compilation, Severity, compile_project};
 use serde_json::{Value, json};
 
 /// The most items a result lists: beyond, it says how many there are.
@@ -123,7 +123,10 @@ fn compile(project: &cadastre_project::Project, proposed: Option<&str>) -> (Comp
         language: project.language(),
         satellites: project.satellites(),
     };
-    (compile_modules(&files, &project.modules, options), files)
+    // The history of the resources when `cadastre.toml` asks for it: the files of the project
+    // keep their places, the proposed one comes after them.
+    let history = if project.history_enabled() { cadastre_project::history(project).0 } else { Vec::new() };
+    (compile_project(&files, &project.modules, options, &history), files)
 }
 
 /// A view or check block as written, or clauses alone wrapped in a view.

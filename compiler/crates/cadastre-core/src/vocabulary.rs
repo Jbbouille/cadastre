@@ -409,6 +409,12 @@ pub static PSEUDO: &[(&str, Styled, &str)] = &[
     ("shared", Styled::Nodes, "true if what the node hosts belongs to at least two systems"),
     ("virtual", Styled::Nodes, "true if the node is a virtual machine (`virtual server web01 { on: esx01 }`)"),
     (
+        "changed",
+        Styled::Nodes,
+        "the day of the last change of the resource, `2026-11-09`, from git (`[history]` in `cadastre.toml`): `where changed < \"2026-01-01\"`",
+    ),
+    ("changed_by", Styled::Nodes, "the author of the last change of the resource, from git (`[history]`)"),
+    (
         "down",
         Styled::Nodes,
         "true if the node is unavailable in the scenario of the view or the check (`failing: [fw01, fw02]`), failing or through them",

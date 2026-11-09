@@ -13,6 +13,7 @@ pub mod diagnostic;
 pub mod export;
 pub mod format;
 pub mod highlight;
+pub mod history;
 pub mod i18n;
 pub mod impact;
 pub mod inventory;
@@ -57,6 +58,7 @@ pub use check::Options;
 pub use diagnostic::{Diagnostic, Severity, Summary};
 pub use i18n::Language;
 pub use project::{
-    Compilation, Module, Output, build, build_with, compile, compile_modules, compile_with, cytoscape, drawio, xlsx,
+    Compilation, Module, Output, build, build_with, compile, compile_modules, compile_project, compile_with, cytoscape,
+    drawio, xlsx,
 };
 pub use source::SourceFile;

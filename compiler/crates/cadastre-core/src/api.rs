@@ -213,6 +213,7 @@ pub fn resource(compilation: &Compilation, files: &[SourceFile], id: ResourceId)
             .map(|&(a, b)| [registry.qualified_name(a), registry.qualified_name(b)])
             .collect::<Vec<_>>(),
         "questions": questions,
+        "changed": model.changes.get(&id).map(|c| json!({ "date": c.date(), "author": c.author, "commit": c.commit })),
         "outgoing": outgoing,
         "incoming": incoming,
     });

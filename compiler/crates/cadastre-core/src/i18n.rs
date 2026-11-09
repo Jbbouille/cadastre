@@ -169,6 +169,8 @@ const FR: &[(&str, &str)] = &[
     ("Each of these alone, failing, makes it unavailable.", "Chacun d'eux, seul, en panne, la rend indisponible."),
     ("Shown in", "Visible dans"),
     ("Declared at", "Déclarée à"),
+    ("changed on", "modifiée le"),
+    ("by", "par"),
     ("Cannot draw the diagram:", "Impossible de dessiner le diagramme :"),
     ("help", "aide"),
     ("Graphviz for the browser could not be loaded.", "Graphviz pour le navigateur n'a pas pu être chargé."),

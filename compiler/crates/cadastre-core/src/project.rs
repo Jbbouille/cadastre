@@ -100,6 +100,17 @@ pub fn compile_with(files: &[SourceFile], options: Options) -> Compilation {
 
 /// Compiles a project whose files include those of its modules.
 pub fn compile_modules(files: &[SourceFile], modules: &[Module], options: Options) -> Compilation {
+    compile_project(files, modules, options, &[])
+}
+
+/// Compiles a project with the last change of the lines of its files (`[history]` in
+/// `cadastre.toml`, read by the host from its version control): `changed`, `changed_by`.
+pub fn compile_project(
+    files: &[SourceFile],
+    modules: &[Module],
+    options: Options,
+    history: &[(FileId, crate::history::Lines)],
+) -> Compilation {
     let mut compilation =
         Compilation { modules: modules.to_vec(), language: options.language, ..Compilation::default() };
 
@@ -143,6 +154,7 @@ pub fn compile_modules(files: &[SourceFile], modules: &[Module], options: Option
     let duplicates = duplicate_names(&compilation);
     compilation.diagnostics.extend(duplicates);
     compilation.model = check::check(&compilation.registry, options, &mut compilation.diagnostics);
+    compilation.model.changes = crate::history::changes(&compilation.registry, history);
     let withdrawn = on_decommissioned(&compilation);
     compilation.diagnostics.extend(withdrawn);
     compilation.model.names.extend(placed);

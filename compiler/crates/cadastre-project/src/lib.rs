@@ -16,6 +16,9 @@
 //! [render]
 //! satellites = true        # the default of the views that do not write it; false otherwise
 //!
+//! [history]
+//! git = true               # the last change of each resource from `git blame`: `changed`, `changed_by`
+//!
 //! [dependencies]
 //! shared = { path = "../acme-shared" }
 //! ```
@@ -41,6 +44,8 @@ pub struct Manifest {
     pub language: Option<String>,
     /// `[render] satellites`: the default of the views that do not write it.
     pub satellites: bool,
+    /// `[history] git`: the last change of each resource, from `git blame`.
+    pub history: bool,
     /// Name → path of the module, relative to the project.
     pub dependencies: BTreeMap<String, String>,
 }
@@ -89,6 +94,94 @@ impl Project {
     pub fn satellites(&self) -> bool {
         self.manifest.as_ref().is_some_and(|m| m.satellites)
     }
+
+    /// Whether the history of the resources is read from git (`[history] git = true`).
+    pub fn history_enabled(&self) -> bool {
+        self.manifest.as_ref().is_some_and(|m| m.history)
+    }
+
+    /// Compiles the project, with the history of its resources when `cadastre.toml` asks for
+    /// it; what keeps it from being read (no git, a file outside a repository) as warnings.
+    pub fn compile(&self, options: cadastre_core::Options) -> (cadastre_core::Compilation, Vec<String>) {
+        let (history, warnings) = if self.history_enabled() { history(self) } else { (Vec::new(), Vec::new()) };
+        (cadastre_core::compile_project(&self.files, &self.modules, options, &history), warnings)
+    }
+}
+
+/// The last change of each line of the files of a project, from `git blame`: the files git does
+/// not know, and the lines not committed yet, left out; why a file could not be read, as warnings.
+pub fn history(project: &Project) -> (Vec<(FileId, cadastre_core::history::Lines)>, Vec<String>) {
+    let mut files = Vec::new();
+    let mut warnings = Vec::new();
+    for (index, path) in project.paths.iter().enumerate() {
+        let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else { continue };
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(["blame", "--line-porcelain", "--"])
+            .arg(name)
+            .output();
+        match output {
+            Ok(output) if output.status.success() => {
+                let text = &project.files[index].text;
+                files.push((FileId(index as u32), blame_lines(text, &String::from_utf8_lossy(&output.stdout))));
+            }
+            Ok(output) => {
+                let error = String::from_utf8_lossy(&output.stderr);
+                // A file git does not know yet: no history, nothing to say.
+                if !error.contains("no such path") {
+                    warnings.push(format!("history of {}: {}", project.files[index].path, error.trim()));
+                }
+            }
+            Err(error) => {
+                warnings.push(format!("history: git cannot be run: {error}"));
+                break;
+            }
+        }
+    }
+    (files, warnings)
+}
+
+/// The lines of `git blame --line-porcelain`, each with its bytes in `text`.
+fn blame_lines(text: &str, porcelain: &str) -> cadastre_core::history::Lines {
+    use cadastre_core::history::Change;
+    // The bytes of each line of the text, from 1.
+    let mut starts = vec![0];
+    starts.extend(text.match_indices('\n').map(|(i, _)| i + 1));
+    // The bytes of a line, its indentation and its end left out: those of a resource nested in
+    // another one are within its span.
+    let line = |n: usize| -> Option<std::ops::Range<usize>> {
+        let start = *starts.get(n.checked_sub(1)?)?;
+        let end = starts.get(n).map_or(text.len(), |e| e - 1);
+        let content = text.get(start..end)?;
+        let leading = content.len() - content.trim_start().len();
+        Some(start + leading..start + content.trim_end().len())
+    };
+    let mut lines = Vec::new();
+    let (mut commit, mut number, mut author, mut time) = (String::new(), 0, String::new(), 0i64);
+    for row in porcelain.lines() {
+        if row.starts_with('\t') {
+            // The text of the line, closing its record. A line not committed yet has a commit
+            // of zeros.
+            if !commit.chars().all(|c| c == '0')
+                && let Some(bytes) = line(number)
+            {
+                lines.push((bytes, Change { time, author: author.clone(), commit: commit.clone() }));
+            }
+            continue;
+        }
+        let mut words = row.split(' ');
+        let first = words.next().unwrap_or_default();
+        if first.len() == 40 && first.chars().all(|c| c.is_ascii_hexdigit()) {
+            commit = first.to_owned();
+            number = words.nth(1).and_then(|n| n.parse().ok()).unwrap_or(0);
+        } else if let Some(name) = row.strip_prefix("author ") {
+            author = name.to_owned();
+        } else if let Some(seconds) = row.strip_prefix("author-time ") {
+            time = seconds.parse().unwrap_or(0);
+        }
+    }
+    lines
 }
 
 /// The directory of the `cadastre.toml` holding `start`, if any.
@@ -229,6 +322,15 @@ pub fn parse(text: &str) -> Result<Manifest, String> {
                     }
                 }
             }
+            "history" => {
+                let history = value.as_table().ok_or("[history] is a table")?;
+                for (key, value) in history {
+                    match key.as_str() {
+                        "git" => manifest.history = value.as_bool().ok_or("history.git is true or false")?,
+                        other => return Err(format!("unknown key history.{other}: git")),
+                    }
+                }
+            }
             "dependencies" => {
                 let dependencies = value.as_table().ok_or("[dependencies] is a table")?;
                 for (name, dependency) in dependencies {
@@ -243,7 +345,7 @@ pub fn parse(text: &str) -> Result<Manifest, String> {
                     manifest.dependencies.insert(name.clone(), path.to_owned());
                 }
             }
-            other => return Err(format!("unknown table [{other}]: [project], [render], [dependencies]")),
+            other => return Err(format!("unknown table [{other}]: [project], [render], [history], [dependencies]")),
         }
     }
     Ok(manifest)
@@ -301,7 +403,12 @@ mod tests {
         assert_eq!(manifest.sources, ["src"]);
         assert_eq!(manifest.dependencies["shared"], "../shared");
         assert!(manifest.strict);
-        assert_eq!(parse("[projet]\n").unwrap_err(), "unknown table [projet]: [project], [render], [dependencies]");
+        assert_eq!(
+            parse("[projet]\n").unwrap_err(),
+            "unknown table [projet]: [project], [render], [history], [dependencies]"
+        );
+        assert!(parse("[history]\ngit = true\n").unwrap().history);
+        assert_eq!(parse("[history]\ngit = 1\n").unwrap_err(), "history.git is true or false");
         assert!(
             parse(
                 "[render]
@@ -357,6 +464,51 @@ satelites = true
 
         write("net/cadastre.toml", "[dependencies]\napp = { path = \"../app\" }\n");
         assert!(load(&dir.join("app")).unwrap_err().starts_with("the dependencies make a cycle"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_history_from_git() {
+        let dir = std::env::temp_dir().join(format!("cadastre-history-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let git = |args: &[&str], date: &str| {
+            let status = std::process::Command::new("git")
+                .arg("-C")
+                .arg(&dir)
+                .args(["-c", "user.name=Ana", "-c", "user.email=ana@example.com", "-c", "commit.gpgsign=false"])
+                .args(args)
+                .env("GIT_AUTHOR_DATE", date)
+                .env("GIT_COMMITTER_DATE", date)
+                .output()
+                .expect("git");
+            assert!(status.status.success(), "{}", String::from_utf8_lossy(&status.stderr));
+        };
+        std::fs::write(dir.join(MANIFEST), "[history]\ngit = true\n").unwrap();
+        std::fs::write(dir.join("a.ca"), "site dc {\n  hosting: on-prem\n  server old\n}\n").unwrap();
+        git(&["init", "-q"], "2025-01-01T10:00:00Z");
+        git(&["add", "."], "2025-01-01T10:00:00Z");
+        git(&["commit", "-q", "-m", "first"], "2025-01-01T10:00:00Z");
+        // A server added later, then one not committed yet.
+        std::fs::write(dir.join("a.ca"), "site dc {\n  hosting: on-prem\n  server old\n  server new\n}\n").unwrap();
+        git(&["commit", "-q", "-am", "second"], "2025-03-04T10:00:00Z");
+        std::fs::write(
+            dir.join("a.ca"),
+            "site dc {\n  hosting: on-prem\n  server old\n  server new\n  server next\n}\n",
+        )
+        .unwrap();
+
+        let project = load(&dir).unwrap();
+        assert!(project.history_enabled());
+        let (compilation, warnings) = project.compile(cadastre_core::Options::default());
+        assert!(warnings.is_empty(), "{warnings:?}");
+        let changed = |name: &str| {
+            let id = compilation.registry.ids().find(|&id| compilation.registry.resource(id).name == name).unwrap();
+            compilation.model.changes.get(&id).map(|c| (c.date(), c.author.clone()))
+        };
+        assert_eq!(changed("dc"), Some(("2025-01-01".to_owned(), "Ana".to_owned())));
+        assert_eq!(changed("new"), Some(("2025-03-04".to_owned(), "Ana".to_owned())));
+        assert_eq!(changed("next"), None);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

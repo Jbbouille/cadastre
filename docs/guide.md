@@ -31,6 +31,9 @@ New to Cadastre? Start with the [tutorial](tutorial.md). The language has three 
   [render]
   satellites = true        # the default of the views that do not write it: false otherwise
 
+  [history]
+  git = true               # the last change of each resource, from git blame (§ 6, History)
+
   [dependencies]
   shared = { path = "../acme-shared" }
   ```
@@ -1525,6 +1528,7 @@ edges [flow] where source.version > target.version
 | `referrers(key)` | nodes | the resources whose reference key `key` designates the node, the inverse of any key as `hosts` is of `on`: with `kind server { backup: ref(backup_policy) }`, `referrers(backup)` of a policy are its servers; `count(referrers(backup)) = 0`, the policies no server uses; in a table, `"referrers(backup) as Servers"` |
 | `shared` | nodes | true if what the node hosts belongs to at least two systems (nearest enclosing system, otherwise `system:`): `select server where shared` |
 | `virtual` | nodes | true if the node is a virtual machine, declared `virtual` (§ Virtual machines): `select server where virtual` |
+| `changed`, `changed_by` | nodes | the day (`2026-11-09`) and the author of the last change of the resource, from git, with `[history] git = true` in `cadastre.toml` (§ History): `select app where changed < "2026-01-01"`; days compare in their order |
 | `failures` | nodes | the resources whose failure alone makes the node unavailable (§ Impact analysis), usable at the head of a path: `failures has fw01`, `failures.kind = server` |
 | `failures(hosting)` | nodes | the same through hosting only, without the links: `failures(hosting).kind = server` |
 | `failures(pairs)` | nodes | the resources of the pairs whose failure together, and not of either alone, makes the node unavailable: what its redundancy rests on, `failures(pairs) has web02` |
@@ -1956,6 +1960,15 @@ app shop { owner: sales, description: "The shop, online" }
   ```
 
 - The format of the CSV is that of `for_each`: UTF-8, `,` or `;`, quoted fields as RFC 4180 says.
+
+### History
+
+The follow-up sheets beside a map (who changed what, when) are the history of its files. With `[history] git = true` in `cadastre.toml`, the commands read it from git (`git blame`): each resource gets the day and the author of its last change.
+
+- **The last change of a resource** is the latest commit among its own lines: those of the resources it contains are theirs (a server added to a site changes the server, not the site), the links written in its block are its own. Lines not committed yet are left out.
+- **Read** as `changed` and `changed_by` by filters, checks and tables: `columns: [name, owner, changed, changed_by]`, `check stale { select app where changed < "2025-01-01" expect none }`; on the page of each resource in the site (`changed on 2026-11-09 by …`, the commit), and in its JSON.
+- **Where**: `cadastre check`, `build`, `site`, `serve` and the MCP server. A file git does not know has no history; git missing is a warning. The editors and the playground have none.
+- **The authors' names** as git records them appear in the site and the tables: leave the option off for a site published outside the team.
 
 ### Sharing a project without exposing it
 

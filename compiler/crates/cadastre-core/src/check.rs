@@ -66,6 +66,9 @@ pub struct Model {
     /// The names of links written in the steps of the processes (`step F-042`), each with the
     /// link it designates and the name as written.
     pub link_names: Vec<(Span, usize, String)>,
+    /// The last change of each resource, from the version control of the project (`[history]`
+    /// in `cadastre.toml`): empty without it.
+    pub changes: HashMap<ResourceId, crate::history::Change>,
 }
 
 impl Model {

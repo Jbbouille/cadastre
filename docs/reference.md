@@ -656,6 +656,8 @@ The keys of the resources and links, and these pseudo-attributes. Order comparis
 | `referrers(key)` | nodes | the resources whose `key` designates the node: `referrers(backup_policy)`, the servers of a policy |
 | `shared` | nodes | true if what the node hosts belongs to at least two systems |
 | `virtual` | nodes | true if the node is a virtual machine (`virtual server web01 { on: esx01 }`) |
+| `changed` | nodes | the day of the last change of the resource, `2026-11-09`, from git (`[history]` in `cadastre.toml`): `where changed < "2026-01-01"` |
+| `changed_by` | nodes | the author of the last change of the resource, from git (`[history]`) |
 | `down` | nodes | true if the node is unavailable in the scenario of the view or the check (`failing: [fw01, fw02]`), failing or through them |
 | `failures` | nodes | the resources whose failure alone makes the node unavailable (impact analysis), usable at the head of a path |
 | `failures(hosting)` | nodes | the same through hosting only (containment, racks, `on`, cluster and pool members, connector ends), not the links: a single point of failure of the hosting |

@@ -21,9 +21,7 @@ use std::path::PathBuf;
 use std::process::{Command, ExitCode, Stdio};
 
 use cadastre_core::source::FileRole;
-use cadastre_core::{
-    Compilation, Diagnostic, Options as CompileOptions, Severity, SourceFile, Summary, build, compile_modules,
-};
+use cadastre_core::{Compilation, Diagnostic, Options as CompileOptions, Severity, SourceFile, Summary, build};
 use cadastre_project::Project;
 
 const USAGE: &str = "usage:
@@ -127,11 +125,11 @@ fn main() -> ExitCode {
     let Some(project) = read_project(&mut options) else { return ExitCode::from(2) };
     let (files, invalid) = (&project.files, &project.invalid);
     let language = options.language.unwrap_or_else(|| project.language());
-    let compilation = compile_modules(
-        files,
-        &project.modules,
-        CompileOptions { strict: options.strict, language, satellites: project.satellites() },
-    );
+    let (compilation, history) =
+        project.compile(CompileOptions { strict: options.strict, language, satellites: project.satellites() });
+    for warning in history {
+        eprintln!("warning: {warning}");
+    }
     let mut diagnostics = compilation.diagnostics.clone();
     diagnostics.extend(invalid.iter().map(|(file, error)| error.diagnostic(*file)));
     if let Some(name) = &options.only {

@@ -8,7 +8,7 @@ use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use cadastre_core::{Language, Options as CompileOptions, compile_modules, site};
+use cadastre_core::{Language, Options as CompileOptions, site};
 
 /// The files of the playground the page needs; Graphviz for the browser, when missing, is loaded
 /// from a CDN.
@@ -145,11 +145,11 @@ fn generate_with(
     drawings: &mut Drawings,
 ) -> std::io::Result<Vec<(String, Vec<u8>)>> {
     let language = language.unwrap_or_else(|| project.language());
-    let compilation = compile_modules(
-        &project.files,
-        &project.modules,
-        CompileOptions { strict: project.strict(), language, satellites: project.satellites() },
-    );
+    let (compilation, history) =
+        project.compile(CompileOptions { strict: project.strict(), language, satellites: project.satellites() });
+    for warning in history {
+        eprintln!("warning: {warning}");
+    }
     let dots = site::dots(&compilation);
     let laid_out = drawings.svgs(&dots.iter().map(|(_, dot)| dot.as_str()).collect::<Vec<_>>());
     // The views to move by hand: the variant of each diagram laid out again, as JSON.

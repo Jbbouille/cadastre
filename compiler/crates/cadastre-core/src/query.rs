@@ -164,6 +164,11 @@ impl Ctx<'_> {
                 "name" => vec![Text::plain(self.registry.qualified_name(id))],
                 "incomplete" => vec![Text::plain(self.model.incomplete.contains(&id).to_string())],
                 "virtual" => vec![Text::plain(resource.is_virtual().to_string())],
+                // Its last change, from the version control (`[history]`).
+                "changed" => self.model.changes.get(&id).map(|c| Text::plain(c.date())).into_iter().collect(),
+                "changed_by" => {
+                    self.model.changes.get(&id).map(|c| Text::plain(c.author.clone())).into_iter().collect()
+                }
                 "hosts" => self.model.hosts.get(&id).into_iter().flatten().copied().map(Item::Resource).collect(),
                 "failures" => self.model.failures_of(self.registry, id).iter().copied().map(Item::Resource).collect(),
                 "failures(pairs)" => {
@@ -290,13 +295,23 @@ fn compare(item: &Item, value: &Value) -> Option<std::cmp::Ordering> {
     compare_texts(&text.text, &value_text(value))
 }
 
-/// Whether a value has an order: a version, a number or a bandwidth.
+/// Whether a value has an order: a version, a number, a bandwidth or a day.
 pub fn is_ordered(text: &str) -> bool {
-    semver(text).is_some() || text.parse::<f64>().is_ok() || crate::net::bandwidth(text).is_some()
+    semver(text).is_some() || text.parse::<f64>().is_ok() || crate::net::bandwidth(text).is_some() || is_day(text)
 }
 
-/// Order of two values: versions, or numbers.
+/// A day, `2026-11-09`: ordered as its text.
+fn is_day(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    bytes.len() == 10
+        && bytes.iter().enumerate().all(|(i, b)| if i == 4 || i == 7 { *b == b'-' } else { b.is_ascii_digit() })
+}
+
+/// Order of two values: versions, numbers, bandwidths or days.
 fn compare_texts(a: &str, b: &str) -> Option<std::cmp::Ordering> {
+    if is_day(a) && is_day(b) {
+        return Some(a.cmp(b));
+    }
     if let (Some(a), Some(b)) = (semver(a), semver(b)) {
         return Some(a.cmp(&b));
     }
