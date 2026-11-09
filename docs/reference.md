@@ -649,6 +649,8 @@ The keys of the resources and links, and these pseudo-attributes. Order comparis
 | `parent` | nodes | the parent resource |
 | `step` | edges | step of a `follow` edge |
 | `hosts` | nodes | the resources whose `on` designates the node, usable at the head of a path |
+| `targets(layer)` | nodes | the other ends of the links of a layer written from the node: `targets(flow)`, what an app calls; `count(targets(flow))` |
+| `sources(layer)` | nodes | the other ends of the links of a layer written to the node: `sources(flow)`, what calls an app |
 | `referrers(key)` | nodes | the resources whose `key` designates the node: `referrers(backup_policy)`, the servers of a policy |
 | `shared` | nodes | true if what the node hosts belongs to at least two systems |
 | `virtual` | nodes | true if the node is a virtual machine (`virtual server web01 { on: esx01 }`) |

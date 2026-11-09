@@ -14,6 +14,7 @@ The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly mod
 
 ## Unreleased
 
+- **`targets(layer)`, `sources(layer)`**: the other ends of the links of a layer written from a node, or to it, in filters and tables: `count(sources(flow)) = 0` (the apps no flow reaches), `"count(targets(flow)) as Calls"`.
 - **`status`**, a standard key of any resource and any link: `active` (by default), `planned` or `decommissioned`. Planned is drawn in blue, decommissioned in grey; what is decommissioned is left out of the impact analysis (it does not fail, nothing needs it), and what is in service but still placed in, hosted by or linked to something decommissioned is warned about. A project that used `status` as a free key with other values gets an error for each: rename the key, or map its values.
 - **Pivot tables**: `render xlsx { group: status  count: [criticality] }` writes a row per value of a key or a path with the number of nodes (or edges) having it, a column per value of the keys counted, and a total: the applications by status and criticality, the flows by kind of exchange.
 - **Workbooks**: a cell naming a resource listed by a sheet of the workbook (the server of an instance) links to its row, in the same sheet or in the first one listing it.

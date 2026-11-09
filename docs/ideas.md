@@ -187,9 +187,6 @@ paths, gives most of the flat sheets:
 
 ### What is missing
 
-- **Counts of links.** Rows per pair, headers, counts in columns and pivot tables (`group`,
-  `count`) are done. Left: the counts a path does not give, such as the flows of an application,
-  which are links rather than keys.
 - **Computed keys.** A security criticality derived from four ratings (availability, integrity,
   confidentiality, traceability: the highest of them), a business criticality from the impacts
   (money, reputation, people, health): a key defined in the schema from other keys,

@@ -392,6 +392,16 @@ pub static PSEUDO: &[(&str, Styled, &str)] = &[
     ("step", Styled::Edges, "step of a `follow` edge"),
     ("hosts", Styled::Nodes, "the resources whose `on` designates the node, usable at the head of a path"),
     (
+        "targets(layer)",
+        Styled::Nodes,
+        "the other ends of the links of a layer written from the node: `targets(flow)`, what an app calls; `count(targets(flow))`",
+    ),
+    (
+        "sources(layer)",
+        Styled::Nodes,
+        "the other ends of the links of a layer written to the node: `sources(flow)`, what calls an app",
+    ),
+    (
         "referrers(key)",
         Styled::Nodes,
         "the resources whose `key` designates the node: `referrers(backup_policy)`, the servers of a policy",

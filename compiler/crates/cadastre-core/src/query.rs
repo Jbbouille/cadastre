@@ -196,6 +196,31 @@ impl Ctx<'_> {
                     referrers.sort();
                     referrers.into_iter().map(Item::Resource).collect()
                 }
+                // `targets(flow)`, `sources(flow)`: the other ends of the links of a layer written
+                // from the node, or to it.
+                call if (call.starts_with("targets(") || call.starts_with("sources(")) && call.ends_with(')') => {
+                    let outgoing = call.starts_with("targets(");
+                    let layer = &call[call.find('(').map_or(0, |i| i + 1)..call.len() - 1];
+                    let mut ends: Vec<ResourceId> = self
+                        .model
+                        .link_ends
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(index, ends)| {
+                            let (source, target) = (*ends)?;
+                            let link = &self.registry.links[index];
+                            link.layers.iter().any(|(name, _)| name == layer).then_some(())?;
+                            match (outgoing, source == id, target == id) {
+                                (true, true, _) => Some(target),
+                                (false, _, true) => Some(source),
+                                _ => None,
+                            }
+                        })
+                        .collect();
+                    ends.sort();
+                    ends.dedup();
+                    ends.into_iter().map(Item::Resource).collect()
+                }
                 key => {
                     let references = self.model.reference(Holder::Resource(id), key);
                     if !references.is_empty() {

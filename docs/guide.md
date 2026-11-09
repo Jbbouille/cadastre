@@ -1479,6 +1479,7 @@ edges [flow] where source.version > target.version
 | `proto`, `port` | edges | taken from the `port_spec`; `port = 8080` is true if 8080 falls within a range |
 | `step` | edges | step of a `follow` edge (§ `follow`), absent otherwise: `edges where step = 1` |
 | `hosts` | nodes | the resources whose `on` designates the node, usable at the head of a path: `hosts has catalog.api`, `hosts.kind = database` |
+| `targets(layer)`, `sources(layer)` | nodes | the other ends of the links of a layer written from the node, or to it: `targets(flow)` what an app calls, `sources(flow)` what calls it; `count(sources(flow)) = 0`, the apps no flow reaches; in a table, `"count(targets(flow)) as Calls"` |
 | `referrers(key)` | nodes | the resources whose reference key `key` designates the node, the inverse of any key as `hosts` is of `on`: with `kind server { backup: ref(backup_policy) }`, `referrers(backup)` of a policy are its servers; `count(referrers(backup)) = 0`, the policies no server uses; in a table, `"referrers(backup) as Servers"` |
 | `shared` | nodes | true if what the node hosts belongs to at least two systems (nearest enclosing system, otherwise `system:`): `select server where shared` |
 | `virtual` | nodes | true if the node is a virtual machine, declared `virtual` (§ Virtual machines): `select server where virtual` |

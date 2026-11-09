@@ -210,3 +210,29 @@ app d { criticality: high }
     ]);
     assert!(output(&c, "markdown").contains("| active | 4 |"), "{}", output(&c, "markdown"));
 }
+
+#[test]
+fn the_ends_of_the_links_of_a_layer() {
+    let registry = "app shop { -> stock : https [flow], -> pay : https [flow], -> ldap : ldaps [auth] }
+app stock { -> pay : https [flow] }
+app pay
+app ldap
+";
+    let views = "view v {\n  select app\n  render markdown { columns: [name, \"count(targets(flow)) as Calls\", \"sources(flow) as Called by\"] }\n}\n\
+                 view unused {\n  select app where count(sources(flow)) = 0\n  render text\n}\n\
+                 view wrong {\n  select app where count(targets(flows)) = 0\n  render text\n}\n";
+    let c = compile(&[
+        SourceFile { path: "a.ca".into(), text: registry.into() },
+        SourceFile { path: "v.cav".into(), text: views.into() },
+    ]);
+    assert_eq!(errors(&c), ["unknown layer: flows"], "{:?}", errors(&c));
+    let (outputs, _) = build(&c, None);
+    let table = outputs.iter().find(|o| o.view == "v").unwrap().content.clone();
+    assert_eq!(
+        table,
+        "| name | Calls | Called by |\n|---|---|---|\n| shop | 2 |  |\n| stock | 1 | shop |\n| pay | 0 | shop, stock |\n| ldap | 0 |  |\n"
+    );
+    // The apps nothing calls by a flow: `ldap` is reached by an `auth` link only.
+    let unused = outputs.iter().find(|o| o.view == "unused").unwrap().content.clone();
+    assert!(unused.contains("shop") && unused.contains("ldap") && !unused.contains("pay"), "{unused}");
+}

@@ -963,6 +963,17 @@ impl Validator<'_> {
                         self.unknown("key", key, step.span, self.keys.iter().map(String::as_str));
                     }
                 }
+                StepKind::Name(n)
+                    if let Some(layer) = ["targets(", "sources("]
+                        .iter()
+                        .find_map(|f| n.strip_prefix(f))
+                        .and_then(|r| r.strip_suffix(')')) =>
+                {
+                    if !self.layers.contains(layer) {
+                        let layers = self.layers;
+                        self.unknown("layer", layer, step.span, layers.iter().copied());
+                    }
+                }
                 StepKind::Name(n) if !vocabulary::PSEUDO.iter().any(|p| p.0 == n) && !self.keys.contains(n) => {
                     let candidates: Vec<&str> =
                         self.keys.iter().map(String::as_str).chain(vocabulary::PSEUDO.iter().map(|p| p.0)).collect();
