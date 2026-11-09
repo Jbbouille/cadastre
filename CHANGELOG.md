@@ -14,6 +14,7 @@ The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly mod
 
 ## Unreleased
 
+- **Pivot tables**: `render xlsx { group: status  count: [criticality] }` writes a row per value of a key or a path with the number of nodes (or edges) having it, a column per value of the keys counted, and a total: the applications by status and criticality, the flows by kind of exchange.
 - **Workbooks**: a cell naming a resource listed by a sheet of the workbook (the server of an instance) links to its row, in the same sheet or in the first one listing it.
 - **`merge: pair`**: an edge going both ways labels each direction apart, `→` the way of the drawing (`→ tcp/9392`, `← tcp/10006`), rather than both in one list.
 - **Zoom and move around the diagrams** on the site, in the playground and in the VS Code preview: Ctrl + wheel (the wheel alone in the playground and the preview) zooms around the cursor, a drag moves the drawing, buttons zoom in, out, fit and show at 1:1; the links and the tooltips keep working, the zoom is kept while the view is drawn again, and a printed page gives the whole drawing. The *Fit to width* / *Actual size* button of the preview gives way to them.

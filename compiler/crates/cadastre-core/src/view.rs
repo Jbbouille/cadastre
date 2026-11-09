@@ -109,6 +109,10 @@ pub struct RenderOptions {
     /// The columns of a table view, as written; the rows, `nodes` or `edges`.
     pub columns: Vec<String>,
     pub rows: Option<String>,
+    /// A pivot table: the rows grouped by a column (`group`), counted by the values of others
+    /// (`count`).
+    pub group: Option<String>,
+    pub count: Vec<String>,
     /// The views whose tables follow that of the view in its workbook (`xlsx`).
     pub sheets: Vec<String>,
     /// Factors of the space between the nodes and between the ranks (`spacing`).
@@ -145,6 +149,8 @@ impl RenderOptions {
             summary_from: None,
             columns: Vec::new(),
             rows: None,
+            group: None,
+            count: Vec::new(),
             sheets: Vec::new(),
             spacing: (1.0, 1.0),
             node_label_size: 10.0,
@@ -183,6 +189,10 @@ impl RenderOptions {
                 }
                 ("rows", _) => options.rows = Some(crate::query::value_text(&option.value)),
                 ("sheets", _) => options.sheets = words,
+                ("group", _) => options.group = Some(crate::query::value_text(&option.value)),
+                ("count", _) => {
+                    options.count = option.value.items().iter().map(|v| crate::query::value_text(v)).collect()
+                }
                 ("merge_label", "count") => options.summary_from = Some(2),
                 ("merge_label", v) => options.summary_from = v.parse().ok().filter(|&n| n >= 2),
                 ("edge_labels_wrap", "values") => options.wrap = Some(Wrap::Values),

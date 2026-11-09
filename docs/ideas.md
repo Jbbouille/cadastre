@@ -189,11 +189,9 @@ paths, gives most of the flat sheets:
 
 ### What is missing
 
-- **Pivots.** One row per pair (`rows: "each(on.on)"`), column headers (`"… as Site"`) and
-  counts in columns (`"count(on)"`) are done. Left: the pivot tables, the applications by status
-  and criticality, the flows by kind of exchange, the services by consumer: rows grouped by a key
-  with counts (`group: status`, `count: [criticality]`); and the counts a path does not give,
-  such as the flows of an application, which are links rather than keys.
+- **Counts of links.** Rows per pair, headers, counts in columns and pivot tables (`group`,
+  `count`) are done. Left: the counts a path does not give, such as the flows of an application,
+  which are links rather than keys.
 - **Computed keys.** A security criticality derived from four ratings (availability, integrity,
   confidentiality, traceability: the highest of them), a business criticality from the impacts
   (money, reputation, people, health): a key defined in the schema from other keys,

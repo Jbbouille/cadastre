@@ -1,6 +1,8 @@
 //! Table views: the nodes or the edges of a view as rows, chosen keys and paths as columns,
 //! written as CSV, TSV, Markdown or an HTML page.
 
+use std::collections::{BTreeMap, BTreeSet};
+
 use crate::plan::{Path, Step, StepKind};
 use crate::query::{Item, Subject};
 use crate::registry::ResourceId;
@@ -140,6 +142,9 @@ pub(super) fn grid(scene: &Scene) -> Grid {
         Some("edges") => true,
         _ => scene.graph.has_edge_clause,
     };
+    if let Some(group) = options.group.as_deref().and_then(column) {
+        return pivot(scene, edges, &group);
+    }
     let each = options.rows.as_deref().and_then(each);
     let written: Vec<String> = if options.columns.is_empty() {
         (if edges { EDGE_COLUMNS } else { NODE_COLUMNS }).iter().map(|c| (*c).to_owned()).collect()
@@ -230,6 +235,73 @@ pub(super) fn grid(scene: &Scene) -> Grid {
         })
         .collect();
     Grid { names, numeric, rows, subjects, resources }
+}
+
+/// A pivot table (`group`): a row per value of the column grouped by, the number of nodes (or
+/// edges) having it, then a column per value of the columns counted (`count`), and a total row.
+/// A node with several values is counted in each, without any in an empty row, last.
+fn pivot(scene: &Scene, edges: bool, group: &Column) -> Grid {
+    let ctx = scene.ctx();
+    let counted: Vec<Column> = scene.graph.options.count.iter().filter_map(|c| column(c)).collect();
+    let values = |subject: &Subject, path: &Path| -> BTreeSet<String> {
+        ctx.path(subject, path)
+            .iter()
+            .map(|item| match item {
+                Item::Resource(id) => scene.registry.resource(*id).name.clone(),
+                Item::Value(text) => text.text.clone(),
+            })
+            .collect()
+    };
+    let subjects: Vec<Subject> = if edges {
+        scene.graph.edges.iter().map(|edge| Subject::Edge(edge)).collect()
+    } else {
+        scene.graph.nodes.iter().map(|&id| Subject::Node(id)).collect()
+    };
+    // For each group: its count, and for each column counted, the count of each value.
+    let mut groups: BTreeMap<(bool, String), (usize, Vec<BTreeMap<String, usize>>)> = BTreeMap::new();
+    let mut seen: Vec<BTreeSet<String>> = vec![BTreeSet::new(); counted.len()];
+    let mut totals: Vec<BTreeMap<String, usize>> = vec![BTreeMap::new(); counted.len()];
+    for subject in &subjects {
+        let mut keys = values(subject, &group.path);
+        if keys.is_empty() {
+            keys.insert(String::new());
+        }
+        let by: Vec<BTreeSet<String>> = counted.iter().map(|c| values(subject, &c.path)).collect();
+        for (c, set) in by.iter().enumerate() {
+            for value in set {
+                seen[c].insert(value.clone());
+                *totals[c].entry(value.clone()).or_default() += 1;
+            }
+        }
+        for key in keys {
+            let entry =
+                groups.entry((key.is_empty(), key)).or_insert_with(|| (0, vec![BTreeMap::new(); counted.len()]));
+            entry.0 += 1;
+            for (c, set) in by.iter().enumerate() {
+                for value in set {
+                    *entry.1[c].entry(value.clone()).or_default() += 1;
+                }
+            }
+        }
+    }
+    let mut names = vec![group.header.clone(), "count".to_owned()];
+    for (c, column) in counted.iter().enumerate() {
+        for value in &seen[c] {
+            names.push(if counted.len() == 1 { value.clone() } else { format!("{}: {value}", column.header) });
+        }
+    }
+    let line = |label: String, count: usize, by: &[BTreeMap<String, usize>]| -> Vec<String> {
+        let mut row = vec![label, count.to_string()];
+        for (c, values) in seen.iter().enumerate() {
+            row.extend(values.iter().map(|v| by[c].get(v).copied().unwrap_or(0).to_string()));
+        }
+        row
+    };
+    let mut rows: Vec<Vec<String>> = groups.into_iter().map(|((_, key), (count, by))| line(key, count, &by)).collect();
+    rows.push(line(scene.t("Total").to_owned(), subjects.len(), &totals));
+    let numeric = (0..names.len()).map(|c| c > 0).collect();
+    let resources = rows.iter().map(|row| vec![None; row.len()]).collect();
+    Grid { names, numeric, subjects: vec![None; rows.len()], resources, rows }
 }
 
 /// The chains of items the `each` path goes through from a node or an edge, one per row: a step

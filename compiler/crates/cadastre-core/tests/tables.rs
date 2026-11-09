@@ -182,3 +182,24 @@ view unused { select backup_policy where count(referrers(backup)) = 0  render ma
     let (outputs, _) = build(&c, Some("unused"));
     assert!(outputs[0].content.ends_with("|---|---|---|\n| unused | backup_policy |  |\n"), "{}", outputs[0].content);
 }
+
+#[test]
+fn a_pivot_table() {
+    let registry = "app a { status: active, criticality: high }
+app b { status: active, criticality: low }
+app c { status: planned, criticality: high }
+app d { criticality: high }
+";
+    let views = "view v {\n  select app\n  render markdown { group: \"status as Status\"  count: [criticality] }\n}\n";
+    let c = compile(&[
+        SourceFile { path: "a.ca".into(), text: registry.into() },
+        SourceFile { path: "v.cav".into(), text: views.into() },
+    ]);
+    assert!(errors(&c).is_empty(), "{:?}", errors(&c));
+    // A row per status, the apps without one last, then the total.
+    assert_eq!(
+        output(&c, "markdown"),
+        "| Status | count | high | low |\n|---|---|---|---|\n\
+         | active | 2 | 1 | 1 |\n| planned | 1 | 1 | 0 |\n|  | 1 | 1 | 0 |\n| Total | 4 | 3 | 1 |\n"
+    );
+}

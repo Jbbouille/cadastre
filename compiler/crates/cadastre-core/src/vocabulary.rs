@@ -240,6 +240,18 @@ pub static RENDER_OPTIONS: &[OptionDef] = &[
         "columns of a table (`csv`, `tsv`, `markdown`, `html`, `xlsx`): keys, pseudo-attributes or paths, or their count, then a header, quoted: `\"on.ancestor(site) as Site\"`, `\"count(on) as Servers\"`",
     ),
     option(
+        "group",
+        Values::Columns,
+        "",
+        "a pivot table: a row per value of a key or a path, with the number of nodes (or edges) having it, then a total; quoted with a header: `\"status as Status\"`",
+    ),
+    option(
+        "count",
+        Values::Columns,
+        "",
+        "with `group`, a column per value of these keys or paths, counting the nodes (or edges) of the row having it: `count: [criticality]`",
+    ),
+    option(
         "rows",
         Values::Rows,
         "",
