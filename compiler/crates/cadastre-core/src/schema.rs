@@ -170,7 +170,9 @@ pub static KINDS: &[KindDef] = &[
         &[
             attr("subnet", Ty::Ref("subnet")),
             attr("ip", Ty::Ip),
-            attr("peer", Ty::Ref("interface|server")),
+            // The other end of the cable: an interface, a server, or the internet (the access of
+            // a provider, its operator and bandwidth on the interface).
+            attr("peer", Ty::Ref("interface|server|internet")),
             // The VLANs a port carries: one, untagged (access), or several, tagged (trunk).
             attr("vlan", Ty::Number),
             many("vlans", Ty::Number),
@@ -202,7 +204,8 @@ pub static KINDS: &[KindDef] = &[
         kind(
             "wan_link",
             &["none"],
-            &[with_card(required("ends", Ty::Ref("router|firewall|vpn_gateway")), Card::Exactly(2))],
+            // An end may be the internet: the access of a site to a provider.
+            &[with_card(required("ends", Ty::Ref("router|firewall|vpn_gateway|internet")), Card::Exactly(2))],
         ),
         "ends",
     ),

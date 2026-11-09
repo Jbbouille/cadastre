@@ -755,8 +755,10 @@ impl Checker<'_> {
                 }
             }
 
-            // Cables: a plug point has a single peer.
-            if let Some(&peer) = self.model.reference(Holder::Resource(id), "peer").first() {
+            // Cables: a plug point has a single peer; the internet is not one, many reach it.
+            if let Some(&peer) = self.model.reference(Holder::Resource(id), "peer").first()
+                && self.registry.schema.base(&self.registry.resource(peer).kind) != "internet"
+            {
                 peers.entry(id).or_default().insert(peer);
                 peers.entry(peer).or_default().insert(id);
             }

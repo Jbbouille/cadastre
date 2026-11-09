@@ -357,7 +357,7 @@ In: root. Connector between its two `ends`.
 
 | Key | Type | Count | Required |
 |---|---|---|---|
-| `ends` | `ref(router \| firewall \| vpn_gateway)` | exactly 2 | yes |
+| `ends` | `ref(router \| firewall \| vpn_gateway \| internet)` | exactly 2 | yes |
 
 #### `actor`
 
@@ -466,7 +466,7 @@ In: `server`, `firewall`, `router`, `switch`, `vpn_gateway`, `device`.
 |---|---|---|---|
 | `subnet` | `ref(subnet)` | one |  |
 | `ip` | `ip` | one |  |
-| `peer` | `ref(interface \| server)` | one |  |
+| `peer` | `ref(interface \| server \| internet)` | one |  |
 | `vlan` | `number` | one |  |
 | `vlans` | `number` | list |  |
 | `aggregate` | `string` | one |  |
