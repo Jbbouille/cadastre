@@ -39,6 +39,28 @@ fn a_dot_at_the_end_that_opens_the_connection() {
     let labeled = dot("orientation: data");
     assert!(labeled.lines().any(|l| l.starts_with("  n2 -> e") && l.contains("arrowtail=dot")), "{labeled}");
     assert!(labeled.lines().any(|l| l.contains(" -> n0 ") && l.contains("arrowhead=dotnormal")), "{labeled}");
+    // The view to move by hand marks the same ends.
+    let c = compile(&[
+        SourceFile { path: "a.ca".into(), text: REGISTRY.into() },
+        SourceFile {
+            path: "v.cav".into(),
+            text: "view v {
+  select app
+  edges [flow]
+  render svg { orientation: data }
+}
+"
+            .into(),
+        },
+    ]);
+    let elements: serde_json::Value = serde_json::from_str(&cadastre_core::cytoscape(&c, "v", None).unwrap()).unwrap();
+    let marked: Vec<(bool, bool)> = elements["edges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| (e["data"]["tailDot"] == true, e["data"]["headDot"] == true))
+        .collect();
+    assert_eq!(marked, [(false, true), (true, false)], "{elements}");
     // Off on demand, and in the orientation of the connections, where the arrow says it.
     for render in ["orientation: data  initiator: false", ""] {
         let plain = dot(render);

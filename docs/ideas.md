@@ -15,10 +15,9 @@ present, its labels those of both directions in one list. Open:
 ## Who opens the connection, beyond the SVG
 
 `initiator` marks with a dot the end that opens the connection in data orientation, in the SVG
-drawn by Graphviz. Open:
+(Graphviz and ELK), the DOT and the view to move by hand. Open:
 
-- the other renderings: the drawing of `layout: elk` and the view to move by hand (Cytoscape has a
-  `circle` arrow shape), Mermaid (no tail markers: the label prefixed, or nothing);
+- Mermaid, which has no tail markers: the label prefixed, or nothing;
 - an edge merging links opened from both ends (`lift`, `merge: pair`): the dot at both ends, and
   the tooltip saying who opens what.
 
