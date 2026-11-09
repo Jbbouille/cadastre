@@ -38,9 +38,10 @@ Open:
 
 ## Edges drawn after the layout: where they go
 
-Two views of a real map, anonymized here, where an edge that does not take part in the layout ends
-up in the wrong place. In both, the edge is drawn once the nodes are placed, as `layout: free`
-edges are, and nothing decides on which side it passes nor what it may cross.
+A view of a real map, anonymized here, where an edge that does not take part in the layout ends
+up in the wrong place: drawn once the nodes are placed, as `layout: free` edges are, nothing decides
+on which side it passes nor what it may cross. (The edges between the items of a `stack` level,
+once freed the same way, are now laid out with a length of zero.)
 
 ### A colocation linked by `layout: free` edges only
 
@@ -102,67 +103,11 @@ Ideas:
   or `cross`, rather than as an isolated node;
 - free edges routed around the other edges (a channel along the outside of the frames they leave),
   or at least a `side: left | right | top | bottom` on the style rule of an edge;
+- a free edge entering nested frames (a VM on a host) routed through their nearest side, rather
+  than around them to the far side;
 - with `layout: elk`, on the real map as on this example, the colocation lands next to the frames
   it links and its links are routed orthogonally, without crossing the cables: the way out today,
   said in the guide.
-
-### Links between the items of a `stack` level
-
-Two data centers side by side (`stack: [[dc-a, dc-b], …]`), each with a storage VM pinned on a
-host, and a host reaching the storage of both sites over iSCSI.
-
-```
-site dc-a {
-  server host-a3 { serial: "A3" }
-  server host-a1 { serial: "A1" }
-  virtual server vm-a { on: host-a1 }
-  server host-a2 {
-    serial: "A2"
-    -> store-a : iscsi [flow]
-    -> store-b : iscsi [flow]
-  }
-}
-site dc-b {
-  server host-b3 { serial: "B3" }
-  server host-b1 { serial: "B1" }
-  virtual server vm-b { on: host-b1 }
-  server host-b2 {
-    serial: "B2"
-    -> store-a : iscsi [flow]
-    -> store-b : iscsi [flow]
-  }
-}
-app store-a { on: vm-a  -> store-b [flow] }
-app store-b { on: vm-b  -> store-a [flow] }
-site dc-c { server host-c1 { serial: "C1" }  server host-c2 { serial: "C2" }  server host-c3 { serial: "C3" } }
-site dc-d { server host-d1 { serial: "D1" }  server host-d2 { serial: "D2" }  server host-d3 { serial: "D3" } }
-
-view storage {
-  title: "Storage"
-  description: "Two hosts reaching the storage VMs of both data centers over iSCSI, the VMs mirrored."
-  select server, app where exists(serial) or name in [store-a, store-b] group-by site > on
-  edges  [flow] where proto = iscsi or source.name in [store-a, store-b]
-  style {
-    edges where source.name in [store-a, store-b] and target.name in [store-a, store-b] { layout: free  routing: straight }
-  }
-  render svg { satellites: false  direction: bt  stack: [[dc-a, dc-b], [dc-c, dc-d]] }
-}
-```
-
-Got: the edge from the host of one site to the storage of the other leaves towards its target,
-passes it, goes around the frame of the host and comes back into the storage VM from the far side.
-Without `stack`, the same edge goes straight to the VM.
-
-Why: the items of a `stack` level stay on one rank, and the edges between them are turned into
-`layout: free` edges (the guide says so). The iSCSI edges between `dc-a` and `dc-b` are therefore
-drawn after the layout; to reach a node nested in two frames (the host, the VM), the curve looks
-for a way in that does not cross the frames, and finds it on the far side.
-
-Ideas:
-
-- an edge that enters nested frames routed through their nearest side;
-- the edges between the items of a level kept in the layout across the rank (as a flat edge in
-  Graphviz) rather than freed, when they do not go against the order of the stack;
 
 ## A view that gives back a whole CMDB
 

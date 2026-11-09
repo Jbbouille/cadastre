@@ -1307,8 +1307,9 @@ impl<'a> Scene<'a> {
     }
 
     /// Whether a frame (`None`: the root) lies inside `group`, or is it.
-    /// Whether an edge links two items of a same level of `stack`: drawn without constraining the
-    /// ranks, as a free edge, so that the items stay side by side.
+    /// Whether an edge links two items of a same level of `stack`: laid out with a length of
+    /// zero, its tail first across the direction (the items in their order), so that the items
+    /// stay side by side and the edge goes straight from one to the other.
     pub fn across_level(&self, edge: &GraphEdge) -> bool {
         let (from, to, _) = self.drawn(edge);
         self.stack().iter().any(|level| {
@@ -1414,20 +1415,6 @@ impl<'a> Scene<'a> {
             }
         }
         conflicts
-    }
-
-    /// The edges between two items of a level of `stack`, which leave the layout to keep the
-    /// items side by side (`across_level`): `host-a2 -> store-b`, once each.
-    pub fn stack_freed(&self) -> Vec<String> {
-        let mut freed = Vec::new();
-        for edge in self.graph.edges.iter().filter(|e| self.edge_drawn(e) && self.across_level(e)) {
-            let (from, to, _) = self.drawn(edge);
-            let line = format!("{} -> {}", self.name(from), self.name(to));
-            if !freed.contains(&line) {
-                freed.push(line);
-            }
-        }
-        freed
     }
 }
 
@@ -1698,10 +1685,14 @@ pub fn dot(scene: &Scene) -> String {
         Routing::Orthogonal => ", splines=ortho",
     };
     // Labels placed on the edges rather than as nodes: for free edges, or all of them.
-    // A free edge (`layout: free`, or between two items of a level of `stack`): its label on it.
-    let free = |edge: &GraphEdge| scene.edge_style(edge).free || scene.across_level(edge);
+    // A free edge (`layout: free`): its label on it.
+    let free = |edge: &GraphEdge| scene.edge_style(edge).free;
+    // An edge between two items of a level of `stack`: laid out with a length of zero, so that
+    // the items keep their rank; its label on it, a text node would take a rank of its own.
+    let across = |edge: &GraphEdge| !free(edge) && scene.across_level(edge);
     // A straight edge too: a label laid out as a node would break the line in two.
-    let on_edge = |edge: &GraphEdge| graph.options.free_labels || free(edge) || scene.edge_style(edge).straight;
+    let on_edge =
+        |edge: &GraphEdge| graph.options.free_labels || free(edge) || across(edge) || scene.edge_style(edge).straight;
     let any_on_edge = graph.edges.iter().any(|e| on_edge(e) && !scene.diagram_label(e).is_empty());
     let forcelabels = if any_on_edge { ", forcelabels=true" } else { "" };
     // With `cross`, the order the frames and nodes are written in is the order wanted: the
@@ -1781,6 +1772,8 @@ pub fn dot(scene: &Scene) -> String {
         }
         if free(edge) {
             attrs.push("constraint=false".to_owned());
+        } else if across(edge) {
+            attrs.push("minlen=0".to_owned());
         }
         let mut classes = Vec::new();
         if style.straight {

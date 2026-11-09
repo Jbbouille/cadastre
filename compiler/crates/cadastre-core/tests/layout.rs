@@ -354,7 +354,7 @@ fn spacing_and_sizes() {
 
 #[test]
 fn a_level_of_stack_side_by_side() {
-    // The two clusters on a level: the flows between them leave the ranks alone, so that the
+    // The two clusters on a level: the flows between them have a length of zero, so that the
     // second one stays beside the first one; the flow within a cluster keeps its rank.
     let c = compilation("dot { stack: [[cluster-a, cluster-b]] }", "");
     assert!(errors(&c).is_empty(), "{:?}", errors(&c));
@@ -364,9 +364,12 @@ fn a_level_of_stack_side_by_side() {
     let edge = |from: &str, to: &str| {
         dot.lines().find(|l| l.trim_start().starts_with(&format!("{from} -> {to} "))).unwrap_or_default().to_owned()
     };
-    assert!(edge(&esx4, &datacore01).contains("constraint=false"), "{dot}");
-    assert!(edge(&esx4, &datacore02).contains("constraint=false"), "{dot}");
-    assert!(!dot.contains(&format!("{datacore01} -> {datacore02} [dir=forward, constraint=false")), "{dot}");
+    // Written from cluster-a, the first of the level (`lr`: Graphviz turns it), their arrows turned.
+    let across = |a: &str, b: &str| format!("{}{}", edge(a, b), edge(b, a));
+    assert!(across(&esx4, &datacore01).contains("minlen=0"), "{dot}");
+    assert!(across(&esx4, &datacore02).contains("minlen=0"), "{dot}");
+    assert!(!dot.contains("constraint=false"), "{dot}");
+    assert!(!edge(&datacore01, &datacore02).contains("minlen=0"), "{dot}");
     // An invisible point before the level, pulling both clusters to the same rank.
     assert!(dot.contains("level0 [shape=point, style=invis"), "{dot}");
     assert!(
@@ -410,16 +413,20 @@ fn cross_orders_a_level_of_stack() {
         same.contains("remincross=false") && same.contains(&format!("  {datacore01} -> {esx4} [dir=back,")),
         "{same}"
     );
-    // The iSCSI flows between the two clusters leave the layout: an info names them.
-    let c = compilation("dot { direction: tb, stack: [[cluster-a, cluster-b]] }", "");
-    let (_, diagnostics) = build(&c, None);
-    let info = diagnostics.iter().find(|d| d.message.contains("drawn after the layout")).expect("an info");
-    assert_eq!(info.severity, Severity::Info);
-    assert!(
-        info.message.contains("esx4 -> datacore01") || info.message.contains("datacore01 -> esx4"),
-        "{}",
-        info.message
+    // The iSCSI flows between the two clusters stay in the layout, with a length of zero: the
+    // clusters keep their rank, the flows go straight from one to the other.
+    let edge = same.lines().find(|l| l.starts_with(&format!("  {datacore01} -> {esx4} "))).unwrap();
+    assert!(edge.contains("minlen=0") && !edge.contains("constraint=false"), "{edge}");
+    // Unless a rule sets them free.
+    let free = output(
+        &compilation(
+            "dot { direction: tb, stack: [[cluster-a, cluster-b]] }",
+            "edges where proto = iscsi { layout: free }",
+        ),
+        "dot",
     );
+    let edge = free.lines().find(|l| l.starts_with(&format!("  {datacore01} -> {esx4} "))).unwrap();
+    assert!(edge.contains("constraint=false") && !edge.contains("minlen=0"), "{edge}");
     // Written the other way, cluster-b first.
     let dot = output(&compilation("dot { direction: tb, stack: [[cluster-b, cluster-a]] }", ""), "dot");
     assert!(dot.contains(&format!("  {esx4} -> {datacore01} [dir=forward,")), "{dot}");

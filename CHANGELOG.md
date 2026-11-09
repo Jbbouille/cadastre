@@ -14,6 +14,7 @@ The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly mod
 
 ## Unreleased
 
+- **`stack`**: the edges between the items of a level are laid out with a length of zero rather than drawn after the layout: they go straight from one item to the other, rather than around a frame to reach a node nested in it, and the info naming them is gone. `layout: free` on a style rule still leaves them out of the layout.
 - **`merge: pair`**: the style rules apply to each direction of an edge going both ways, with its own source and target; the edge takes the most marked line of the two (dashed one way and solid the other: dashed), and its tooltip tells each direction apart.
 
 ## 0.3.0

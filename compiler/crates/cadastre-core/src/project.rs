@@ -206,23 +206,6 @@ pub fn build_with(
                 .with_help("put them on adjacent levels, or group the view so that they are not in the same frame"),
             );
         }
-        // The edges `stack` takes out of the layout: drawn once the nodes are placed, they may
-        // go around a frame or cross other edges.
-        let freed = scene.stack_freed();
-        if !freed.is_empty() {
-            diagnostics.push(
-                Diagnostic::info(
-                    format!(
-                        "view {}: {} between items of a level of stack, drawn after the layout: {}",
-                        view.name,
-                        if freed.len() == 1 { "an edge".to_owned() } else { format!("{} edges", freed.len()) },
-                        freed.join(", ")
-                    ),
-                    stack.map_or(view.span, |s| s.value.span),
-                )
-                .with_help("to lay them out with the others, put their ends on different levels"),
-            );
-        }
         for format in formats.unwrap_or(&graph.options.formats) {
             let content = match format.as_str() {
                 "text" => crate::render::text(&scene),
