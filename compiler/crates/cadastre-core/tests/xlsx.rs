@@ -17,7 +17,7 @@ const VIEWS: &str = "view racks { select rack render xlsx { columns: [name, unit
 view servers { select server render xlsx { columns: [name, ip, console] } }
 view flows { select app, database edges [flow] render xlsx { columns: [source, target, port] } }
 view apps { select app render xlsx { columns: [name, version] } }
-view cmdb { select app render xlsx { columns: [name] sheets: [servers, flows] } }";
+view cmdb { select app render xlsx { columns: [name, on] sheets: [servers, flows] } }";
 
 /// The workbook of a view, as text: its entries are stored without compression.
 fn workbook(view: &str) -> String {
@@ -60,6 +60,8 @@ fn a_sheet_per_view() {
     }
     assert!(book.contains("<sheet name=\"cmdb\" sheetId=\"1\" r:id=\"rId1\"/><sheet name=\"servers\" sheetId=\"2\" r:id=\"rId2\"/><sheet name=\"flows\" sheetId=\"3\" r:id=\"rId3\"/>"), "{book}");
     assert!(book.contains("localSheetId=\"2\" hidden=\"1\">'flows'!$A$1:$C$2"), "{book}");
+    // The server of an app leads to its row in the sheet of the servers.
+    assert!(book.contains("<hyperlink ref=\"B2\" location=\"'servers'!A2\"/>"), "{book}");
     assert!(
         book.contains("xl/worksheets/_rels/sheet2.xml.rels")
             && book.contains(

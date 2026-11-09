@@ -189,8 +189,6 @@ paths, gives most of the flat sheets:
 
 ### What is missing
 
-- **Links between sheets.** `sheets` writes several views in one workbook; a name in one sheet
-  (the server of an instance) could link to its row in the sheet listing it.
 - **Pivots.** One row per pair (`rows: "each(on.on)"`), column headers (`"… as Site"`) and
   counts in columns (`"count(on)"`) are done. Left: the pivot tables, the applications by status
   and criticality, the flows by kind of exchange, the services by consumer: rows grouped by a key

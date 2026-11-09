@@ -7,8 +7,11 @@
 
 use std::fmt::Write;
 
+use std::collections::HashMap;
+
 use super::Scene;
 use super::table::{Grid, grid, urls};
+use crate::registry::ResourceId;
 
 /// The workbook of a table view.
 pub fn xlsx(scene: &Scene) -> Vec<u8> {
@@ -18,7 +21,6 @@ pub fn xlsx(scene: &Scene) -> Vec<u8> {
 /// A workbook of several table views, a sheet per view in their order (`sheets`).
 pub fn workbook(scenes: &[&Scene]) -> Vec<u8> {
     let mut names: Vec<String> = Vec::new();
-    let mut sheets: Vec<Sheet> = Vec::new();
     for scene in scenes {
         let base = sheet_name(&scene.graph.view);
         // Names are unique in a workbook, whatever their case; cut at 31 characters, two views
@@ -31,8 +33,21 @@ pub fn workbook(scenes: &[&Scene]) -> Vec<u8> {
             n += 1;
         }
         names.push(name);
-        sheets.push(sheet(scene));
     }
+    // The rows of each resource, in each sheet: where a cell naming it leads.
+    let grids: Vec<Grid> = scenes.iter().map(|scene| grid(scene)).collect();
+    let mut rows_of: HashMap<ResourceId, Vec<(usize, usize)>> = HashMap::new();
+    for (s, grid) in grids.iter().enumerate() {
+        for (r, subject) in grid.subjects.iter().enumerate() {
+            if let Some(id) = subject {
+                let rows = rows_of.entry(*id).or_default();
+                if !rows.iter().any(|&(other, _)| other == s) {
+                    rows.push((s, r + 2));
+                }
+            }
+        }
+    }
+    let sheets: Vec<Sheet> = grids.into_iter().enumerate().map(|(s, grid)| sheet(s, grid, &names, &rows_of)).collect();
 
     let mut list = String::new();
     let mut filters = String::new();
@@ -101,13 +116,17 @@ struct Sheet {
     rows: usize,
 }
 
-fn sheet(scene: &Scene) -> Sheet {
-    let Grid { names, numeric, rows } = grid(scene);
+/// The sheet `index` of a workbook: a cell naming a resource listed by a sheet links to its row,
+/// in the same sheet if it is there, otherwise in the first sheet listing it.
+fn sheet(index: usize, grid: Grid, sheets: &[String], rows_of: &HashMap<ResourceId, Vec<(usize, usize)>>) -> Sheet {
+    let Grid { names, numeric, rows, resources, .. } = grid;
     let columns = names.len().max(1);
     let last = format!("{}{}", column_letters(columns - 1), rows.len() + 1);
 
     let mut data = String::new();
     let mut links: Vec<(String, String)> = Vec::new();
+    // Links within the workbook: the cell, the cell it leads to (`'servers'!A5`).
+    let mut inside: Vec<(String, String)> = Vec::new();
     data.push_str("<row r=\"1\">");
     for (c, name) in names.iter().enumerate() {
         let _ =
@@ -127,6 +146,13 @@ fn sheet(scene: &Scene) -> Sheet {
             } else if let Some(url) = urls(value).and_then(|u| u.first().map(|u| (*u).to_owned())) {
                 let _ = write!(data, "<c r=\"{cell}\" t=\"inlineStr\" s=\"2\"><is><t>{}</t></is></c>", xml(value));
                 links.push((cell, url));
+            } else if let Some(&(s, target)) = resources[r][c].and_then(|id| rows_of.get(&id)).and_then(|rows| {
+                rows.iter()
+                    .find(|&&(s, row)| s == index && row != line)
+                    .or_else(|| rows.iter().find(|&&(s, _)| s != index))
+            }) {
+                let _ = write!(data, "<c r=\"{cell}\" t=\"inlineStr\" s=\"2\"><is><t>{}</t></is></c>", xml(value));
+                inside.push((cell, format!("'{}'!A{target}", sheets[s].replace('\'', "''"))));
             } else {
                 let _ = write!(
                     data,
@@ -152,8 +178,11 @@ fn sheet(scene: &Scene) -> Sheet {
          <sheetFormatPr defaultRowHeight=\"15\"/><cols>{cols}</cols><sheetData>{data}</sheetData><autoFilter ref=\"A1:{last}\"/>"
     );
     let mut rels = None;
-    if !links.is_empty() {
+    if !links.is_empty() || !inside.is_empty() {
         worksheet.push_str("<hyperlinks>");
+        for (cell, location) in &inside {
+            let _ = write!(worksheet, "<hyperlink ref=\"{cell}\" location=\"{}\"/>", xml(location));
+        }
         let mut targets = format!("{HEADER}<Relationships xmlns=\"{PACKAGE_RELATIONSHIPS}\">");
         for (i, (cell, url)) in links.iter().enumerate() {
             let _ = write!(worksheet, "<hyperlink ref=\"{cell}\" r:id=\"rId{}\"/>", i + 1);
@@ -166,7 +195,7 @@ fn sheet(scene: &Scene) -> Sheet {
         }
         worksheet.push_str("</hyperlinks>");
         targets.push_str("</Relationships>");
-        rels = Some(targets);
+        rels = (!links.is_empty()).then_some(targets);
     }
     worksheet.push_str("</worksheet>");
     Sheet { worksheet, rels, columns, rows: rows.len() }

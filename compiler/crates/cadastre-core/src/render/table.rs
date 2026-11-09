@@ -3,6 +3,7 @@
 
 use crate::plan::{Path, Step, StepKind};
 use crate::query::{Item, Subject};
+use crate::registry::ResourceId;
 use crate::source::{FileId, Span};
 
 use super::Scene;
@@ -118,6 +119,10 @@ pub(super) struct Grid {
     /// A column of a key typed `number` by the schema, or of `port` or `step`.
     pub(super) numeric: Vec<bool>,
     pub(super) rows: Vec<Vec<String>>,
+    /// The node of each row, when the rows are nodes.
+    pub(super) subjects: Vec<Option<ResourceId>>,
+    /// The resource a cell names, when it names one and only one (`on` of an app on one server).
+    pub(super) resources: Vec<Vec<Option<ResourceId>>>,
 }
 
 /// The table of a view in a format.
@@ -165,11 +170,11 @@ pub(super) fn grid(scene: &Scene) -> Grid {
             Item::Value(_) => Vec::new(),
         }
     };
-    let cell = |subject: &Subject, chain: &[Item], column: &Option<Column>| -> String {
-        let Some(column) = column else { return String::new() };
+    let cell = |subject: &Subject, chain: &[Item], column: &Option<Column>| -> (String, Option<ResourceId>) {
+        let Some(column) = column else { return (String::new(), None) };
         // A count is that of the node or the edge, the same on each of its rows.
         if column.count {
-            return ctx.path(subject, &column.path).len().to_string();
+            return (ctx.path(subject, &column.path).len().to_string(), None);
         }
         let items = items(subject, chain, &column.path);
         let texts: Vec<String> = items
@@ -179,20 +184,33 @@ pub(super) fn grid(scene: &Scene) -> Grid {
                 Item::Value(text) => text.text.clone(),
             })
             .collect();
-        texts.join(", ")
+        let resource = match items.as_slice() {
+            [Item::Resource(id)] => Some(*id),
+            _ => None,
+        };
+        (texts.join(", "), resource)
     };
-    let row = |subject: &Subject| -> Vec<Vec<String>> {
+    type Row = (Option<ResourceId>, Vec<(String, Option<ResourceId>)>);
+    let row = |subject: &Subject| -> Vec<Row> {
         let chains = match &each {
             Some(each) => chains(&ctx, subject, each),
             None => vec![Vec::new()],
         };
-        chains.iter().map(|chain| columns.iter().map(|c| cell(subject, chain, c)).collect()).collect()
+        let node = match subject {
+            Subject::Node(id) => Some(*id),
+            Subject::Edge(_) => None,
+        };
+        chains.iter().map(|chain| (node, columns.iter().map(|c| cell(subject, chain, c)).collect())).collect()
     };
-    let rows: Vec<Vec<String>> = if edges {
+    let built: Vec<Row> = if edges {
         scene.graph.edges.iter().flat_map(|edge| row(&Subject::Edge(edge))).collect()
     } else {
         scene.graph.nodes.iter().flat_map(|&id| row(&Subject::Node(id))).collect()
     };
+    let subjects = built.iter().map(|(node, _)| *node).collect();
+    let resources = built.iter().map(|(_, cells)| cells.iter().map(|(_, r)| *r).collect()).collect();
+    let rows: Vec<Vec<String>> =
+        built.into_iter().map(|(_, cells)| cells.into_iter().map(|(t, _)| t).collect()).collect();
     let numeric = columns
         .iter()
         .map(|column| match column.as_ref().map(|c| (c.count, c.path.steps.last().map(|s| &s.kind))) {
@@ -211,7 +229,7 @@ pub(super) fn grid(scene: &Scene) -> Grid {
             _ => false,
         })
         .collect();
-    Grid { names, numeric, rows }
+    Grid { names, numeric, rows, subjects, resources }
 }
 
 /// The chains of items the `each` path goes through from a node or an edge, one per row: a step
