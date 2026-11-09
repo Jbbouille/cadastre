@@ -257,8 +257,9 @@ fn pivot(scene: &Scene, edges: bool, group: &Column) -> Grid {
     } else {
         scene.graph.nodes.iter().map(|&id| Subject::Node(id)).collect()
     };
-    // For each group: its count, and for each column counted, the count of each value.
-    let mut groups: BTreeMap<(bool, String), (usize, Vec<BTreeMap<String, usize>>)> = BTreeMap::new();
+    // By group (the empty one last): its count, and the count of each value of each column.
+    type Counts = (usize, Vec<BTreeMap<String, usize>>);
+    let mut groups: BTreeMap<(bool, String), Counts> = BTreeMap::new();
     let mut seen: Vec<BTreeSet<String>> = vec![BTreeSet::new(); counted.len()];
     let mut totals: Vec<BTreeMap<String, usize>> = vec![BTreeMap::new(); counted.len()];
     for subject in &subjects {
