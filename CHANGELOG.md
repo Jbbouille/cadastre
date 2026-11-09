@@ -12,7 +12,9 @@ Cadastre is in **0.x**. Until 1.0:
 
 The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly module share one version number.
 
-## Unreleased
+## 0.3.0
+
+Two changes may touch a project: `status` is now a standard key (`active`, `planned`, `decommissioned`), so a project that used it with other values gets an error for each; and `initiator` is on by default, so the views in data orientation gain a dot at the end opening the connection (`initiator: false` draws them as before). The rest is added: `status` and its lifecycle, pivot tables, links inside workbooks, `targets(…)` and `sources(…)`, zoom on the diagrams, a faster `cadastre serve`.
 
 - **`targets(layer)`, `sources(layer)`**: the other ends of the links of a layer written from a node, or to it, in filters and tables: `count(sources(flow)) = 0` (the apps no flow reaches), `"count(targets(flow)) as Calls"`.
 - **`status`**, a standard key of any resource and any link: `active` (by default), `planned` or `decommissioned`. Planned is drawn in blue, decommissioned in grey; what is decommissioned is left out of the impact analysis (it does not fail, nothing needs it), and what is in service but still placed in, hosted by or linked to something decommissioned is warned about. A project that used `status` as a free key with other values gets an error for each: rename the key, or map its values.
