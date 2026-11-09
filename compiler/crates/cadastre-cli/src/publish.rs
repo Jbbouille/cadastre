@@ -235,8 +235,18 @@ fn sources(project: &cadastre_project::Project) -> u64 {
     hasher.finish()
 }
 
+/// What `serve` serves: the site generated last, and the fingerprint of the sources of a
+/// generation under way, if any.
+#[derive(Default)]
+struct Served {
+    cache: Option<Cache>,
+    building: Option<u64>,
+}
+
 /// `cadastre serve`: the site, generated again from the files on disk when they change; the
-/// views whose DOT did not change keep their drawings.
+/// views whose DOT did not change keep their drawings. A change is generated in the background,
+/// the previous site served meanwhile; its pages reload themselves when the new one is there
+/// (they ask `/__version`).
 pub fn serve(
     root: &Path,
     address: &str,
@@ -246,14 +256,13 @@ pub fn serve(
 ) -> std::io::Result<()> {
     let listener = TcpListener::bind(address)?;
     println!("{title}: http://{address}/ (Ctrl+C to stop)");
-    let cache: &'static Mutex<Option<Cache>> = Box::leak(Box::new(Mutex::new(None)));
+    let served: &'static Mutex<Served> = Box::leak(Box::new(Mutex::new(Served::default())));
     let (root, playground, title) = (root.to_owned(), playground.map(Path::to_owned), title.to_owned());
-    let settings: &'static (PathBuf, Option<PathBuf>, String, Option<Language>) =
-        Box::leak(Box::new((root, playground, title, language)));
+    let settings: &'static Settings = Box::leak(Box::new((root, playground, title, language)));
     for stream in listener.incoming() {
         let Ok(stream) = stream else { continue };
         std::thread::spawn(move || {
-            if let Err(error) = respond(stream, settings, cache) {
+            if let Err(error) = respond(stream, settings, served) {
                 eprintln!("request: {error}");
             }
         });
@@ -261,11 +270,45 @@ pub fn serve(
     Ok(())
 }
 
-fn respond(
-    mut stream: TcpStream,
-    settings: &(PathBuf, Option<PathBuf>, String, Option<Language>),
-    cache: &Mutex<Option<Cache>>,
-) -> std::io::Result<()> {
+type Settings = (PathBuf, Option<PathBuf>, String, Option<Language>);
+
+/// The site to serve, generated first if there is none, generated again in the background when
+/// the sources changed.
+fn current(settings: &'static Settings, served: &'static Mutex<Served>) -> std::io::Result<()> {
+    let (root, playground, title, language) = settings;
+    let mut state = served.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    // The files read again at each request (a few milliseconds), the site generated again only
+    // when they changed.
+    let project = cadastre_project::load(root).map_err(std::io::Error::other)?;
+    let fingerprint = sources(&project);
+    let Served { cache, building } = &mut *state;
+    match cache {
+        None => {
+            let mut drawings = Drawings::default();
+            let files = generate_with(&project, title, playground.as_deref(), *language, &mut drawings)?;
+            *cache = Some(Cache { sources: fingerprint, files: files.into_iter().collect(), drawings });
+        }
+        Some(last) if last.sources != fingerprint && building.is_none() => {
+            *building = Some(fingerprint);
+            let mut drawings = std::mem::take(&mut last.drawings);
+            std::thread::spawn(move || {
+                let generated = generate_with(&project, title, playground.as_deref(), *language, &mut drawings);
+                let mut state = served.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                state.building = None;
+                match generated {
+                    Ok(files) => {
+                        state.cache = Some(Cache { sources: fingerprint, files: files.into_iter().collect(), drawings })
+                    }
+                    Err(error) => eprintln!("generation: {error}"),
+                }
+            });
+        }
+        Some(_) => {}
+    }
+    Ok(())
+}
+
+fn respond(mut stream: TcpStream, settings: &'static Settings, served: &'static Mutex<Served>) -> std::io::Result<()> {
     let mut reader = BufReader::new(&stream);
     let mut request = String::new();
     reader.read_line(&mut request)?;
@@ -285,20 +328,15 @@ fn respond(
             name.push_str("index.html");
         }
         let name = percent_decode(&name);
-        let (root, playground, title, language) = settings;
-        let mut guard = cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        // The files read again at each request (a few milliseconds), the site generated again
-        // only when they changed.
-        let project = cadastre_project::load(root).map_err(std::io::Error::other)?;
-        let fingerprint = sources(&project);
-        if guard.as_ref().is_none_or(|c| c.sources != fingerprint) {
-            let mut drawings = guard.take().map(|c| c.drawings).unwrap_or_default();
-            let files = generate_with(&project, title, playground.as_deref(), *language, &mut drawings)?;
-            *guard = Some(Cache { sources: fingerprint, files: files.into_iter().collect(), drawings });
-        }
-        match guard.as_ref().and_then(|c| c.files.get(&name)) {
-            Some(body) => ("200 OK", content_type(&name), body.clone()),
-            None => ("404 Not Found", "text/plain", b"not found".to_vec()),
+        current(settings, served)?;
+        let state = served.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        match (name.as_str(), &state.cache) {
+            // The version of the site served: a page reloads itself when it changes.
+            ("__version", Some(cache)) => ("200 OK", "text/plain", cache.sources.to_string().into_bytes()),
+            (_, cache) => match cache.as_ref().and_then(|c| c.files.get(&name)) {
+                Some(body) => ("200 OK", content_type(&name), body.clone()),
+                None => ("404 Not Found", "text/plain", b"not found".to_vec()),
+            },
         }
     };
     write!(

@@ -25,8 +25,6 @@ present, the labels of each direction apart (`→ jobs, data`, `← disk-blocks`
 `serve` generates the site again when the files change, laying out again only the views whose
 diagram changed. Open:
 
-- the reader never waiting: the previous generation served while the new one is built, the page
-  reloading itself when it is ready;
 - a view laid out when it is opened: the home page and the lists need no drawing.
 
 ## Zoom and move around the drawings: what is left

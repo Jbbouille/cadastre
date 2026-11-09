@@ -1211,6 +1211,15 @@ const JS: &str = r#"
       }
     };
   }
+  // Served by `cadastre serve`: the page reloads itself once the site is generated again after
+  // a change of the files (a static site has no `__version`).
+  if (location.protocol.startsWith("http")) {
+    const version = () => fetch(root + "__version", { cache: "no-store" }).then((r) => (r.ok ? r.text() : null));
+    version().then((first) => {
+      if (!first || first.startsWith("<")) return;
+      setInterval(() => version().then((now) => { if (now && now !== first) location.reload(); }).catch(() => {}), 1500);
+    }).catch(() => {});
+  }
 })();
 "#;
 
