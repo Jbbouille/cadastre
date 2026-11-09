@@ -7,7 +7,6 @@ use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
 
 use cadastre_core::{Language, Options as CompileOptions, compile_modules, site};
 
@@ -103,6 +102,48 @@ pub fn generate(
     language: Option<Language>,
 ) -> std::io::Result<Vec<(String, Vec<u8>)>> {
     let project = cadastre_project::load(root).map_err(std::io::Error::other)?;
+    generate_with(&project, title, playground, language, &mut Drawings::default())
+}
+
+/// The drawings of the DOTs laid out by Graphviz, by DOT: kept by `serve` from one generation
+/// to the next, so that after an edit only the views it changes are laid out again.
+#[derive(Default)]
+pub struct Drawings {
+    /// The SVG of a view and the DOT of the variant kept.
+    svgs: HashMap<String, Option<(String, String)>>,
+    /// Graphviz's JSON layout of a DOT, for the view to move by hand.
+    layouts: HashMap<String, Option<String>>,
+}
+
+impl Drawings {
+    /// The drawings of these DOTs, those not kept laid out now; only these are kept after.
+    fn svgs(&mut self, dots: &[&str]) -> Vec<Option<(String, String)>> {
+        let missing: Vec<&str> = dots.iter().copied().filter(|d| !self.svgs.contains_key(*d)).collect();
+        for (dot, drawing) in missing.iter().zip(crate::drawings_of(&missing)) {
+            self.svgs.insert((*dot).to_owned(), drawing);
+        }
+        self.svgs.retain(|dot, _| dots.contains(&dot.as_str()));
+        dots.iter().map(|d| self.svgs[*d].clone()).collect()
+    }
+
+    fn layouts(&mut self, dots: &[&str]) -> Vec<Option<String>> {
+        let missing: Vec<&str> = dots.iter().copied().filter(|d| !self.layouts.contains_key(*d)).collect();
+        for (dot, layout) in missing.iter().zip(crate::graphviz_all(&missing, "-Tjson")) {
+            self.layouts.insert((*dot).to_owned(), layout);
+        }
+        self.layouts.retain(|dot, _| dots.contains(&dot.as_str()));
+        dots.iter().map(|d| self.layouts[*d].clone()).collect()
+    }
+}
+
+/// [`generate`] for a project loaded, its drawings taken from `drawings` when their DOT is there.
+fn generate_with(
+    project: &cadastre_project::Project,
+    title: &str,
+    playground: Option<&Path>,
+    language: Option<Language>,
+    drawings: &mut Drawings,
+) -> std::io::Result<Vec<(String, Vec<u8>)>> {
     let language = language.unwrap_or_else(|| project.language());
     let compilation = compile_modules(
         &project.files,
@@ -110,14 +151,14 @@ pub fn generate(
         CompileOptions { strict: project.strict(), language, satellites: project.satellites() },
     );
     let dots = site::dots(&compilation);
-    let drawings = crate::drawings_of(&dots.iter().map(|(_, dot)| dot.as_str()).collect::<Vec<_>>());
+    let laid_out = drawings.svgs(&dots.iter().map(|(_, dot)| dot.as_str()).collect::<Vec<_>>());
     // The views to move by hand: the variant of each diagram laid out again, as JSON.
     let kept: Vec<(&str, &str)> = dots
         .iter()
-        .zip(&drawings)
+        .zip(&laid_out)
         .filter_map(|((view, _), drawing)| drawing.as_ref().map(|(_, dot)| (view.as_str(), dot.as_str())))
         .collect();
-    let layouts = crate::graphviz_all(&kept.iter().map(|(_, dot)| *dot).collect::<Vec<_>>(), "-Tjson");
+    let layouts = drawings.layouts(&kept.iter().map(|(_, dot)| *dot).collect::<Vec<_>>());
     let elements: HashMap<String, String> = kept
         .iter()
         .zip(layouts)
@@ -126,7 +167,7 @@ pub fn generate(
         })
         .collect();
     let svgs: HashMap<String, String> =
-        dots.into_iter().zip(drawings).filter_map(|((view, _), drawing)| Some((view, drawing?.0))).collect();
+        dots.into_iter().zip(laid_out).filter_map(|((view, _), drawing)| Some((view, drawing?.0))).collect();
     let viz = match playground {
         Some(dir) if dir.join("viz-standalone.js").is_file() => "playground/viz-standalone.js".to_owned(),
         _ => VIZ_CDN.to_owned(),
@@ -149,7 +190,7 @@ pub fn generate(
                 files.push((format!("playground/{name}"), bytes));
             }
         }
-        files.push(("playground/project.json".to_owned(), project_json(&project, title, language).into_bytes()));
+        files.push(("playground/project.json".to_owned(), project_json(project, title, language).into_bytes()));
     }
     Ok(files)
 }
@@ -174,14 +215,28 @@ pub fn site(
     Ok(written)
 }
 
-/// The site generated once, kept for a moment: a page and its assets come from one generation.
+/// The site generated, kept as long as the sources of the project are the same.
 struct Cache {
-    at: Instant,
+    /// The fingerprint of the sources it was generated from ([`sources`]).
+    sources: u64,
     files: HashMap<String, Vec<u8>>,
+    drawings: Drawings,
 }
 
-/// `cadastre serve`: the site, generated again from the files on disk when a request comes
-/// more than a second after the previous generation.
+/// A fingerprint of the sources of a project: its files and those of its modules (the `.csv`
+/// read by `for_each` among them) and its `cadastre.toml`.
+fn sources(project: &cadastre_project::Project) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    for file in &project.files {
+        (&file.path, &file.text).hash(&mut hasher);
+    }
+    std::fs::read(project.root.join("cadastre.toml")).ok().hash(&mut hasher);
+    hasher.finish()
+}
+
+/// `cadastre serve`: the site, generated again from the files on disk when they change; the
+/// views whose DOT did not change keep their drawings.
 pub fn serve(
     root: &Path,
     address: &str,
@@ -232,9 +287,14 @@ fn respond(
         let name = percent_decode(&name);
         let (root, playground, title, language) = settings;
         let mut guard = cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        if guard.as_ref().is_none_or(|c| c.at.elapsed() > Duration::from_secs(1)) {
-            let files = generate(root, title, playground.as_deref(), *language)?;
-            *guard = Some(Cache { at: Instant::now(), files: files.into_iter().collect() });
+        // The files read again at each request (a few milliseconds), the site generated again
+        // only when they changed.
+        let project = cadastre_project::load(root).map_err(std::io::Error::other)?;
+        let fingerprint = sources(&project);
+        if guard.as_ref().is_none_or(|c| c.sources != fingerprint) {
+            let mut drawings = guard.take().map(|c| c.drawings).unwrap_or_default();
+            let files = generate_with(&project, title, playground.as_deref(), *language, &mut drawings)?;
+            *guard = Some(Cache { sources: fingerprint, files: files.into_iter().collect(), drawings });
         }
         match guard.as_ref().and_then(|c| c.files.get(&name)) {
             Some(body) => ("200 OK", content_type(&name), body.clone()),
@@ -341,6 +401,38 @@ mod tests {
         // Bends at all: the views are placed by Graphviz, twins and satellites included, not by the
         // layout of the compiler, whose boxes the routes of Graphviz do not fit.
         assert!(views >= 8 && bent > 50, "{views} views, {bent} edges bent");
+    }
+
+    #[test]
+    fn sources_change_with_the_files() {
+        let dir = std::env::temp_dir().join(format!("cadastre-sources-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("a.ca"),
+            "server web01
+",
+        )
+        .unwrap();
+        let fingerprint = || sources(&cadastre_project::load(&dir).unwrap());
+        let first = fingerprint();
+        assert_eq!(fingerprint(), first);
+        std::fs::write(
+            dir.join("a.ca"),
+            "server web02
+",
+        )
+        .unwrap();
+        let edited = fingerprint();
+        assert_ne!(edited, first);
+        std::fs::write(
+            dir.join("data.csv"),
+            "name
+x
+",
+        )
+        .unwrap();
+        assert_ne!(fingerprint(), edited);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

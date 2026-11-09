@@ -14,6 +14,7 @@ The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly mod
 
 ## Unreleased
 
+- **`cadastre serve`** generates the site again when the files of the project change, rather than when a request comes more than a second after the previous one, and lays out again only the views whose diagram changed: a page opens at once, an edit costs the layout of the views it touches.
 - **Move a view by hand**: on the page of a view in the site, in the *Movable* tab of the playground and with *Move by hand* in the VS Code preview, the diagram drawn again by Cytoscape.js, laid out by Graphviz like the SVG, its nodes and frames dragged and its edges bent, for a screen shared in a meeting; nothing goes back to the files. The boxes of twins and the nodes drawn as satellites are placed where the SVG draws them, so the routes of Graphviz fit them, and an edge Cytoscape cannot draw with its bends is drawn straight rather than lost. The draw.io export is now laid out by Graphviz for these views too, rather than by the compiler.
 - **The internet as the other end of a cable** (`peer: internet`) and of a `wan_link`: the access of a site to its provider, without a site nor a router standing for it. Many interfaces reach it without contradiction, and network paths do not join two sites through it. A name written in full now designates its resource among others ending with it (`internet` at the root, beside interfaces named `internet`).
 
