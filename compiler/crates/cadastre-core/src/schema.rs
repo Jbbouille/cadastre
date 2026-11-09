@@ -26,6 +26,8 @@ pub enum Ty {
     Bandwidth,
     /// An SPDX license expression, as a string: `"Apache-2.0"`, `"MIT OR Apache-2.0"`.
     Spdx,
+    /// A name of a catalog, an identifier or a string: `F-042`, `"FLX 12"`.
+    Name,
     /// Reference to a resource of one of these kinds or groups (`"server|cluster"`).
     Ref(&'static str),
     /// A string matching a regular expression as a whole (`pattern("APP-[0-9]{3}")`).
@@ -335,6 +337,8 @@ pub static LINK_KEYS: &[AttrDef] = &[
     many("through", Ty::Ref("transit")),
     // The processes a link serves, without an order (the steps of a `process` give one).
     many("processes", Ty::Ref("process")),
+    // The former names of the link (`as F-042`), by which it is still designated.
+    many("aliases", Ty::Name),
 ];
 
 pub const CONFIDENCE: &[&str] = &["confirmed", "assumed", "doubtful"];
@@ -465,6 +469,7 @@ pub fn type_text(def: &AttrDef) -> String {
         Ty::Url => "url".to_owned(),
         Ty::Bandwidth => "bandwidth".to_owned(),
         Ty::Spdx => "spdx".to_owned(),
+        Ty::Name => "name".to_owned(),
         Ty::Ref(union) => format!("ref({})", union.replace('|', " | ")),
         Ty::Pattern(pattern) => format!("pattern(\"{}\")", pattern.source),
     };

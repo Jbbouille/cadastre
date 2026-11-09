@@ -209,6 +209,7 @@ fn type_text(ty: Ty) -> String {
         Ty::Url => "url (string)".to_owned(),
         Ty::Bandwidth => "bandwidth".to_owned(),
         Ty::Spdx => "spdx (string)".to_owned(),
+        Ty::Name => "name (identifier or string)".to_owned(),
         Ty::Ref(union) => format!("ref({})", union.replace('|', " | ")),
         Ty::Pattern(pattern) => format!("pattern(\"{}\")", pattern.source),
     }

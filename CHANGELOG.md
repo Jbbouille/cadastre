@@ -14,6 +14,7 @@ The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly mod
 
 ## Unreleased
 
+- **Link names**: `-> crm : https [flow] as F-042` gives a link a name, designated by a step of a process (`step F-042`), filtered (`edges [flow] where name = F-042`), listed in tables, shown in the tooltips, the site and the exports; its former names in `aliases`, still designating it. A name given twice is an error.
 - **Computed keys**: a key of a kind computed from other keys of the resource, `max(…)` or `min(…)` of numbers or of values of a list ordered as written: `kind app { security: max(availability, integrity, confidentiality) }`. Read like a written key by filters, `group-by`, tables and the site; writing it by hand is an error.
 - **`stack`**: the edges between the items of a level are laid out with a length of zero rather than drawn after the layout: they go straight from one item to the other, rather than around a frame to reach a node nested in it, and the info naming them is gone. `layout: free` on a style rule still leaves them out of the layout.
 - **`merge: pair`**: the style rules apply to each direction of an edge going both ways, with its own source and target; the edge takes the most marked line of the two (dashed one way and solid the other: dashed), and its tooltip tells each direction apart.

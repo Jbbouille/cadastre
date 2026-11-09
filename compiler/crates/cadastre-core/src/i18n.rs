@@ -762,6 +762,16 @@ const FR_MESSAGES: &[(&str, &str)] = &[
     ("unknown key: {}", "clé inconnue : {1}"),
     ("unknown format: {}", "format inconnu : {1}"),
     ("unknown function: {}", "fonction inconnue : {1}"),
+    ("the link name {} is given twice", "le nom de lien {1} est donné deux fois"),
+    (
+        "a name designates one link: a step of a process, a filter",
+        "un nom désigne un seul lien : une étape de processus, un filtre",
+    ),
+    ("no link named {}", "aucun lien nommé {1}"),
+    (
+        "a step names a link (`step F-042`, the link written `-> db as F-042`), goes from a resource to another (`step a -> b`), or is a processing within one (`step a \"…\"`)",
+        "une étape nomme un lien (`step F-042`, le lien écrit `-> db as F-042`), va d'une ressource à une autre (`step a -> b`), ou est un traitement dans l'une d'elles (`step a \"…\"`)",
+    ),
     ("{} is computed: it is not required", "{1} est calculée : elle n'est pas obligatoire"),
     (
         "{} is computed: a computed key is computed from written keys",

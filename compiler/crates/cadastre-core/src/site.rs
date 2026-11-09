@@ -893,7 +893,10 @@ impl Site<'_> {
                 body.push_str(&format!(
                     "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}{}</td></tr>\n",
                     self.resource_link(root, &text(&l["with"])),
-                    esc(&text(&l["port"])),
+                    match l["name"].as_str() {
+                        Some(name) => format!("{} <span class=\"muted\">{}</span>", esc(&text(&l["port"])), esc(name)),
+                        None => esc(&text(&l["port"])),
+                    },
                     esc(&strings(&l["layers"]).join(", ")),
                     strings(&l["carries"]).iter().map(|c| self.resource_link(root, c)).collect::<Vec<_>>().join(", "),
                     self.way(root, &l["through_steps"]),

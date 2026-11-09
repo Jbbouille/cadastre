@@ -549,6 +549,7 @@ impl Completer<'_> {
                 Ty::Url => "url".to_owned(),
                 Ty::Bandwidth => "bandwidth".to_owned(),
                 Ty::Spdx => "SPDX license expression".to_owned(),
+                Ty::Name => "name".to_owned(),
                 Ty::Pattern(pattern) => format!("pattern(\"{}\")", pattern.source),
             };
             let detail = if attr.required { format!("{detail} (required)") } else { detail };

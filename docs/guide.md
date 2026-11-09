@@ -297,7 +297,7 @@ Two strictly equivalent forms:
 
 **At the root level**, full form:
 ```
-<source> -> <target> [ : <port_spec> ] [ [<layer>, …] ] [ { <attributes> } ]
+<source> -> <target> [ : <port_spec> ] [ [<layer>, …] ] [ as <name> ] [ { <attributes> } ]
 ```
 ```
 billing -> crm : https/443 [flow]
@@ -317,6 +317,21 @@ Rules:
 - **No chaining** (`a -> b -> c`) and **a single `port_spec` per link**: one line is one fact.
 - Layers are free labels: `[flow]`, `[flow, network]`.
 - Link ends must belong to the `flow_endpoint` group (§ 4).
+
+### Link names
+
+A flow catalog numbers its flows: `as` gives a link a name of its own, by which it is designated.
+
+```
+app billing {
+  -> crm : https/443 [flow] as F-042 { aliases: [F-17, "FLX 12"] }
+}
+```
+
+- **A name** is an identifier (`F-042`, `orders-to-crm`), written after the layers, before the block. It is not part of the identity of the link (§ 5, Link identity): renaming it changes no link.
+- **Former names** go in `aliases` (identifiers or strings): the link is still designated by them, so that a renumbering breaks nothing.
+- **Designated** by a step of a process (`step F-042`, § Processes), filtered in a view or a check (`edges [flow] where name = F-042`, `where aliases has F-17`), listed in a table (`columns: [name, source, target, proto]`), shown in the tooltip of its edge (`billing -> crm : https/443 as F-042`), on the pages of the site and in the exports; go to definition leads from a step to the link.
+- **Checks.** A name, or a former one, designates one link: given twice is an error; a step naming no link is an error, with the closest name.
 
 ### Link attributes
 
@@ -438,7 +453,7 @@ system invoicing {
 }
 ```
 
-- **Steps.** `step a -> b` designates the link declared from `a` to `b`; its port (`: https/443`) and its layers (`[flow]`) choose among several. `{ reply }`: the answer to a call, the link declared from `b` to `a`. `{ async }`: the caller does not wait for an answer. `step a "…"`: a processing within `a`, without a link. `label: "…"` gives the text of the arrow, `note: "…"` a note beside it.
+- **Steps.** `step a -> b` designates the link declared from `a` to `b`; its port (`: https/443`) and its layers (`[flow]`) choose among several. `step F-042` designates the link of that name, or of that former name (§ Link names), whatever its ends. `{ reply }`: the answer to a call, the link declared from `b` to `a`. `{ async }`: the caller does not wait for an answer. `step a "…"`: a processing within `a`, without a link. `label: "…"` gives the text of the arrow, `note: "…"` a note beside it.
 - **Order.** The order of the steps is the order they are written in, numbered automatically: no number to maintain when a step is inserted.
 - **Checks.** A step designates one link: none, or several without a port or a layer to choose, is an error; so are an unknown flag or key of a step. A process is at the root or in a system; it is a resource (`select process`, hover, references).
 - **Links serving a process** without being a step of it, in no order: `processes: [monthly-invoicing]` on the link.
@@ -1118,6 +1133,7 @@ group connector = vpn_tunnel | vpc_peering | wan_link
 | `host` | `identifier`, `qualified_name`, `string` | DNS host name (RFC 1123: labels of letters, digits and hyphens), compared in lowercase |
 | `url` | `string` | `scheme://[user@]host[:port][/path]`, without a password nor a secret query parameter (§ 3, URLs and access) |
 | `bandwidth` | `quantity`, `string` | a number and a decimal unit, `bps`, `kbps`, `Mbps`, `Gbps`, `Tbps` or `bit/s`, `kbit/s`…: `100Mbps` (no space), `"1.5 Gbit/s"`; compared in bits per second (`where bandwidth >= 1Gbps`) |
+| `name` | `identifier`, `string` | a name of a catalog: `F-042`, `"FLX 12"` (the former names of a link, `aliases`) |
 | `spdx` | `string` | an SPDX license expression: identifiers of the SPDX License List (any case), `+`, `AND`, `OR`, `WITH <exception>`, parentheses, `LicenseRef-<name>` for another license: `"MIT OR Apache-2.0"`; an unknown identifier is an error, with the closest one |
 | `ref(K)` | `identifier`, `qualified_name` | reference to a resource of kind `K` |
 
@@ -1184,6 +1200,7 @@ Some keys mean the same everywhere and are used by renderings and views:
 | `exchange` | link | `push \| pull \| both`, no default | data direction |
 | `channel` | link | `ref(channel)*` | exchange channels used |
 | `through` | link | `ref(transit)*` | devices and tunnels traversed, in order |
+| `aliases` | link | `name*` | former names of the link (`as F-042`), by which it is still designated |
 | `rack` | physical `server`, network devices | `ref(rack)` | physical location; a virtual machine has none, its host has one |
 | `url` | `app`, `saas`, `component`, `vip` | `url*` | address of the service, opened by a click in SVG |
 | `console` | `app`, `database`, `saas`, `server`, `cluster`, network devices | `url*` | access for its administration (web console, SSH, RDP), opened by a click without `url` |
@@ -1498,7 +1515,7 @@ edges [flow] where source.version > target.version
 
 | Pseudo-attribute | On | Meaning |
 |---|---|---|
-| `kind`, `name` | nodes and edges | kind, qualified name |
+| `kind`, `name` | nodes and edges | kind, qualified name; for an edge, the names of its links (`as F-042`) |
 | `incomplete` | nodes and edges | true if the element is incomplete (§ 7): `where incomplete`; an edge is incomplete when one of its ends, or a connector it draws, is |
 | `source`, `target` | edges | ends, usable at the head of a path: `target.kind = saas` |
 | `proto`, `port` | edges | taken from the `port_spec`; `port = 8080` is true if 8080 falls within a range |
@@ -1976,9 +1993,9 @@ Views draw parts of the registry; an export hands **the whole registry** to anot
 | `graphml` | `model.graphml` | a graph: yEd, Gephi, Cytoscape, NetworkX |
 | `json` | `model.json` | the model for scripts: `{ "format": "cadastre-model", "version": 1, "resources": […], "links": […] }` |
 
-- **ArchiMate.** Each resource is an element of the type closest to its kind: `site` a Location, `vpc`, `network`, `subnet` and `internet` Communication Networks, `server`, `cluster`, `pool` and `fleet` Nodes, network devices Devices, `vip` and `interface` Technology Interfaces, connectors Paths, `rack` Equipment, `system` a Grouping, `app`, `saas` and `component` Application Components, `job` an Application Process, `database` System Software, `channel` an Application Interface, `data` a Data Object, `team` and `actor` Business Actors. Relationships follow what ArchiMate allows between the two types: containment is an Aggregation or a Composition, `on` a Serving (an app served by its server) or an Assignment (a database on its server), a link a Flow between applications or between nodes; any other pair is an Association, named by its key or its port. The label is the name of the element; the description its documentation; the kind, the qualified name and every key are properties.
-- **GraphML.** One node per resource (`kind`, `name`, `label`, `description`), one edge per relation, its `relation` the containment (`parent`, from the child), a reference key (`on`, `owner`…) or `link` (with `port`, `layers`, `carries`).
-- **JSON.** One object per resource (`id` its qualified name, `kind`, `name`, `parent`, `attributes` as written, `references` resolved to qualified names, `incomplete`) and per link (`source`, `target`, `port`, `layers`, `attributes`, `carries`, `through`, `through_deduced` when it comes from an `egress` or an `ingress`).
+- **ArchiMate.** Each resource is an element of the type closest to its kind: `site` a Location, `vpc`, `network`, `subnet` and `internet` Communication Networks, `server`, `cluster`, `pool` and `fleet` Nodes, network devices Devices, `vip` and `interface` Technology Interfaces, connectors Paths, `rack` Equipment, `system` a Grouping, `app`, `saas` and `component` Application Components, `job` an Application Process, `database` System Software, `channel` an Application Interface, `data` a Data Object, `team` and `actor` Business Actors. Relationships follow what ArchiMate allows between the two types: containment is an Aggregation or a Composition, `on` a Serving (an app served by its server) or an Assignment (a database on its server), a link a Flow between applications or between nodes; any other pair is an Association, named by its key or its port; a link is named by its name (`as F-042`), otherwise by its port. The label is the name of the element; the description its documentation; the kind, the qualified name and every key are properties.
+- **GraphML.** One node per resource (`kind`, `name`, `label`, `description`), one edge per relation, its `relation` the containment (`parent`, from the child), a reference key (`on`, `owner`…) or `link` (with `name`, `port`, `layers`, `carries`).
+- **JSON.** One object per resource (`id` its qualified name, `kind`, `name`, `parent`, `attributes` as written, `references` resolved to qualified names, `incomplete`) and per link (`source`, `target`, `name`, `port`, `layers`, `attributes`, `carries`, `through`, `through_deduced` when it comes from an `egress` or an `ingress`).
 
 ## 7. Diagnostics
 

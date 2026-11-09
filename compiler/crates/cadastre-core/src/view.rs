@@ -1465,6 +1465,9 @@ impl EdgeView for BaseEdgeView<'_> {
                 .into_iter()
                 .collect(),
             (Origin::Link(_), "kind") => vec![plain("link".to_owned())],
+            (Origin::Link(i), "name") => {
+                self.registry.links[*i].name.iter().map(|(name, _)| plain(name.clone())).collect()
+            }
             (Origin::Link(i), key) => {
                 let references = ctx.model.reference(Holder::Link(*i), key);
                 if !references.is_empty() {
@@ -1502,6 +1505,27 @@ impl EdgeView for GraphEdge {
                 .filter_map(|(_, p)| p.map(|p| Item::Value(Text { text: p.to_owned(), is_port: true })))
                 .collect(),
             "kind" => vec![plain(self.relation.clone().unwrap_or_else(|| "link".to_owned()))],
+            // The names of its links (`as F-042`), and their former ones.
+            "name" | "aliases" => {
+                let mut names: Vec<Item> = Vec::new();
+                for &i in &self.links {
+                    let link = &ctx.registry.links[i];
+                    let found: Vec<String> = match key {
+                        "name" => link.name.iter().map(|(n, _)| n.clone()).collect(),
+                        _ => link
+                            .attribute("aliases")
+                            .map(|a| a.value.items().iter().map(|v| query::value_text(v)).collect())
+                            .unwrap_or_default(),
+                    };
+                    for name in found {
+                        let item = plain(name);
+                        if !names.contains(&item) {
+                            names.push(item);
+                        }
+                    }
+                }
+                names
+            }
             "carries" => self.carries.iter().copied().map(Item::Resource).collect(),
             "through" => self.through.iter().copied().map(Item::Resource).collect(),
             "confidence" => vec![plain(
@@ -2354,9 +2378,10 @@ fn provenance(ctx: &Ctx, edge: &BaseEdge) -> String {
     let name = |id| ctx.registry.qualified_name(id);
     match &edge.origin {
         Origin::Link(i) => {
-            let port =
-                ctx.registry.links[*i].port.as_ref().map(|p| format!(" : {}", p.normalized())).unwrap_or_default();
-            format!("{} -> {}{port}", name(edge.source), name(edge.target))
+            let link = &ctx.registry.links[*i];
+            let port = link.port.as_ref().map(|p| format!(" : {}", p.normalized())).unwrap_or_default();
+            let named = link.name.as_ref().map(|(n, _)| format!(" as {n}")).unwrap_or_default();
+            format!("{} -> {}{port}{named}", name(edge.source), name(edge.target))
         }
         Origin::Reference(key) => format!("{} {key} {}", name(edge.source), name(edge.target)),
         Origin::Connector(r) => name(*r),

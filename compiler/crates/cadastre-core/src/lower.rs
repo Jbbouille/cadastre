@@ -499,7 +499,8 @@ impl Lowerer<'_> {
             })
             .unwrap_or_default();
 
-        Link { source, target, port, layers, attributes, span: ctx.span(&node) }
+        let name = node.child_by_field_name("name").map(|n| (ctx.text(&n).to_owned(), ctx.span(&n)));
+        Link { source, target, port, layers, name, attributes, span: ctx.span(&node) }
     }
 }
 

@@ -613,3 +613,43 @@ site dc { virtual firewall fw }
       (resource
         (identifier)
         (identifier)))))
+
+==================
+Link names
+==================
+
+app shop { -> db : jdbc [flow] as F-042 { description: "orders" } }
+shop -> db as F-043
+process orders { step F-042 { async } step shop -> db }
+
+---
+
+(source_file
+  (resource
+    (identifier)
+    (identifier)
+    (block
+      (inline_link
+        (identifier)
+        (port_spec
+          (identifier))
+        (layers
+          (identifier))
+        (identifier)
+        (link_block
+          (attribute
+            (identifier)
+            (string))))))
+  (link
+    (identifier)
+    (identifier)
+    (identifier))
+  (process
+    (identifier)
+    (step
+      (identifier)
+      (step_block
+        (identifier)))
+    (step
+      (identifier)
+      (identifier))))

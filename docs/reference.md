@@ -33,12 +33,12 @@ block             ::= "{" ((attribute | resource | process | inline_link | for_e
 attribute         ::= key:identifier ":" value:_value
 process           ::= "process" name:identifier "{" ((attribute | participant | step | loop | comment) ","?)* "}"
 participant       ::= "participant" name:identifier label:string? members:list
-step              ::= "step" source:_reference ("->" target:_reference (":" port:port_spec)? layers:layers? | text:string) body:step_block?
+step              ::= "step" source:_reference ("->" target:_reference (":" port:port_spec)? layers:layers? | text:string)? body:step_block?
 step_block        ::= "{" ((attribute | flag:identifier) ","?)* "}"
 loop              ::= "loop" label:string "{" ((step | loop | comment) ","?)* "}"
 link              ::= source:_reference "->" _link_tail
 inline_link       ::= "->" _link_tail
-_link_tail        ::= target:_reference (":" port:port_spec)? layers:layers? body:link_block?
+_link_tail        ::= target:_reference (":" port:port_spec)? layers:layers? ("as" name:identifier)? body:link_block?
 link_block        ::= "{" (attribute ","?)* "}"
 port_spec         ::= protocol:identifier (~"/" port:~/\d+(-\d+)?/)?
 layers            ::= "[" (identifier ("," identifier)* ","?)? "]"
@@ -155,6 +155,7 @@ On `->` links, in their block.
 | `channel` | `ref(channel)` | list |  |
 | `through` | `ref(transit)` | list |  |
 | `processes` | `ref(process)` | list |  |
+| `aliases` | `name (identifier or string)` | list |  |
 
 ### Kinds
 
@@ -641,7 +642,7 @@ The keys of the resources and links, and these pseudo-attributes. Order comparis
 | Pseudo-attribute | On | Meaning |
 |---|---|---|
 | `kind` | nodes and edges | kind of the resource, relation or connector kind of the edge (`link` for a link) |
-| `name` | nodes and edges | qualified name |
+| `name` | nodes and edges | qualified name of a resource; for an edge, the names of its links (`as F-042`) |
 | `incomplete` | nodes and edges | true if the element is incomplete |
 | `source` | edges | source end, usable at the head of a path |
 | `target` | edges | target end, usable at the head of a path |

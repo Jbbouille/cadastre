@@ -118,6 +118,7 @@ fn link_record(compilation: &Compilation, files: &[SourceFile], index: usize, ot
     };
     json!({
         "with": registry.qualified_name(other),
+        "name": written.name.as_ref().map(|(n, _)| n.clone()),
         "port": written.port.as_ref().map(|p| match &p.port {
             Some(port) => format!("{}/{port}", p.protocol),
             None => p.protocol.clone(),

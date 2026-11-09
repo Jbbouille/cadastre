@@ -55,6 +55,8 @@ struct Link {
     target: ResourceId,
     port: Option<String>,
     layers: Vec<String>,
+    /// `as F-042`.
+    name: Option<String>,
 }
 
 impl Model {
@@ -82,6 +84,7 @@ impl Model {
                     target,
                     port: link.port.as_ref().map(|p| p.normalized()),
                     layers: link.layers.iter().map(|(l, _)| l.clone()).collect(),
+                    name: link.name.as_ref().map(|(n, _)| n.clone()),
                 })
             })
             .collect();
@@ -324,7 +327,8 @@ fn archimate(compilation: &Compilation, model: &Model) -> String {
             pairs.push((attribute.key.clone(), values(&attribute.value).join(", ")));
         }
         let documentation = written.attribute("description").map(|a| crate::query::value_text(&a.value));
-        let name = link.port.clone().unwrap_or_default();
+        // Its name, otherwise its port.
+        let name = link.name.clone().or_else(|| link.port.clone()).unwrap_or_default();
         relationship(&mut out, Relation::Flow, link.source, link.target, &name, &pairs, documentation);
     }
     out.push_str("</relationships>\n<propertyDefinitions>\n");
@@ -353,7 +357,7 @@ fn graphml(compilation: &Compilation, model: &Model) -> String {
          xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" \
          xsi:schemaLocation=\"http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd\">\n\
          <key id=\"kind\" for=\"node\" attr.name=\"kind\" attr.type=\"string\"/>\n\
-         <key id=\"name\" for=\"node\" attr.name=\"name\" attr.type=\"string\"/>\n\
+         <key id=\"name\" for=\"all\" attr.name=\"name\" attr.type=\"string\"/>\n\
          <key id=\"label\" for=\"node\" attr.name=\"label\" attr.type=\"string\"/>\n\
          <key id=\"description\" for=\"all\" attr.name=\"description\" attr.type=\"string\"/>\n\
          <key id=\"relation\" for=\"edge\" attr.name=\"relation\" attr.type=\"string\"/>\n\
@@ -412,6 +416,7 @@ fn graphml(compilation: &Compilation, model: &Model) -> String {
             link.target,
             &[
                 ("relation", "link".to_owned()),
+                ("name", link.name.clone().unwrap_or_default()),
                 ("port", link.port.clone().unwrap_or_default()),
                 ("layers", link.layers.join(", ")),
                 ("carries", carries.join(", ")),

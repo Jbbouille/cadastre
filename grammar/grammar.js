@@ -217,10 +217,12 @@ module.exports = grammar({
       field('members', $.list),
     ),
 
+    // A step: a link by its ends, a processing within a resource (its text), or a link by its
+    // name alone (`step F-042`, the link written `-> db : jdbc [flow] as F-042`).
     step: $ => seq(
       'step',
       field('source', $._reference),
-      choice(
+      optional(choice(
         seq(
           '->',
           field('target', $._reference),
@@ -228,7 +230,7 @@ module.exports = grammar({
           optional(field('layers', $.layers)),
         ),
         field('text', $.string),
-      ),
+      )),
       optional(field('body', $.step_block)),
     ),
 
@@ -260,10 +262,12 @@ module.exports = grammar({
       $._link_tail,
     ),
 
+    // `as F-042`: the name of the link, to designate it (a step of a process, a filter).
     _link_tail: $ => seq(
       field('target', $._reference),
       optional(seq(':', field('port', $.port_spec))),
       optional(field('layers', $.layers)),
+      optional(seq('as', field('name', $.identifier))),
       optional(field('body', $.link_block)),
     ),
 

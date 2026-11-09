@@ -203,6 +203,8 @@ pub struct Link {
     pub target: Reference,
     pub port: Option<PortSpec>,
     pub layers: Vec<(String, Span)>,
+    /// `as F-042`: the name of the link, to designate it; not part of its identity.
+    pub name: Option<(String, Span)>,
     pub attributes: Vec<Attribute>,
     pub span: Span,
 }
@@ -210,6 +212,19 @@ pub struct Link {
 impl Link {
     pub fn attribute(&self, key: &str) -> Option<&Attribute> {
         self.attributes.iter().find(|a| a.key == key)
+    }
+
+    /// Whether the link is designated by a name: its own (`as F-042`), or one of its former
+    /// ones (`aliases`).
+    pub fn designated(&self, name: &str) -> bool {
+        self.name.as_ref().is_some_and(|(n, _)| n == name) || self.aliases().iter().any(|(alias, _)| alias == name)
+    }
+
+    /// The former names of the link (`aliases`), with their spans.
+    pub fn aliases(&self) -> Vec<(String, Span)> {
+        self.attribute("aliases")
+            .map(|a| a.value.items().into_iter().map(|v| (crate::query::value_text(v), v.span)).collect())
+            .unwrap_or_default()
     }
 }
 

@@ -56,6 +56,21 @@ impl Compilation {
             .unwrap_or_default()
     }
 
+    /// The link a name at an offset designates (`step F-042`): where it is named (`as F-042`, or
+    /// the former name in its `aliases`).
+    pub fn link_definition(&self, file: FileId, offset: usize) -> Option<Span> {
+        let contains = |span: &Span| span.file == file && span.start <= offset && offset <= span.end;
+        let (_, index, written) = self.model.link_names.iter().find(|(span, _, _)| contains(span))?;
+        let link = &self.registry.links[*index];
+        link.name
+            .iter()
+            .cloned()
+            .chain(link.aliases())
+            .find(|(name, _)| name == written)
+            .map(|(_, span)| span)
+            .or(Some(link.span))
+    }
+
     /// Where a resource is named: its declaration first (with `declaration`), then, in text
     /// order, every name of the registry and the plans that designates it alone (an ambiguous
     /// name designates none of its candidates).

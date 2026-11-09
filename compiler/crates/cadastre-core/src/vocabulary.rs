@@ -382,7 +382,7 @@ pub static EDGES_OPTIONS: &[OptionDef] =
 /// Pseudo-attributes of filters, with what they apply to.
 pub static PSEUDO: &[(&str, Styled, &str)] = &[
     ("kind", Styled::Both, "kind of the resource, relation or connector kind of the edge (`link` for a link)"),
-    ("name", Styled::Both, "qualified name"),
+    ("name", Styled::Both, "qualified name of a resource; for an edge, the names of its links (`as F-042`)"),
     ("incomplete", Styled::Both, "true if the element is incomplete"),
     ("source", Styled::Edges, "source end, usable at the head of a path"),
     ("target", Styled::Edges, "target end, usable at the head of a path"),

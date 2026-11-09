@@ -572,6 +572,15 @@ impl Server<'_> {
 
     /// Where the name at a position is declared, from the last compilation of its project.
     fn definitions(&self, path: &Path, position: lsp_types::Position) -> Vec<Location> {
+        // A link designated by its name (`step F-042`): where it is named.
+        if let Some(project) = self.projects.get(&self.root_of(path))
+            && let Some(file) = project.paths.iter().position(|p| p == path)
+        {
+            let offset = LineIndex::new(&project.files[file].text).offset(position, self.encoding);
+            if let Some(span) = project.compilation.link_definition(FileId(file as u32), offset) {
+                return vec![self.location(project, span)];
+            }
+        }
         let Some((project, targets)) = self.targets(path, position) else {
             return Vec::new();
         };

@@ -63,6 +63,9 @@ pub struct Model {
     /// Names written in the registry and the plans, with the resources they designate:
     /// the resolved one, or the candidates of an ambiguous or wrongly typed name.
     pub names: Vec<(Span, Vec<ResourceId>)>,
+    /// The names of links written in the steps of the processes (`step F-042`), each with the
+    /// link it designates and the name as written.
+    pub link_names: Vec<(Span, usize, String)>,
 }
 
 impl Model {
@@ -131,6 +134,7 @@ pub fn check(registry: &Registry, options: Options, diagnostics: &mut Vec<Diagno
     };
     checker.resources();
     checker.links();
+    checker.link_names();
     checker.processes();
     checker.ownership();
     checker.coherence();
@@ -872,6 +876,7 @@ impl Checker<'_> {
                     }
                     _ => false,
                 },
+                Ty::Name => matches!(item.kind, ValueKind::Identifier | ValueKind::String(_)),
                 Ty::Spdx => match &item.kind {
                     ValueKind::String(text) => match crate::spdx::check(text) {
                         Ok(()) => true,
@@ -957,6 +962,26 @@ impl Checker<'_> {
         members
     }
 
+    /// The names of the links (`as F-042`) and their former ones (`aliases`): each designates one
+    /// link.
+    fn link_names(&mut self) {
+        let mut seen: std::collections::HashMap<String, Span> = std::collections::HashMap::new();
+        for link in &self.registry.links {
+            for (name, span) in link.name.iter().cloned().chain(link.aliases()) {
+                match seen.get(&name) {
+                    Some(&first) => self.diagnostics.push(
+                        Diagnostic::error(format!("the link name {name} is given twice"), span)
+                            .with_span(first)
+                            .with_help("a name designates one link: a step of a process, a filter"),
+                    ),
+                    None => {
+                        seen.insert(name, span);
+                    }
+                }
+            }
+        }
+    }
+
     fn process_items(&mut self, process: ResourceId, items: &[crate::process::Item]) -> Vec<crate::process::Event> {
         use crate::process::{Event, FLAGS, Item, ResolvedStep, STEP_KEYS};
         // The ends of a step: an end of a flow, or a participant of the process.
@@ -994,6 +1019,39 @@ impl Checker<'_> {
             }
             let has = |flag: &str| step.flags.iter().any(|(f, _)| f == flag);
             let (reply, asynchronous) = (has("reply"), has("async"));
+            // A link designated by its name alone: `step F-042`.
+            if step.text.is_none() && link.target.segments.is_empty() {
+                let name = source_name.text();
+                let named: Vec<usize> =
+                    (0..self.registry.links.len()).filter(|&i| self.registry.links[i].designated(&name)).collect();
+                let Some(&index) = named.first() else {
+                    let names = self.registry.links.iter().flat_map(|l| l.name.iter().map(|(n, _)| n.clone()));
+                    let mut d = Diagnostic::error(format!("no link named {name}"), source_name.span);
+                    d = match suggest::closest(&name, names.collect::<Vec<_>>().iter().map(String::as_str)) {
+                        Some(s) => d.with_help(format!("did you mean `{s}`?")),
+                        None => d.with_help(
+                            "a step names a link (`step F-042`, the link written `-> db as F-042`), goes from a resource to another (`step a -> b`), or is a processing within one (`step a \"…\"`)",
+                        ),
+                    };
+                    self.diagnostics.push(d);
+                    continue;
+                };
+                self.model.link_names.push((source_name.span, index, name.clone()));
+                let Some((from, to)) = self.model.link_ends.get(index).copied().flatten() else { continue };
+                let (source, target) = if reply { (to, from) } else { (from, to) };
+                events.push(Event::Step(ResolvedStep {
+                    source,
+                    target: Some(target),
+                    links: vec![index],
+                    reply,
+                    asynchronous,
+                    label: text_of("label"),
+                    note: text_of("note"),
+                    text: None,
+                    span: link.span,
+                }));
+                continue;
+            }
             let Some(source) = self.reference(source_name, Some(process), &endpoint, "flow_endpoint") else {
                 continue;
             };
@@ -1366,6 +1424,7 @@ fn ty_text(ty: Ty) -> &'static str {
         Ty::Url => "a URL such as \"https://host/path\"",
         Ty::Bandwidth => "a bandwidth such as 100Mbps or \"1.5 Gbit/s\"",
         Ty::Spdx => "an SPDX license expression such as \"Apache-2.0\"",
+        Ty::Name => "a name, such as F-042 or \"FLX 12\"",
         Ty::Ref(_) => "a name",
         Ty::Pattern(_) => "a string matching its pattern",
     }

@@ -130,9 +130,6 @@ paths, gives most of the flat sheets:
 
 ### What is missing
 
-- **Identifiers of links.** A flow catalog numbers its flows and keeps their former numbers and
-  the name of the program doing them: links have keys, but no name of their own to be designated
-  by (in a process, a check, another sheet).
 - **Services as resources.** Services exposed by an application and consumed by others: an `api`
   or `component` per service and a link per consumer; the table of consumptions, the service as
   the row and the consumer as the column, is a pivot table (`select api`, `group: name`,
