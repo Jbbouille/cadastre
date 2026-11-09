@@ -109,6 +109,7 @@ impl Site<'_> {
         let mut out = Vec::new();
         out.push(File { path: "site.css".into(), content: CSS.to_owned() });
         out.push(File { path: "site.js".into(), content: JS.to_owned() });
+        out.push(File { path: "zoom.js".into(), content: ZOOM.to_owned() });
         if !self.options.elements.is_empty() {
             out.push(File { path: "movable.js".into(), content: MOVABLE.to_owned() });
         }
@@ -240,7 +241,7 @@ impl Site<'_> {
              <nav><a href=\"{root}index.html\">{views}</a><a href=\"{root}browse.html\">{resources}</a><a href=\"{root}checks.html\">{checks}</a><a href=\"{root}api.html\">{api}</a>{playground}</nav>\n\
              <div class=\"search\"><input id=\"search\" type=\"search\" placeholder=\"{search}\" autocomplete=\"off\" aria-label=\"{search_label}\"><ul id=\"results\" hidden></ul></div>\n\
              </header>\n<main>\n{body}\n</main>\n<footer>{generated} <a href=\"https://github.com/Jbbouille/cadastre\">Cadastre</a> {version} · <a href=\"{root}api/project.json\">{model}</a></footer>\n\
-             <script src=\"{root}site.js\"></script>\n</body>\n</html>\n",
+             <script src=\"{root}zoom.js\"></script>\n<script src=\"{root}site.js\"></script>\n</body>\n</html>\n",
             lang = self.options.language.code(),
             title = esc(title),
             version = env!("CARGO_PKG_VERSION"),
@@ -1079,6 +1080,8 @@ pre.dot { font-size: .8rem; overflow: auto; }
 
 /// The drawing of a view to move by hand, shared with the playground and the VS Code preview.
 const MOVABLE: &str = include_str!("render/movable.js");
+/// Zoom and move around the diagrams (`render/zoom.js`).
+const ZOOM: &str = include_str!("render/zoom.js");
 
 const JS: &str = r#"
 (function () {
@@ -1087,6 +1090,9 @@ const JS: &str = r#"
   const results = document.getElementById("results");
   let index = null, active = -1;
   const fileName = (id) => id.replace(/[^A-Za-z0-9._-]/g, "_");
+  // The diagrams of a page, zoomed with Ctrl + wheel and moved by dragging (zoom.js).
+  const zoomable = (figure) => globalThis.cadastreZoom?.attach(figure, { language: document.documentElement.lang });
+  for (const figure of document.querySelectorAll("figure.diagram")) if (figure.querySelector(":scope > svg")) zoomable(figure);
   async function load() {
     if (index) return index;
     const response = await fetch(root + "api/search.json");
@@ -1156,6 +1162,7 @@ const JS: &str = r#"
           const element = new DOMParser().parseFromString(svg, "image/svg+xml").documentElement;
           if (box.classList.contains("thumb")) { element.removeAttribute("width"); element.removeAttribute("height"); }
           box.replaceChildren(document.importNode(element, true));
+          if (box.matches("figure.diagram")) zoomable(box);
         } catch (error) {
           box.replaceChildren(Object.assign(document.createElement("p"), { textContent: document.body.dataset.cannotDraw + " " + error }));
         }

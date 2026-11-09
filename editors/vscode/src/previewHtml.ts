@@ -5,6 +5,8 @@ export interface PreviewResources {
   mermaid: string;
   // Cytoscape.js and the drawing of a view to move by hand (media/movable.js), loaded when one is.
   movable: string;
+  // Zoom and move around the diagrams (media/zoom.js, the script of the site and the playground).
+  zoom: string;
   // The origin of the resources of the extension, for the Content Security Policy.
   cspSource: string;
 }
@@ -32,8 +34,7 @@ export function previewHtml(view: string, resources: PreviewResources): string {
   #messages.error { border-left-color: var(--vscode-editorError-foreground); }
   #messages:empty { display: none; }
   main { padding: 12px; }
-  .canvas { background: #fff; color: #000; border-radius: 4px; padding: 12px; overflow: auto; }
-  .canvas.fit svg { max-width: 100%; height: auto; }
+  .canvas { background: #fff; color: #000; border-radius: 4px; height: calc(100vh - 90px); min-height: 240px; }
   pre { margin: 0; padding: 12px; overflow: auto; font-family: var(--vscode-editor-font-family); font-size: var(--vscode-editor-font-size); background: var(--vscode-textCodeBlock-background); border-radius: 4px; }
   iframe { width: 100%; border: none; border-radius: 4px; background: #fff; }
   .markdown { overflow: auto; }
@@ -52,19 +53,18 @@ export function previewHtml(view: string, resources: PreviewResources): string {
   <span class="spacer"></span>
   <button id="move" title="Drag the nodes and the frames, bend the edges (right click on an edge to add or remove a bend); nothing goes back to the files">Move by hand</button>
   <button id="source" title="Toggle the rendering / its source">Source</button>
-  <button id="zoom" title="Toggle fit to width / actual size">Actual size</button>
   <button id="build" class="primary" title="Write the renderings to out/ (cadastre build --view)">Build</button>
 </header>
 <div id="messages"></div>
 <main id="content"><p>Rendering…</p></main>
+<script src="${resources.zoom}"></script>
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
   const saved = vscode.getState() ?? {};
-  const state = { format: saved.format, fit: saved.fit ?? true, source: saved.source ?? false, move: saved.move ?? false, outputs: [] };
+  const state = { format: saved.format, source: saved.source ?? false, move: saved.move ?? false, outputs: [] };
   const tabs = document.getElementById("tabs");
   const content = document.getElementById("content");
   const messages = document.getElementById("messages");
-  const zoom = document.getElementById("zoom");
   const source = document.getElementById("source");
   const move = document.getElementById("move");
   const MERMAID = ${JSON.stringify(resources.mermaid)};
@@ -74,11 +74,20 @@ export function previewHtml(view: string, resources: PreviewResources): string {
   let shown = 0;
 
   document.getElementById("build").onclick = () => vscode.postMessage({ type: "build" });
-  zoom.onclick = () => { state.fit = !state.fit; save(); show(); };
   source.onclick = () => { state.source = !state.source; save(); show(); };
   move.onclick = () => { state.move = !state.move; save(); show(); };
 
-  function save() { vscode.setState({ format: state.format, fit: state.fit, source: state.source, move: state.move }); }
+  function save() { vscode.setState({ format: state.format, source: state.source, move: state.move }); }
+
+  // The zoom and the position of the diagram of each format, kept while it is rendered again as
+  // one types (zoom.js: the wheel zooms around the cursor, a drag moves it).
+  const zooms = new Map();
+  let zoomed = null;
+  function zoomable(element) {
+    if (zoomed) zooms.set(zoomed.format, zoomed.zoom.state());
+    const zoom = globalThis.cadastreZoom?.attach(element, { wheel: true, height: "calc(100vh - 90px)", state: zooms.get(state.format) });
+    zoomed = zoom ? { format: state.format, zoom } : null;
+  }
 
   // A click on a link (the url or console of a resource) opens it outside the panel.
   function links(root) {
@@ -129,15 +138,17 @@ export function previewHtml(view: string, resources: PreviewResources): string {
   // A diagram: SVG from Graphviz, parsed as XML; from Mermaid (\`markup\`), serialized as HTML.
   function canvas(svg, markup) {
     const element = document.createElement("div");
-    element.className = "canvas" + (state.fit ? " fit" : "");
+    element.className = "canvas";
     if (markup) {
       element.innerHTML = svg;
+      zoomable(element);
       return element;
     }
     try {
       const parsed = new DOMParser().parseFromString(svg, "image/svg+xml").documentElement;
       if (parsed.nodeName !== "svg") throw new Error(parsed.textContent);
       element.append(document.importNode(parsed, true));
+      zoomable(element);
     } catch (error) {
       element.textContent = "Graphviz: " + error;
     }
@@ -240,8 +251,6 @@ export function previewHtml(view: string, resources: PreviewResources): string {
     const movingIt = !asSource && state.move && current.format === "svg" && !!current.elements;
     move.hidden = asSource || current.format !== "svg" || !current.elements;
     move.className = movingIt ? "active" : "";
-    zoom.hidden = asSource || movingIt || !["svg", "traversal", "racks", "dot", "mermaid", "sequence", "drawio"].includes(current.format);
-    zoom.textContent = state.fit ? "Actual size" : "Fit to width";
     const turn = ++shown;
     let element;
     if (asSource) {

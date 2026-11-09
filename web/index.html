@@ -104,6 +104,8 @@
   #output { flex: 1; overflow: auto; padding: 12px; }
   #output svg { max-width: 100%; height: auto; background: #fff; border-radius: 6px; }
   #output .drawio { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; color: var(--muted); }
+  #output .zoom { height: calc(100% - 4px); min-height: 360px; background: #fff; border-radius: 6px; }
+  #output .zoom svg { width: 100%; height: 100%; max-width: none; border-radius: 0; }
   #output .movable { height: calc(100% - 44px); min-height: 480px; background: #fff; border-radius: 6px; }
   #output iframe { display: block; width: 100%; height: 100%; border: 0; }
   #output pre { margin: 0; font: 13px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; }
@@ -170,6 +172,7 @@
     <div id="diagnostics"></div>
   </section>
 </main>
+<script src="./zoom.js"></script>
 <script type="module">
 import { load } from "./cadastre.js";
 
@@ -593,6 +596,20 @@ function loadCytoscape() {
   return cytoscapeLoaded;
 }
 
+// A drawing zoomed with the wheel and moved by dragging (zoom.js), the zoom and the position of
+// each view kept while it is drawn again as one types.
+const zooms = new Map();
+let zoomOf = null;
+
+function zoomed(target, svg, view) {
+  if (zoomOf) zooms.set(zoomOf.view, zoomOf.zoom.state());
+  const box = Object.assign(document.createElement("div"), { className: "zoom" });
+  box.append(document.importNode(new DOMParser().parseFromString(svg, "image/svg+xml").documentElement, true));
+  target.append(box);
+  const zoom = globalThis.cadastreZoom?.attach(box, { wheel: true, height: "calc(100% - 4px)", state: zooms.get(view), language: lang });
+  zoomOf = zoom ? { view, zoom } : null;
+}
+
 async function movable(target, files, view, dot) {
   const bar = Object.assign(document.createElement("div"), { className: "drawio" });
   const box = Object.assign(document.createElement("div"), { className: "movable" });
@@ -711,7 +728,7 @@ function run() {
     }));
   } else if (["svg", "traversal", "racks"].includes(state.format) && output.content.trimStart().startsWith("<svg")) {
     // `layout: elk`, `render traversal` and `render racks`: already drawn by the compiler.
-    target.append(document.importNode(new DOMParser().parseFromString(output.content, "image/svg+xml").documentElement, true));
+    zoomed(target, output.content, output.view);
   } else if (state.format === "move" && viz) {
     void movable(target, files, output.view, output.content);
   } else if ((state.format === "svg" || state.format === "drawio") && viz) {
@@ -720,7 +737,11 @@ function run() {
     }
     try {
       const svg = cadastre.draw(viz, output.content);
-      target.append(document.importNode(new DOMParser().parseFromString(svg, "image/svg+xml").documentElement, true));
+      if (state.format === "drawio") {
+        target.append(document.importNode(new DOMParser().parseFromString(svg, "image/svg+xml").documentElement, true));
+      } else {
+        zoomed(target, svg, output.view);
+      }
     } catch (error) {
       target.append(Object.assign(document.createElement("pre"), { textContent: String(error) }));
     }

@@ -302,5 +302,9 @@ mod movable_tests {
         if let Ok(copy) = std::fs::read_to_string(copy) {
             assert_eq!(copy.replace("\r\n", "\n"), include_str!("movable.js").replace("\r\n", "\n"));
         }
+        let copy = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../web/zoom.js");
+        if let Ok(copy) = std::fs::read_to_string(copy) {
+            assert_eq!(copy.replace("\r\n", "\n"), include_str!("zoom.js").replace("\r\n", "\n"));
+        }
     }
 }

@@ -46,6 +46,7 @@ export class Preview {
     panel.webview.html = previewHtml(view, {
       mermaid: panel.webview.asWebviewUri(vscode.Uri.joinPath(media, "mermaid.js")).toString(),
       movable: panel.webview.asWebviewUri(vscode.Uri.joinPath(media, "movable.js")).toString(),
+      zoom: panel.webview.asWebviewUri(vscode.Uri.joinPath(media, "zoom.js")).toString(),
       cspSource: panel.webview.cspSource,
     });
     panel.webview.onDidReceiveMessage((message) => {

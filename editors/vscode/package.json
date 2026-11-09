@@ -141,7 +141,7 @@
   },
   "scripts": {
     "compile": "tsc -p . && npm run media",
-    "media": "esbuild media-src/mermaid.js --bundle --minify --format=iife --legal-comments=eof --outfile=media/mermaid.js && esbuild media-src/movable.js --bundle --minify --format=iife --legal-comments=eof --loader:.css=text --outfile=media/movable.js",
+    "media": "esbuild media-src/mermaid.js --bundle --minify --format=iife --legal-comments=eof --outfile=media/mermaid.js && esbuild media-src/movable.js --bundle --minify --format=iife --legal-comments=eof --loader:.css=text --outfile=media/movable.js && esbuild ../../compiler/crates/cadastre-core/src/render/zoom.js --minify --outfile=media/zoom.js",
     "watch": "tsc -watch -p .",
     "test": "node test/grammar.test.js",
     "package": "vsce package",
