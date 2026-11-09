@@ -1037,6 +1037,24 @@ site hoster-a-dc {
 
 Writing a fact asserts it: only doubts are annotated.
 
+**Where it is in its life: `status`.** On any resource and any link:
+
+| Value | Meaning |
+|---|---|
+| `active` (default) | in service |
+| `planned` | to come: a server ordered, a flow to open |
+| `decommissioned` | withdrawn, kept in the map for its history |
+
+```
+server srv-old { status: decommissioned }
+app portal-v2 { status: planned, on: srv-new }
+```
+
+- **Drawn** in blue when planned and in grey when decommissioned (the border of a node, an edge whose links all have that status), a line of the legend for each; a style rule restyles them as any other (`nodes where status = planned { color: green }`).
+- **Impact analysis**: what is decommissioned is no longer there. It does not fail, and nothing needs it: an app on `[srv-old, web02]`, `srv-old` decommissioned, has `web02` as a single point of failure. What is planned is counted, to study the target architecture.
+- **Checks**: what is in service but still in a decommissioned parent, designating a decommissioned resource (`on`, `rack`, any reference) or linked to one is a warning (`portal is in service, on: srv-old, decommissioned`); a link written in a decommissioned resource is withdrawn with it.
+- **Views** filter on it as on any key: `select app where status != decommissioned`; a table counts on it (`group: status`).
+
 **What we wonder: `question`.** A string, or a list of strings, on any resource and any link:
 
 ```
@@ -1157,6 +1175,7 @@ Some keys mean the same everywhere and are used by renderings and views:
 | `label` | any resource | `string` | displayed name (default: the name); also a vendor interface name or a cloud object identifier |
 | `description` | any resource, any link | `string` | what the resource is for, what the flow does; shown in SVG tooltips, text output and export |
 | `confidence` | any resource, any link | `confirmed \| assumed \| doubtful`, default `confirmed` | degree of certainty |
+| `status` | any resource, any link | `active \| planned \| decommissioned`, default `active` | where it is in its life: drawn in blue (planned) or grey (decommissioned), decommissioned left out of the impact analysis |
 | `question` | any resource, any link | `string` or list | open question to settle |
 | `scope` | any resource | `internal \| external`, default `internal` | inside or outside the mapped perimeter |
 | `system` | servers, clusters, devices | `ref(system)` | functional membership of an infrastructure resource |
@@ -1730,7 +1749,7 @@ An option with no equivalent in a format is ignored without a warning.
 - to a tunnel or a connector, when one of its ends is down;
 - along the links: the source of a link depends on its target and on what the link goes through (`through`, written or deduced from `egress`).
 
-Systems, teams, actors and data do not fail by themselves. `failures(hosting)` leaves the links out: what a node needs to **run** (containment, racks, `on`, clusters, pools, connectors), not what it calls. A shared database reached by many apps is then not counted for each of them, and a single point of failure of the hosting stands out: `failures(hosting).kind = server`.
+Systems, teams, actors and data do not fail by themselves, nor does what is decommissioned (`status: decommissioned`), which nothing needs any more. `failures(hosting)` leaves the links out: what a node needs to **run** (containment, racks, `on`, clusters, pools, connectors), not what it calls. A shared database reached by many apps is then not counted for each of them, and a single point of failure of the hosting stands out: `failures(hosting).kind = server`.
 
 ```
 view fw01-failure {                                  // what the failure of fw01 takes down

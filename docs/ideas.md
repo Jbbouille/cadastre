@@ -197,10 +197,6 @@ paths, gives most of the flat sheets:
   (money, reputation, people, health): a key defined in the schema from other keys,
   `kind app { dict: max(availability, integrity, confidentiality, traceability) }`, checked and
   shown like a written one.
-- **A lifecycle.** Applications, flows and services are active, planned, to be checked,
-  abandoned, decommissioned; the sheets filter and count on it. A built-in `status` key with
-  known values (and what `planned` or `decommissioned` changes: drawn dashed, left out of the
-  impact analysis) rather than a free key each project names differently.
 - **Identifiers of links.** A flow catalog numbers its flows and keeps their former numbers and
   the name of the program doing them: links have keys, but no name of their own to be designated
   by (in a process, a check, another sheet).

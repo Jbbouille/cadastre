@@ -130,6 +130,7 @@ Types: `string`; `number`; `semver` (`1.2.0`, `v2.0.1-rc1`); `version` (a semver
 | `description` | `string` | one |  |
 | `confidence` | `confirmed \| assumed \| doubtful` | one |  |
 | `question` | `string, or list of strings` | one |  |
+| `status` | `active \| planned \| decommissioned` | one |  |
 | `scope` | `internal \| external` | one |  |
 | `owner` | `ref(team)` | one |  |
 | `operator` | `ref(team)` | one |  |
@@ -147,6 +148,7 @@ On `->` links, in their block.
 | `description` | `string` | one |  |
 | `confidence` | `confirmed \| assumed \| doubtful` | one |  |
 | `question` | `string, or list of strings` | one |  |
+| `status` | `active \| planned \| decommissioned` | one |  |
 | `carries` | `ref(data)` | list |  |
 | `exchange` | `push \| pull \| both` | one |  |
 | `channel` | `ref(channel)` | list |  |

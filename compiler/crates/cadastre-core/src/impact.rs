@@ -23,6 +23,11 @@ use crate::registry::{Registry, ResourceId};
 /// Kinds that do not fail by themselves.
 const LOGICAL: &[&str] = &["system", "team", "actor", "data"];
 
+/// Whether a resource is withdrawn (`status: decommissioned`): it neither fails nor is needed.
+pub fn decommissioned(registry: &Registry, id: ResourceId) -> bool {
+    registry.resource(id).attribute("status").is_some_and(|a| a.value.raw == "decommissioned")
+}
+
 /// What a resource needs to be available.
 #[derive(Default)]
 struct Needs {
@@ -37,7 +42,10 @@ struct Needs {
 pub fn failures(registry: &Registry, model: &Model, links: bool) -> HashMap<ResourceId, Vec<ResourceId>> {
     let dependencies = Dependencies::new(registry, model, links);
     let mut result: HashMap<ResourceId, Vec<ResourceId>> = HashMap::new();
-    for seed in registry.ids().filter(|&id| !LOGICAL.contains(&registry.resource(id).kind.as_str())) {
+    for seed in registry
+        .ids()
+        .filter(|&id| !LOGICAL.contains(&registry.resource(id).kind.as_str()) && !decommissioned(registry, id))
+    {
         let down = dependencies.down(&[seed]);
         for id in registry.ids().filter(|&id| id != seed && down[id.0 as usize]) {
             result.entry(id).or_default().push(seed);
@@ -60,7 +68,8 @@ pub fn failures(registry: &Registry, model: &Model, links: bool) -> HashMap<Reso
 pub fn failure_pairs(registry: &Registry, model: &Model) -> HashMap<ResourceId, Vec<(ResourceId, ResourceId)>> {
     let dependencies = Dependencies::new(registry, model, true);
     let count = registry.resources.len();
-    let fails = |id: ResourceId| !LOGICAL.contains(&registry.resource(id).kind.as_str());
+    let fails =
+        |id: ResourceId| !LOGICAL.contains(&registry.resource(id).kind.as_str()) && !decommissioned(registry, id);
     // What each failure takes down alone, and who takes each resource down.
     let mut alone: Vec<Vec<ResourceId>> = vec![Vec::new(); count];
     let mut killers: Vec<Vec<ResourceId>> = vec![Vec::new(); count];
@@ -171,12 +180,25 @@ impl Dependencies {
         // The source of a link needs its target and what the link goes through.
         for (index, ends) in model.link_ends.iter().enumerate().filter(|_| links) {
             let Some((source, target)) = *ends else { continue };
+            if registry.links[index].attribute("status").is_some_and(|a| a.value.raw == "decommissioned") {
+                continue;
+            }
             if source == target {
                 continue;
             }
             let needed = &mut needs[source.0 as usize];
             needed.all.push(target);
             needed.all.extend(model.reference(Holder::Link(index), "through").iter().copied());
+        }
+
+        // What is withdrawn (`status: decommissioned`) is no longer there: nothing depends on it.
+        let gone = |id: &ResourceId| decommissioned(registry, *id);
+        for needed in &mut needs {
+            needed.all.retain(|id| !gone(id));
+            for group in &mut needed.any {
+                group.retain(|id| !gone(id));
+            }
+            needed.any.retain(|group| !group.is_empty());
         }
 
         // Who to look at when a resource goes down.

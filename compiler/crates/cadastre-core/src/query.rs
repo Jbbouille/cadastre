@@ -247,6 +247,7 @@ pub fn value_text(value: &Value) -> String {
 pub fn default_value(key: &str) -> Option<&'static str> {
     match key {
         "confidence" => Some("confirmed"),
+        "status" => Some("active"),
         "scope" => Some("internal"),
         _ => None,
     }

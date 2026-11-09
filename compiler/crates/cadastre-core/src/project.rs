@@ -126,6 +126,8 @@ pub fn compile_modules(files: &[SourceFile], modules: &[Module], options: Option
     let duplicates = duplicate_names(&compilation);
     compilation.diagnostics.extend(duplicates);
     compilation.model = check::check(&compilation.registry, options, &mut compilation.diagnostics);
+    let withdrawn = on_decommissioned(&compilation);
+    compilation.diagnostics.extend(withdrawn);
     compilation.model.names.extend(placed);
     crate::view::validate(
         &compilation.plans,
@@ -377,6 +379,71 @@ fn workbook(compilation: &Compilation, scene: &crate::render::Scene) -> Vec<u8> 
 }
 
 /// A qualified name can only be declared once (spec § 5, Names).
+/// What is in service but still placed in, hosted by or linked to something withdrawn
+/// (`status: decommissioned`): an app left on a decommissioned server, a flow to a decommissioned
+/// database.
+fn on_decommissioned(compilation: &Compilation) -> Vec<Diagnostic> {
+    use crate::check::Holder;
+    use crate::impact::decommissioned;
+    let (registry, model) = (&compilation.registry, &compilation.model);
+    let help = "withdraw it too (`status: decommissioned`), or move it";
+    let mut diagnostics = Vec::new();
+    // In a withdrawn parent, or designating something withdrawn by a key (`on`, `rack`…).
+    let mut needed: Vec<(ResourceId, String, ResourceId)> = Vec::new();
+    for id in registry.ids().filter(|&id| !decommissioned(registry, id)) {
+        if let Some(parent) = registry.resource(id).parent.filter(|&p| decommissioned(registry, p)) {
+            needed.push((id, "in".to_owned(), parent));
+        }
+    }
+    for ((holder, key), targets) in &model.references {
+        let Holder::Resource(id) = *holder else { continue };
+        if decommissioned(registry, id) {
+            continue;
+        }
+        for &target in targets.iter().filter(|&&t| decommissioned(registry, t)) {
+            needed.push((id, format!("{key}:"), target));
+        }
+    }
+    needed.sort();
+    for (id, how, target) in needed {
+        diagnostics.push(
+            Diagnostic::warning(
+                format!(
+                    "{} is in service, {how} {}, decommissioned",
+                    registry.qualified_name(id),
+                    registry.qualified_name(target)
+                ),
+                registry.resource(id).name_span,
+            )
+            .with_help(help),
+        );
+    }
+    for (index, ends) in model.link_ends.iter().enumerate() {
+        let link = &registry.links[index];
+        let Some((source, target)) = *ends else { continue };
+        // A link written in a withdrawn resource is withdrawn with it.
+        if link.attribute("status").is_some_and(|a| a.value.raw == "decommissioned") || decommissioned(registry, source)
+        {
+            continue;
+        }
+        if decommissioned(registry, target) {
+            diagnostics.push(
+                Diagnostic::warning(
+                    format!(
+                        "the link {} -> {} is in service, {} decommissioned",
+                        registry.qualified_name(source),
+                        registry.qualified_name(target),
+                        registry.qualified_name(target)
+                    ),
+                    link.span,
+                )
+                .with_help("withdraw the link too (`status: decommissioned`), or remove it"),
+            );
+        }
+    }
+    diagnostics
+}
+
 fn duplicate_names(compilation: &Compilation) -> Vec<Diagnostic> {
     let registry = &compilation.registry;
     let mut diagnostics = Vec::new();

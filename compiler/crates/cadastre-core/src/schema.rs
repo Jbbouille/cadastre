@@ -279,6 +279,8 @@ pub static RESOURCE_KEYS: &[AttrDef] = &[
     attr("description", Ty::String),
     attr("confidence", Ty::Symbol(CONFIDENCE)),
     attr("question", Ty::Strings),
+    // Where the resource is in its life: in service, to come, or withdrawn.
+    attr("status", Ty::Symbol(STATUS)),
     attr("scope", Ty::Symbol(SCOPE)),
     attr("owner", Ty::Ref("team")),
     attr("operator", Ty::Ref("team")),
@@ -297,6 +299,7 @@ pub static LINK_KEYS: &[AttrDef] = &[
     attr("description", Ty::String),
     attr("confidence", Ty::Symbol(CONFIDENCE)),
     attr("question", Ty::Strings),
+    attr("status", Ty::Symbol(STATUS)),
     many("carries", Ty::Ref("data")),
     attr("exchange", Ty::Symbol(EXCHANGE)),
     many("channel", Ty::Ref("channel")),
@@ -306,6 +309,7 @@ pub static LINK_KEYS: &[AttrDef] = &[
 ];
 
 pub const CONFIDENCE: &[&str] = &["confirmed", "assumed", "doubtful"];
+pub const STATUS: &[&str] = &["active", "planned", "decommissioned"];
 pub const SCOPE: &[&str] = &["internal", "external"];
 pub const EXCHANGE: &[&str] = &["push", "pull", "both"];
 

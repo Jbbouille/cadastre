@@ -185,21 +185,28 @@ view unused { select backup_policy where count(referrers(backup)) = 0  render ma
 
 #[test]
 fn a_pivot_table() {
-    let registry = "app a { status: active, criticality: high }
-app b { status: active, criticality: low }
-app c { status: planned, criticality: high }
+    let registry = "app a { tier: gold, criticality: high }
+app b { tier: gold, criticality: low }
+app c { tier: silver, criticality: high }
 app d { criticality: high }
 ";
-    let views = "view v {\n  select app\n  render markdown { group: \"status as Status\"  count: [criticality] }\n}\n";
+    let views = "view v {\n  select app\n  render markdown { group: \"tier as Tier\"  count: [criticality] }\n}\n";
     let c = compile(&[
         SourceFile { path: "a.ca".into(), text: registry.into() },
         SourceFile { path: "v.cav".into(), text: views.into() },
     ]);
     assert!(errors(&c).is_empty(), "{:?}", errors(&c));
-    // A row per status, the apps without one last, then the total.
+    // A row per tier, the apps without one last, then the total.
     assert_eq!(
         output(&c, "markdown"),
-        "| Status | count | high | low |\n|---|---|---|---|\n\
-         | active | 2 | 1 | 1 |\n| planned | 1 | 1 | 0 |\n|  | 1 | 1 | 0 |\n| Total | 4 | 3 | 1 |\n"
+        "| Tier | count | high | low |\n|---|---|---|---|\n\
+         | gold | 2 | 1 | 1 |\n| silver | 1 | 1 | 0 |\n|  | 1 | 1 | 0 |\n| Total | 4 | 3 | 1 |\n"
     );
+    // `status` has a default: the apps without one are active.
+    let views = "view v {\n  select app\n  render markdown { group: status }\n}\n";
+    let c = compile(&[
+        SourceFile { path: "a.ca".into(), text: registry.into() },
+        SourceFile { path: "v.cav".into(), text: views.into() },
+    ]);
+    assert!(output(&c, "markdown").contains("| active | 4 |"), "{}", output(&c, "markdown"));
 }

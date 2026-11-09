@@ -294,6 +294,15 @@ pub struct LegendEntry {
     pub line: Option<Line>,
 }
 
+/// The color of what is to come (`status: planned`), or withdrawn (`decommissioned`).
+fn status_color(status: Option<&str>) -> Option<&'static str> {
+    match status {
+        Some("planned") => Some("#2563eb"),
+        Some("decommissioned") => Some("#9ca3af"),
+        _ => None,
+    }
+}
+
 /// The nodes of a scenario of failures (`failing`): their border, the fill of those failing, of
 /// those unavailable through them.
 const DOWN_COLOR: &str = "#b91c1c";
@@ -691,6 +700,8 @@ impl<'a> Scene<'a> {
                 _ => Line::Solid,
             },
         };
+        // Its life: to come, in blue; withdrawn, in grey.
+        style.color = status_color(attr("status")).map(str::to_owned);
         // A scenario of failures: what fails, and what is unavailable through it, in red.
         if let Some((fill, _)) = self.down_style(id) {
             style.color = Some(DOWN_COLOR.to_owned());
@@ -717,7 +728,7 @@ impl<'a> Scene<'a> {
             .as_deref()
             .is_some_and(|r| self.registry.schema.kind_def(r).is_some_and(|d| d.connector.is_some()));
         let mut style = EdgeStyle {
-            color: None,
+            color: status_color(self.edge_status(edge)).map(str::to_owned),
             line: if connector || edge.confidence == Confidence::Doubtful {
                 Line::Dotted
             } else if edge.confidence == Confidence::Assumed || edge.layers.contains("trigger") {
@@ -1093,6 +1104,27 @@ impl<'a> Scene<'a> {
                 });
             }
         }
+        // The colors of the life of what is drawn (`status`), unless a rule restyles them.
+        for (status, label) in [("planned", "Planned"), ("decommissioned", "Decommissioned")] {
+            let color = status_color(Some(status));
+            let nodes = self.graph.nodes.iter().any(|&id| {
+                attribute(id, "status").as_deref() == Some(status) && self.node_style(id).color.as_deref() == color
+            });
+            let edges = self
+                .graph
+                .edges
+                .iter()
+                .any(|e| self.edge_status(e) == Some(status) && self.edge_style(e).color.as_deref() == color);
+            if nodes || edges {
+                entries.push(LegendEntry {
+                    label: self.t(label).to_owned(),
+                    edges: !nodes,
+                    color: color.map(str::to_owned),
+                    fill: None,
+                    line: Some(Line::Solid),
+                });
+            }
+        }
         // The fills of a scenario of failures, unless a rule restyles them.
         for (fill, label) in [(FAILING_FILL, "Failing"), (DOWN_FILL, "Unavailable")] {
             let drawn = self.graph.nodes.iter().any(|&id| {
@@ -1204,6 +1236,16 @@ impl<'a> Scene<'a> {
             return (false, false);
         }
         (true, edge.both_ways)
+    }
+
+    /// The status of an edge: that of its links when they all have the same, `active` otherwise.
+    fn edge_status(&self, edge: &GraphEdge) -> Option<&str> {
+        let mut statuses = edge
+            .links
+            .iter()
+            .map(|&l| self.registry.links[l].attribute("status").map_or("active", |a| a.value.raw.as_str()));
+        let first = statuses.next()?;
+        statuses.all(|s| s == first).then_some(first)
     }
 
     /// The ends of an edge as drawn (`drawn`) that open the connection: the first end, the second.
