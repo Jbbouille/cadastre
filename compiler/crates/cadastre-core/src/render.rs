@@ -236,7 +236,8 @@ fn parse_items<'d>(dot: &'d str, lines: &[&str], offsets: &[usize], i: &mut usiz
     items
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// From the least marked to the most: an edge merging links of two styles takes the most marked.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Line {
     Solid,
     Dashed,
@@ -632,6 +633,18 @@ impl<'a> Scene<'a> {
     }
 
     fn edge_tooltip(&self, edge: &GraphEdge) -> String {
+        // An edge of `merge: pair`: each way on its own, its ends first.
+        if let Some(directions) = &edge.directions {
+            return directions
+                .iter()
+                .map(|part| {
+                    let mut lines = vec![format!("{} → {}", self.name(part.source), self.name(part.target))];
+                    lines.extend(self.edge_tooltip(part).lines().map(|line| format!("  {line}")));
+                    lines.join("\n")
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+        }
         let mut lines = Vec::new();
         if let Some(step) = edge.step {
             lines.push(format!("step: {step}"));
@@ -751,6 +764,18 @@ impl<'a> Scene<'a> {
                     "routing" => style.straight = value == "straight",
                     _ => {}
                 }
+            }
+        }
+        // An edge of `merge: pair`: the rules apply to each way too, with its own source and
+        // target, and the edge takes the most marked of their lines (dashed one way, solid the
+        // other: dashed), the color of the merged edge or else of a way, and is left out of the
+        // layout if a way is.
+        if let Some(directions) = &edge.directions {
+            for part in directions.iter().map(|part| self.edge_style(part)) {
+                style.line = style.line.max(part.line);
+                style.color = style.color.or(part.color);
+                style.free |= part.free;
+                style.straight |= part.straight;
             }
         }
         style

@@ -12,6 +12,10 @@ Cadastre is in **0.x**. Until 1.0:
 
 The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly module share one version number.
 
+## Unreleased
+
+- **`merge: pair`**: the style rules apply to each direction of an edge going both ways, with its own source and target; the edge takes the most marked line of the two (dashed one way and solid the other: dashed), and its tooltip tells each direction apart.
+
 ## 0.3.0
 
 Two changes may touch a project: `status` is now a standard key (`active`, `planned`, `decommissioned`), so a project that used it with other values gets an error for each; and `initiator` is on by default, so the views in data orientation gain a dot at the end opening the connection (`initiator: false` draws them as before). The rest is added: `status` and its lifecycle, pivot tables, links inside workbooks, `targets(…)` and `sources(…)`, zoom on the diagrams, a faster `cadastre serve`.

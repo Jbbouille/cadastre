@@ -55,3 +55,22 @@ fn one_edge_per_pair() {
     // The labels of each way apart: backup to proxy, then back.
     assert!(text.contains("→ tcp/2500, tcp/9392, ← tcp/10006"), "{text}");
 }
+
+#[test]
+fn the_style_of_each_way() {
+    // A rule styling one way only: the edge takes its dashes, and its tooltip tells each way.
+    let views = "view v {\n  select server\n  edges lift([flow], via: on, merge: pair)\n  \
+                 style { edges where source in [proxy] { line: dashed } }\n  render dot\n}\n";
+    let c = compile(&[
+        SourceFile { path: "a.ca".into(), text: REGISTRY.into() },
+        SourceFile { path: "v.cav".into(), text: views.into() },
+    ]);
+    let dot = cadastre_core::build(&c, None).0.into_iter().find(|o| o.format == "dot").unwrap().content;
+    // Drawn through its label (`n1 -> e0 -> n2`): both halves dashed.
+    let pair: Vec<&str> = dot.lines().filter(|l| l.contains(" [dir=") && l.contains("proxy → backup")).collect();
+    assert_eq!(pair.len(), 2, "{dot}");
+    assert!(pair.iter().all(|l| l.contains("style=dashed") && l.contains("backup → proxy")), "{pair:?}");
+    // The edge from vcenter, going one way, keeps its solid line.
+    let single: Vec<&str> = dot.lines().filter(|l| l.contains(" [dir=") && l.contains("https/443")).collect();
+    assert!(!single.is_empty() && single.iter().all(|l| !l.contains("dashed")), "{single:?}");
+}
