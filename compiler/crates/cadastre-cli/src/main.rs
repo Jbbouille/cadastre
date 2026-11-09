@@ -494,15 +494,23 @@ fn render(compilation: &Compilation, options: &Options) -> std::io::Result<(Vec<
 /// processes rather than one process per variant: Graphviz takes about a second to start on some
 /// machines (its fonts), for a few milliseconds of layout.
 pub(crate) fn svgs_of<S: AsRef<str>>(dots: &[S]) -> Vec<Option<String>> {
+    drawings_of(dots).into_iter().map(|d| d.map(|(svg, _)| svg)).collect()
+}
+
+/// The SVGs of views as [`svgs_of`] draws them, each with the variant of its DOT kept: what
+/// Graphviz lays out again as JSON for the same drawing to be moved by hand.
+pub(crate) fn drawings_of<S: AsRef<str>>(dots: &[S]) -> Vec<Option<(String, String)>> {
     let variants: Vec<Vec<String>> = dots.iter().map(|d| cadastre_core::render::dot_variants(d.as_ref())).collect();
     let all: Vec<&str> = variants.iter().flatten().map(String::as_str).collect();
     let mut drawings = graphviz_all(&all, "-Tsvg").into_iter();
     variants
-        .iter()
+        .into_iter()
         .map(|v| {
-            let drawn: Vec<String> = drawings.by_ref().take(v.len()).flatten().collect();
-            let best = drawn.get(cadastre_core::render::best_drawing(&drawn))?;
-            Some(cadastre_core::render::with_icons(best))
+            let drawn: Vec<(String, String)> =
+                drawings.by_ref().take(v.len()).zip(v).filter_map(|(svg, dot)| Some((svg?, dot))).collect();
+            let svgs: Vec<&str> = drawn.iter().map(|(svg, _)| svg.as_str()).collect();
+            let (best, dot) = drawn.get(cadastre_core::render::best_drawing(&svgs))?;
+            Some((cadastre_core::render::with_icons(best), dot.clone()))
         })
         .collect()
 }
@@ -510,7 +518,7 @@ pub(crate) fn svgs_of<S: AsRef<str>>(dots: &[S]) -> Vec<Option<String>> {
 /// Runs `dot` on several graphs, in a few processes working at the same time, each given a share
 /// of the graphs one after the other in its input: one drawing per graph, `None` for a graph
 /// Graphviz fails on, or for all of them when it is not installed.
-fn graphviz_all(dots: &[&str], format: &str) -> Vec<Option<String>> {
+pub(crate) fn graphviz_all(dots: &[&str], format: &str) -> Vec<Option<String>> {
     let workers = std::thread::available_parallelism().map_or(1, usize::from).min(dots.len()).max(1);
     let share = dots.len().div_ceil(workers).max(1);
     std::thread::scope(|scope| {
@@ -535,6 +543,20 @@ fn graphviz_batch(dots: &[&str], format: &str) -> Vec<Option<String>> {
                 .collect();
             if drawings.len() == dots.len() {
                 return drawings.into_iter().map(Some).collect();
+            }
+        }
+    }
+    if dots.len() > 1 && format == "-Tjson" {
+        let input: String = dots.iter().map(|d| format!("{d}\n")).collect();
+        if let Some(output) = graphviz(&input, format) {
+            // One JSON document per graph, one after the other.
+            let layouts: Vec<String> = serde_json::Deserializer::from_str(&output)
+                .into_iter::<serde_json::Value>()
+                .map_while(Result::ok)
+                .map(|layout| layout.to_string())
+                .collect();
+            if layouts.len() == dots.len() {
+                return layouts.into_iter().map(Some).collect();
             }
         }
     }

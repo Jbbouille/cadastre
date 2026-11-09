@@ -39,7 +39,12 @@ The extension package (`.vsix`) contains:
 - [vscode-languageclient](https://github.com/microsoft/vscode-languageserver-node) and its dependencies (vscode-languageserver-protocol, vscode-languageserver-types, vscode-jsonrpc: MIT; semver: ISC; minimatch: ISC);
 - [@viz-js/viz](https://github.com/mdaines/viz-js) (MIT), with [Graphviz](https://gitlab.com/graphviz/graphviz) compiled to WebAssembly (EPL-1.0), unmodified;
 - `media/mermaid.js`, a bundle of [Mermaid](https://github.com/mermaid-js/mermaid) (MIT) and of the ELK layout ([@mermaid-js/layout-elk](https://github.com/mermaid-js/mermaid), MIT; [elkjs](https://github.com/kieler/elkjs), Eclipse Public License 2.0, unmodified), with their dependencies: d3 and its modules, delaunator, internmap (ISC; d3-ease, d3-sankey, rw: BSD-3-Clause), DOMPurify (MPL-2.0 or Apache-2.0), cytoscape and its layouts, dagre-d3-es, katex, marked, lodash-es, dayjs, roughjs, stylis, khroma, uuid and others (MIT), @chevrotain/types (Apache-2.0), robust-predicates (Unlicense). The license comments of the bundled packages are kept at the end of the file;
+- `media/movable.js`, a bundle of [Cytoscape.js](https://github.com/cytoscape/cytoscape.js), [cytoscape-edge-editing](https://github.com/iVis-at-Bilkent/cytoscape.js-edge-editing), [cytoscape-context-menus](https://github.com/iVis-at-Bilkent/cytoscape.js-context-menus) and [Konva](https://github.com/konvajs/konva) (MIT), with the drawing of a view to move by hand; the license comments of the bundled packages are kept at the end of the file;
 - the `cadastre` executable of its platform (see above).
+
+## The site and the playground: moving a view by hand
+
+The page of a view in the site (`cadastre site`, `cadastre serve`) and the *Movable* tab of the playground load Cytoscape.js, cytoscape-edge-editing, cytoscape-context-menus and Konva (MIT) from a CDN (jsDelivr) when a view is moved by hand; they are not distributed with the pages.
 
 ## The Eclipse Public License
 

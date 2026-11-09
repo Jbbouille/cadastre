@@ -57,6 +57,6 @@ pub use check::Options;
 pub use diagnostic::{Diagnostic, Severity, Summary};
 pub use i18n::Language;
 pub use project::{
-    Compilation, Module, Output, build, build_with, compile, compile_modules, compile_with, drawio, xlsx,
+    Compilation, Module, Output, build, build_with, compile, compile_modules, compile_with, cytoscape, drawio, xlsx,
 };
 pub use source::SourceFile;

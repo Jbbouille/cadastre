@@ -88,6 +88,7 @@ The script downloads Graphviz for the browser once, from the CDN the page uses (
 - browse the files in a tree, folders folding;
 - show a view with the play icon in the margin before it, or with `Ctrl+Enter` in it; or write one on the fly (an ad-hoc view, such as `select server group-by site edges lift([flow], via: on)`), rendered instead; the name of the view shown, beside the formats, leads to its definition;
 - see the diagram, the table, ASCII art, text, Mermaid or DOT output and the diagnostics as you type, and download a view as a draw.io file, laid out like the diagram, or its table as an Excel workbook or a CSV file, generated in the page;
+- move a view by hand (*Movable*): the diagram laid out by Graphviz like the SVG, drawn by Cytoscape.js loaded from a CDN, its nodes and frames dragged (a frame with its content), its edges bent (drag an edge, a straight one by its middle, or right click to add or remove a bend), and saved as a PNG; nothing goes back to the files, the positions live in the page;
 - share a view by its link (see Links).
 
 With `project.json` beside it (`cadastre serve`, `cadastre site`), the page shows that project only, read-only; its `compiler` field is the build of the compiler that published it, compared with the module's; its `site` field (`../`) is where the site of the project starts, and the header links back to it: to the page of the view shown, or to the home. Its `language` field (`en`, `fr`) is the language of the page and of the words of the diagrams; without it, the page follows the language of the browser.

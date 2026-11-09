@@ -21,6 +21,9 @@ pub struct Options<'a> {
     pub name: &'a str,
     /// The SVG of each view, by name, laid out by Graphviz and with its icons.
     pub svgs: &'a HashMap<String, String>,
+    /// The elements of each view to move by hand, by name ([`crate::cytoscape`]), laid out like
+    /// its SVG: its page offers to drag its nodes and bend its edges.
+    pub elements: &'a HashMap<String, String>,
     /// Where a page loads Graphviz for the browser to draw a view that has no SVG (a path
     /// relative to the root of the site, or a URL); `None`: such a view shows its DOT.
     pub viz: Option<&'a str>,
@@ -106,6 +109,9 @@ impl Site<'_> {
         let mut out = Vec::new();
         out.push(File { path: "site.css".into(), content: CSS.to_owned() });
         out.push(File { path: "site.js".into(), content: JS.to_owned() });
+        if !self.options.elements.is_empty() {
+            out.push(File { path: "movable.js".into(), content: MOVABLE.to_owned() });
+        }
         // The API: the records every page is built from.
         let index = api::index(self.compilation, self.files);
         out.push(File { path: "api/project.json".into(), content: pretty(&self.project) });
@@ -132,6 +138,9 @@ impl Site<'_> {
         // The diagrams as files: the thumbnails of the home page load them lazily.
         for (name, svg) in self.options.svgs {
             out.push(File { path: format!("views/{}.svg", file_name(name)), content: svg.clone() });
+        }
+        for (name, elements) in self.options.elements {
+            out.push(File { path: format!("views/{}.elements.json", file_name(name)), content: elements.clone() });
         }
         // The own renderings of the views drawn as a sequence, a traversal or racks.
         let own = self.own_renderings();
@@ -679,6 +688,17 @@ impl Site<'_> {
             body.push_str(&format!("<h2>{}</h2>\n", self.t("As a graph")));
         }
         match self.options.svgs.get(&name) {
+            // With its elements: a button to move it by hand (site.js).
+            Some(svg) if self.options.elements.contains_key(&name) => body.push_str(&format!(
+                "<p class=\"actions\"><button class=\"move\" data-elements=\"{root}views/{}.elements.json\" \
+                 data-back=\"{}\">{}</button> <span class=\"muted move-help\" hidden>{}</span></p>\n\
+                 <figure class=\"diagram\">{}</figure>\n",
+                file_name(&name),
+                esc(self.t("Back to the diagram")),
+                esc(self.t("Move by hand")),
+                esc(self.t("Drag the nodes and the frames; right click on an edge to add or remove a bend.")),
+                svg_body(svg)
+            )),
             Some(svg) => body.push_str(&format!("<figure class=\"diagram\">{}</figure>\n", svg_body(svg))),
             None => {
                 let dot =
@@ -1040,6 +1060,7 @@ h3.group { font-size: 1rem; color: var(--muted); margin: 1.2rem 0 .5rem; }
 @media (max-width: 40rem) { table { display: block; overflow-x: auto; white-space: nowrap; } }
 .thumb.empty { color: var(--muted); font-size: .85rem; }
 .diagram { margin: 1rem 0; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: .5rem; background: var(--bg); }
+.movable { height: 75vh; margin: 1rem 0; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .diagram svg { max-width: 100%; height: auto; }
 .diagram a:hover { text-decoration: none; } .diagram a[*|href]:hover > text, .diagram a[*|href]:hover > g > text { text-decoration: underline; }
 .list { list-style: none; padding: 0; } .list li { padding: .15rem 0; }
@@ -1055,6 +1076,9 @@ th { color: var(--muted); font-weight: 600; }
 pre.dot { font-size: .8rem; overflow: auto; }
 @media print { header, footer, .actions, .search { display: none; } main { max-width: none; padding: 0; } }
 "#;
+
+/// The drawing of a view to move by hand, shared with the playground and the VS Code preview.
+const MOVABLE: &str = include_str!("render/movable.js");
 
 const JS: &str = r#"
 (function () {
@@ -1139,6 +1163,46 @@ const JS: &str = r#"
     };
     script.onerror = () => { for (const box of pending) box.replaceChildren(Object.assign(document.createElement("p"), { textContent: document.body.dataset.noGraphviz })); };
     document.head.append(script);
+  }
+  // A view to move by hand: Cytoscape.js and its extensions from a CDN, then movable.js, given
+  // the elements of the view laid out like its diagram.
+  const CDN = "https://cdn.jsdelivr.net/npm/";
+  const LIBRARIES = ["cytoscape@3.30.2/dist/cytoscape.min.js", "konva@7.0.3/konva.min.js",
+    "cytoscape-context-menus@4.2.1/cytoscape-context-menus.js", "cytoscape-edge-editing@5.0.0/cytoscape-edge-editing.js"];
+  const scriptOf = (src) => new Promise((resolve, reject) => {
+    document.head.append(Object.assign(document.createElement("script"), { src, onload: resolve, onerror: reject }));
+  });
+  let libraries;
+  for (const button of document.querySelectorAll("button.move")) {
+    const figure = button.closest("p").nextElementSibling;
+    const help = button.parentElement.querySelector(".move-help");
+    const label = button.textContent;
+    let box = null;
+    button.onclick = async () => {
+      if (box) {
+        box.remove(); box = null;
+        figure.hidden = false; help.hidden = true; button.textContent = label;
+        return;
+      }
+      button.disabled = true;
+      try {
+        libraries ??= (async () => {
+          document.head.append(Object.assign(document.createElement("link"), { rel: "stylesheet", href: CDN + "cytoscape-context-menus@4.2.1/cytoscape-context-menus.css" }));
+          for (const library of LIBRARIES) await scriptOf(CDN + library);
+          await scriptOf(root + "movable.js");
+        })();
+        await libraries;
+        const elements = await (await fetch(button.dataset.elements)).json();
+        box = Object.assign(document.createElement("div"), { className: "movable" });
+        figure.after(box);
+        figure.hidden = true; help.hidden = false; button.textContent = button.dataset.back;
+        cadastreMovable.show(box, elements, { language: document.documentElement.lang });
+      } catch (error) {
+        console.warn("cannot move the view:", error);
+      } finally {
+        button.disabled = false;
+      }
+    };
   }
 })();
 "#;

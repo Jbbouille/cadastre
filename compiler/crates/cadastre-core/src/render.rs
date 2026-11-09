@@ -10,6 +10,7 @@ use crate::registry::{Registry, ResourceId};
 use crate::view::{self, Confidence, Direction, Exchange, Graph, GraphEdge, Orientation, Routing, Wrap};
 
 mod ascii;
+pub mod cytoscape;
 mod draw;
 pub mod drawio;
 #[cfg(feature = "elk")]

@@ -17,17 +17,17 @@ use crate::registry::ResourceId;
 
 /// A box, in pixels, from the top left corner of the diagram.
 #[derive(Clone, Copy, Debug, PartialEq)]
-struct Bounds {
-    x: f64,
-    y: f64,
-    width: f64,
-    height: f64,
+pub(super) struct Bounds {
+    pub(super) x: f64,
+    pub(super) y: f64,
+    pub(super) width: f64,
+    pub(super) height: f64,
 }
 
 /// Where the nodes and the frames are.
-struct Placement {
-    nodes: HashMap<ResourceId, Bounds>,
-    frames: HashMap<usize, Bounds>,
+pub(super) struct Placement {
+    pub(super) nodes: HashMap<ResourceId, Bounds>,
+    pub(super) frames: HashMap<usize, Bounds>,
 }
 
 /// Margin around the diagram, and height of the title band of a frame.
@@ -46,12 +46,14 @@ pub fn drawio(scene: &Scene, layout: Option<&str>) -> String {
 
 /// Positions from Graphviz: nodes `n<id>` (`pos`, `width` and `height` in inches), frames
 /// `cluster_<group>` (`bb`), in points with the origin at the bottom left.
-fn from_graphviz(scene: &Scene, json: &str) -> Option<Placement> {
+pub(super) fn from_graphviz(scene: &Scene, json: &str) -> Option<Placement> {
     let value: serde_json::Value = serde_json::from_str(json).ok()?;
     let numbers = |text: &str| -> Vec<f64> { text.split(',').filter_map(|n| n.trim().parse().ok()).collect() };
     let bb = numbers(value.get("bb")?.as_str()?);
     let height = *bb.get(3)?;
     let mut placement = Placement { nodes: HashMap::new(), frames: HashMap::new() };
+    // The boxes drawn, by DOT name: nodes, satellite copies (`n31s1`), boxes of twins (`t1`).
+    let mut drawn: HashMap<&str, Bounds> = HashMap::new();
     for object in value.get("objects")?.as_array()? {
         let Some(name) = object.get("name").and_then(|n| n.as_str()) else { continue };
         if let Some(group) = name.strip_prefix("cluster_").and_then(|g| g.parse::<usize>().ok()) {
@@ -59,14 +61,41 @@ fn from_graphviz(scene: &Scene, json: &str) -> Option<Placement> {
             if let [x0, y0, x1, y1] = b[..] {
                 placement.frames.insert(group, Bounds { x: x0, y: height - y1, width: x1 - x0, height: y1 - y0 });
             }
-        } else if let Some(id) = name.strip_prefix('n').and_then(|n| n.parse::<u32>().ok()) {
-            let id = ResourceId(id);
+        } else {
             let pos = numbers(object.get("pos").and_then(|p| p.as_str()).unwrap_or_default());
             let inches = |key: &str| object.get(key).and_then(|v| v.as_str()).and_then(|v| v.parse::<f64>().ok());
             if let ([x, y], Some(w), Some(h)) = (&pos[..], inches("width"), inches("height")) {
                 let (w, h) = (w * 72.0, h * 72.0);
-                placement.nodes.insert(id, Bounds { x: x - w / 2.0, y: height - y - h / 2.0, width: w, height: h });
+                let bounds = Bounds { x: x - w / 2.0, y: height - y - h / 2.0, width: w, height: h };
+                drawn.insert(name, bounds);
+                if let Some(id) = name.strip_prefix('n').and_then(|n| n.parse::<u32>().ok()) {
+                    placement.nodes.insert(ResourceId(id), bounds);
+                }
             }
+        }
+    }
+    // The twins of a box share it, a row each, in the order of the box.
+    for (t, members) in scene.twins.iter().enumerate() {
+        let Some(&b) = drawn.get(format!("t{t}").as_str()) else { continue };
+        let row = b.height / members.len().max(1) as f64;
+        for (k, member) in members.iter().enumerate() {
+            placement.nodes.entry(member.node).or_insert(Bounds { y: b.y + k as f64 * row, height: row, ..b });
+        }
+    }
+    // A node drawn only as satellite copies, in the frames of what it is linked to: at its first.
+    for &id in &scene.graph.nodes {
+        if placement.nodes.contains_key(&id) {
+            continue;
+        }
+        let prefix = format!("n{}s", id.0);
+        let copy = drawn
+            .iter()
+            .filter(|(name, _)| {
+                name.strip_prefix(&prefix).is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+            })
+            .min_by_key(|(name, _)| name[prefix.len()..].parse::<u32>().unwrap_or(u32::MAX));
+        if let Some((_, &b)) = copy {
+            placement.nodes.insert(id, b);
         }
     }
     // Every node must be placed: otherwise the layout is not that of this view.
@@ -79,7 +108,7 @@ fn from_graphviz(scene: &Scene, json: &str) -> Option<Placement> {
 }
 
 /// Positions from the layout of the ASCII art: a cell is 8 pixels wide and 18 high.
-fn from_cells(scene: &Scene) -> Placement {
+pub(super) fn from_cells(scene: &Scene) -> Placement {
     let (boxes, frames) = ascii::cells(scene);
     let (cw, ch) = (8.0, 18.0);
     let bounds = |r: &ascii::Rect| Bounds {

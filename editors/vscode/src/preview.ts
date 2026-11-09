@@ -13,7 +13,9 @@ export interface Rendering {
   // An `svg` output is DOT from the server; the panel receives the SVG instead. A `dot` output
   // keeps its DOT, laid out as `svg`; a `markdown` one gets its `html`. A `drawio` one comes with
   // the DOT of the view (`dot`): its file is laid out by Graphviz, and its diagram shown (`svg`).
-  outputs: { format: string; content: string; svg?: string; html?: string; dot?: string }[];
+  // An `svg` output laid out by Graphviz comes with the elements of the view to move by hand
+  // (`elements`, `cadastre/cytoscape`), laid out like it.
+  outputs: { format: string; content: string; svg?: string; html?: string; dot?: string; elements?: string }[];
   messages: string[];
   ok: boolean;
 }
@@ -43,6 +45,7 @@ export class Preview {
     const preview = new Preview(panel, client, uri, view);
     panel.webview.html = previewHtml(view, {
       mermaid: panel.webview.asWebviewUri(vscode.Uri.joinPath(media, "mermaid.js")).toString(),
+      movable: panel.webview.asWebviewUri(vscode.Uri.joinPath(media, "movable.js")).toString(),
       cspSource: panel.webview.cspSource,
     });
     panel.webview.onDidReceiveMessage((message) => {
@@ -87,11 +90,20 @@ export class Preview {
         if (output.format === "svg" && output.content.trimStart().startsWith("<svg")) {
           continue;
         } else if (output.format === "svg") {
+          const dot = output.content;
           try {
-            output.content = await svgOf(output.content, client);
+            output.content = await svgOf(dot, client);
           } catch (error) {
             output.content = "";
             rendering.messages.push(`Graphviz: ${error}`);
+          }
+          try {
+            const layout = await layoutOf(dot);
+            output.elements =
+              (await client.sendRequest<string | null>("cadastre/cytoscape", { uri: this.uri, view: this.view, layout })) ??
+              undefined;
+          } catch {
+            // Without its elements, the view is not offered to move by hand.
           }
         } else if (output.format === "dot") {
           try {

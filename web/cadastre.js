@@ -81,6 +81,22 @@ export class Cadastre {
   }
 
   /**
+   * The layout of a `svg` output as Graphviz's JSON (`-Tjson`): that of the variant of its DOT
+   * that [`draw`] keeps, for the `drawio` and `cytoscape` outputs to look like the diagram.
+   * @param {{ renderString: (dot: string, options: { format: string }) => string }} viz
+   * @param {string} dot
+   * @returns {string}
+   */
+  layout(viz, dot) {
+    const variants = JSON.parse(this.call("dot_variants", dot));
+    const drawings = variants.map((d) => viz.renderString(d, { format: "svg" }));
+    // The drawing kept comes back without the spaces around it.
+    const kept = drawings.length > 1 ? this.call("best_drawing", drawings.join("\n")).trim() : null;
+    const best = kept === null ? 0 : drawings.findIndex((d) => d.trim() === kept);
+    return viz.renderString(variants[Math.max(best, 0)], { format: "json" });
+  }
+
+  /**
    * Imports a Terraform state (`terraform show -json`, or a `.tfstate`) into `.ca` files to review.
    * @param {string} terraform
    * @returns {{ path: string, text: string }[]}

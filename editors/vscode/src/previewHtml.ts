@@ -3,6 +3,8 @@
 export interface PreviewResources {
   // Mermaid for the page (media/mermaid.js), loaded when a Mermaid output is shown.
   mermaid: string;
+  // Cytoscape.js and the drawing of a view to move by hand (media/movable.js), loaded when one is.
+  movable: string;
   // The origin of the resources of the extension, for the Content Security Policy.
   cspSource: string;
 }
@@ -40,6 +42,7 @@ export function previewHtml(view: string, resources: PreviewResources): string {
   .markdown th { background: var(--vscode-textCodeBlock-background); }
   .markdown a, .canvas a { cursor: pointer; }
   .stale { opacity: 0.45; }
+  .movable { height: calc(100vh - 90px); min-height: 360px; background: #fff; border-radius: 4px; }
 </style>
 </head>
 <body>
@@ -47,6 +50,7 @@ export function previewHtml(view: string, resources: PreviewResources): string {
   <h1>${escape(view)}</h1>
   <div class="tabs" id="tabs"></div>
   <span class="spacer"></span>
+  <button id="move" title="Drag the nodes and the frames, bend the edges (right click on an edge to add or remove a bend); nothing goes back to the files">Move by hand</button>
   <button id="source" title="Toggle the rendering / its source">Source</button>
   <button id="zoom" title="Toggle fit to width / actual size">Actual size</button>
   <button id="build" class="primary" title="Write the renderings to out/ (cadastre build --view)">Build</button>
@@ -56,13 +60,15 @@ export function previewHtml(view: string, resources: PreviewResources): string {
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
   const saved = vscode.getState() ?? {};
-  const state = { format: saved.format, fit: saved.fit ?? true, source: saved.source ?? false, outputs: [] };
+  const state = { format: saved.format, fit: saved.fit ?? true, source: saved.source ?? false, move: saved.move ?? false, outputs: [] };
   const tabs = document.getElementById("tabs");
   const content = document.getElementById("content");
   const messages = document.getElementById("messages");
   const zoom = document.getElementById("zoom");
   const source = document.getElementById("source");
+  const move = document.getElementById("move");
   const MERMAID = ${JSON.stringify(resources.mermaid)};
+  const MOVABLE = ${JSON.stringify(resources.movable)};
   const VIEW = ${JSON.stringify(view)};
   const NONCE = ${JSON.stringify(nonce)};
   let shown = 0;
@@ -70,8 +76,9 @@ export function previewHtml(view: string, resources: PreviewResources): string {
   document.getElementById("build").onclick = () => vscode.postMessage({ type: "build" });
   zoom.onclick = () => { state.fit = !state.fit; save(); show(); };
   source.onclick = () => { state.source = !state.source; save(); show(); };
+  move.onclick = () => { state.move = !state.move; save(); show(); };
 
-  function save() { vscode.setState({ format: state.format, fit: state.fit, source: state.source }); }
+  function save() { vscode.setState({ format: state.format, fit: state.fit, source: state.source, move: state.move }); }
 
   // A click on a link (the url or console of a resource) opens it outside the panel.
   function links(root) {
@@ -88,7 +95,7 @@ export function previewHtml(view: string, resources: PreviewResources): string {
   // The formats to offer: one per output, the rendered ones (svg, dot, mermaid, html, markdown)
   // with their source a click away.
   function entries() {
-    return state.outputs.map((o) => ({ label: o.format, format: o.format, content: o.content, svg: o.svg, html: o.html }));
+    return state.outputs.map((o) => ({ label: o.format, format: o.format, content: o.content, svg: o.svg, html: o.html, elements: o.elements }));
   }
 
   // A draw.io output: a button saving the file, and its diagram.
@@ -173,6 +180,37 @@ export function previewHtml(view: string, resources: PreviewResources): string {
     return mermaid;
   }
 
+  let movable;
+  function loadMovable() {
+    movable ??= new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = MOVABLE;
+      script.nonce = NONCE;
+      script.onload = () => resolve(globalThis.cadastreMovable);
+      script.onerror = () => reject(new Error("Cytoscape.js could not be loaded"));
+      document.head.append(script);
+    });
+    return movable;
+  }
+
+  // The view moved by hand: drawn again on each rendering, keeping where its nodes were moved,
+  // the bends of its edges and the zoom.
+  let moved = null;
+  async function moving(elements, element, turn) {
+    try {
+      const draw = await loadMovable();
+      if (turn !== shown) return;
+      const box = document.createElement("div");
+      box.className = "movable";
+      element.replaceWith(box);
+      const kept = moved ? { kept: draw.kept(moved), viewport: { zoom: moved.zoom(), pan: moved.pan() } } : {};
+      moved?.destroy();
+      moved = draw.show(box, JSON.parse(elements), kept);
+    } catch (error) {
+      if (turn === shown) element.replaceWith(text(String(error?.message ?? error)));
+    }
+  }
+
   async function diagram(definition, element, turn) {
     try {
       const { svg } = await (await loadMermaid()).render("mermaid-" + turn, definition);
@@ -199,12 +237,19 @@ export function previewHtml(view: string, resources: PreviewResources): string {
     const asSource = rendered && state.source;
     source.hidden = !rendered;
     source.textContent = state.source ? "Rendering" : "Source";
-    zoom.hidden = asSource || !["svg", "traversal", "racks", "dot", "mermaid", "sequence", "drawio"].includes(current.format);
+    const movingIt = !asSource && state.move && current.format === "svg" && !!current.elements;
+    move.hidden = asSource || current.format !== "svg" || !current.elements;
+    move.className = movingIt ? "active" : "";
+    zoom.hidden = asSource || movingIt || !["svg", "traversal", "racks", "dot", "mermaid", "sequence", "drawio"].includes(current.format);
     zoom.textContent = state.fit ? "Actual size" : "Fit to width";
     const turn = ++shown;
     let element;
     if (asSource) {
       element = text(current.content);
+    } else if (movingIt) {
+      element = document.createElement("p");
+      element.textContent = "Drawing…";
+      void moving(current.elements, element, turn);
     } else if (current.format === "svg" || current.format === "traversal" || current.format === "racks") {
       element = canvas(current.content);
     } else if (current.format === "dot") {
@@ -225,6 +270,10 @@ export function previewHtml(view: string, resources: PreviewResources): string {
       element.innerHTML = current.html;
     } else {
       element = text(current.content);
+    }
+    if (!movingIt) {
+      moved?.destroy();
+      moved = null;
     }
     content.replaceChildren(element);
     content.classList.remove("stale");

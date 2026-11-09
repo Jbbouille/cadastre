@@ -16,6 +16,7 @@ use cadastre_core::{Language, Options as CompileOptions, compile_modules, site};
 const PAGE: &[&str] = &[
     "index.html",
     "cadastre.js",
+    "movable.js",
     "cadastre_wasm.wasm",
     "viz-standalone.js",
     "NOTICE.txt",
@@ -109,15 +110,35 @@ pub fn generate(
         CompileOptions { strict: project.strict(), language, satellites: project.satellites() },
     );
     let dots = site::dots(&compilation);
-    let drawings = crate::svgs_of(&dots.iter().map(|(_, dot)| dot.as_str()).collect::<Vec<_>>());
+    let drawings = crate::drawings_of(&dots.iter().map(|(_, dot)| dot.as_str()).collect::<Vec<_>>());
+    // The views to move by hand: the variant of each diagram laid out again, as JSON.
+    let kept: Vec<(&str, &str)> = dots
+        .iter()
+        .zip(&drawings)
+        .filter_map(|((view, _), drawing)| drawing.as_ref().map(|(_, dot)| (view.as_str(), dot.as_str())))
+        .collect();
+    let layouts = crate::graphviz_all(&kept.iter().map(|(_, dot)| *dot).collect::<Vec<_>>(), "-Tjson");
+    let elements: HashMap<String, String> = kept
+        .iter()
+        .zip(layouts)
+        .filter_map(|((view, _), layout)| {
+            Some(((*view).to_owned(), cadastre_core::cytoscape(&compilation, view, Some(&layout?))?))
+        })
+        .collect();
     let svgs: HashMap<String, String> =
-        dots.into_iter().zip(drawings).filter_map(|((view, _), svg)| Some((view, svg?))).collect();
+        dots.into_iter().zip(drawings).filter_map(|((view, _), drawing)| Some((view, drawing?.0))).collect();
     let viz = match playground {
         Some(dir) if dir.join("viz-standalone.js").is_file() => "playground/viz-standalone.js".to_owned(),
         _ => VIZ_CDN.to_owned(),
     };
-    let options =
-        site::Options { name: title, svgs: &svgs, viz: Some(&viz), playground: playground.is_some(), language };
+    let options = site::Options {
+        name: title,
+        svgs: &svgs,
+        elements: &elements,
+        viz: Some(&viz),
+        playground: playground.is_some(),
+        language,
+    };
     let mut files: Vec<(String, Vec<u8>)> = site::build(&compilation, &project.files, &options)
         .into_iter()
         .map(|f| (f.path, f.content.into_bytes()))
@@ -274,6 +295,52 @@ mod tests {
         assert_eq!(title(&dir, None), "si");
         assert_eq!(title(dir.parent().unwrap(), None), "si");
         std::fs::remove_dir_all(dir.parent().unwrap().parent().unwrap()).unwrap();
+    }
+
+    /// The views to move by hand of an example with twins and frames drawn as nodes: no bend of
+    /// an edge inside the box of its source or its target, where Cytoscape would not draw it.
+    #[test]
+    fn no_bend_inside_the_ends_of_an_edge() {
+        if crate::graphviz("digraph {}", "-Tsvg").is_none() {
+            eprintln!("Graphviz is not installed: skipped");
+            return;
+        }
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../examples/tangled");
+        let files = generate(&root, "tangled", None, None).unwrap();
+        let mut views = 0;
+        let mut bent = 0;
+        for (path, content) in files.iter().filter(|(p, _)| p.ends_with(".elements.json")) {
+            views += 1;
+            let elements: serde_json::Value = serde_json::from_slice(content).unwrap();
+            let boxes: HashMap<&str, (f64, f64, f64, f64)> = elements["nodes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(|n| {
+                    let (d, p) = (&n["data"], &n["position"]);
+                    let (w, h) = (d["width"].as_f64()?, d["height"].as_f64()?);
+                    Some((d["id"].as_str()?, (p["x"].as_f64()? - w / 2.0, p["y"].as_f64()? - h / 2.0, w, h)))
+                })
+                .collect();
+            for edge in elements["edges"].as_array().unwrap() {
+                let Some(points) = edge["data"]["bendPointPositions"].as_array() else { continue };
+                bent += 1;
+                for end in ["source", "target"] {
+                    let Some(&(x, y, w, h)) = boxes.get(edge["data"][end].as_str().unwrap()) else { continue };
+                    for p in points {
+                        let (px, py) = (p["x"].as_f64().unwrap(), p["y"].as_f64().unwrap());
+                        assert!(
+                            !(px > x && px < x + w && py > y && py < y + h),
+                            "{path}: a bend of {} inside its {end}",
+                            edge["data"]["id"]
+                        );
+                    }
+                }
+            }
+        }
+        // Bends at all: the views are placed by Graphviz, twins and satellites included, not by the
+        // layout of the compiler, whose boxes the routes of Graphviz do not fit.
+        assert!(views >= 8 && bent > 50, "{views} views, {bent} edges bent");
     }
 
     #[test]
