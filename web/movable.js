@@ -34,6 +34,11 @@
     { selector: "edge[head = 'hollow']", style: { "target-arrow-fill": "hollow" } },
     { selector: "edge[tail != 'none']", style: { "source-arrow-shape": "triangle" } },
     { selector: "edge[tail = 'hollow']", style: { "source-arrow-fill": "hollow" } },
+    // The end that opens the connection (`initiator`): a dot, before the arrowhead if any.
+    { selector: "edge[?headDot]", style: { "target-arrow-shape": "circle" } },
+    { selector: "edge[?headDot][head != 'none']", style: { "target-arrow-shape": "circle-triangle" } },
+    { selector: "edge[?tailDot]", style: { "source-arrow-shape": "circle" } },
+    { selector: "edge[?tailDot][tail != 'none']", style: { "source-arrow-shape": "circle-triangle" } },
     { selector: ":selected", style: { "overlay-color": "#2563eb", "overlay-opacity": 0.12 } },
   ];
 

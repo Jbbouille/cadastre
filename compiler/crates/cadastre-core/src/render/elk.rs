@@ -18,6 +18,8 @@ use crate::registry::ResourceId;
 use crate::view::{Direction, GraphEdge};
 
 const MARGIN: f64 = 12.0;
+/// The radius of the dot at the end of an edge that opens the connection (`initiator`).
+const DOT: f64 = 3.0;
 /// Prefix of the nodes and edges given to ELK for the layout hints only, not drawn.
 const HIDDEN: &str = "hidden-";
 
@@ -261,7 +263,24 @@ pub fn svg(scene: &Scene) -> Result<String, String> {
         let color = style.color.clone().unwrap_or_else(|| "black".to_owned());
         let marker = marker_id(&mut markers, &color, style.hollow_arrow);
         let route_points = spread.get(&d.id).unwrap_or(&route.points);
-        let points: Vec<String> = route_points.iter().map(|p| format!("{:.1},{:.1}", p.x, p.y)).collect();
+        let mut line: Vec<(f64, f64)> = route_points.iter().map(|p| (p.x, p.y)).collect();
+        // The ends that open the connection (`initiator`): a dot against the node, the line (and
+        // its arrowhead) stopping at the dot.
+        let marks =
+            d.edges.iter().map(|e| scene.initiator_marks(e)).fold((false, false), |a, b| (a.0 || b.0, a.1 || b.1));
+        let mut dots = Vec::new();
+        for (marked, first) in [(marks.0, true), (marks.1, false)] {
+            let n = line.len();
+            let (end, next) = if first { (0, 1) } else { (n - 1, n - 2) };
+            let ((x, y), (nx, ny)) = (line[end], line[next]);
+            let length = (nx - x).hypot(ny - y);
+            if marked && length > 8.0 {
+                let (ux, uy) = ((nx - x) / length, (ny - y) / length);
+                dots.push((x + ux * DOT, y + uy * DOT));
+                line[end] = (x + ux * 2.0 * DOT, y + uy * 2.0 * DOT);
+            }
+        }
+        let points: Vec<String> = line.iter().map(|(x, y)| format!("{x:.1},{y:.1}")).collect();
         let (start, end) = match d.arrow {
             Arrow::Forward | Arrow::Back => (String::new(), format!(" marker-end=\"url(#{marker})\"")),
             Arrow::Both => (format!(" marker-start=\"url(#{marker})\""), format!(" marker-end=\"url(#{marker})\"")),
@@ -276,6 +295,9 @@ pub fn svg(scene: &Scene) -> Result<String, String> {
             if style.thin { 0.6 } else { 1.0 },
             dash(style.line),
         );
+        for (x, y) in dots {
+            let _ = writeln!(body, "<circle cx=\"{x:.1}\" cy=\"{y:.1}\" r=\"{DOT}\" fill=\"{color}\"/>");
+        }
         if let Some(place) = route.labels.iter().find(|l| l.terminal.is_none())
             && !d.label.is_empty()
         {

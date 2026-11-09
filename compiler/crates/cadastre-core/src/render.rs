@@ -1192,6 +1192,14 @@ impl<'a> Scene<'a> {
         (true, edge.both_ways)
     }
 
+    /// The ends of an edge as drawn (`drawn`) that open the connection: the first end, the second.
+    fn initiator_marks(&self, edge: &GraphEdge) -> (bool, bool) {
+        let (from, to, _) = self.drawn(edge);
+        let (at_source, at_target) = self.initiators(edge);
+        let at = |end: ResourceId| (end == edge.source && at_source) || (end == edge.target && at_target);
+        (at(from), at(to))
+    }
+
     /// Children of a frame (`None` for the top level): nested frames and nodes. A node that is
     /// also a frame of the view (a server grouping what runs on it) is drawn as that frame only.
     fn frame_content(&self, frame: Option<usize>) -> (Vec<usize>, Vec<ResourceId>) {

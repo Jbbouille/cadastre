@@ -113,6 +113,14 @@ pub fn cytoscape(scene: &Scene, layout: Option<&str>) -> String {
                 "head": if matches!(arrow, Arrow::None) { "none" } else if style.hollow_arrow { "hollow" } else { "filled" },
                 "tail": if matches!(arrow, Arrow::Both) { if style.hollow_arrow { "hollow" } else { "filled" } } else { "none" },
             });
+            // The ends that open the connection (`initiator`), marked with a dot.
+            let (tail_dot, head_dot) = scene.initiator_marks(edge);
+            if tail_dot {
+                data["tailDot"] = json!(true);
+            }
+            if head_dot {
+                data["headDot"] = json!(true);
+            }
             // The route of Graphviz: straight between the two nodes, or through the node of the
             // label of the edge (`e<index>`), in two halves.
             let (a, b) = (format!("n{}", from.0), format!("n{}", to.0));
