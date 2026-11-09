@@ -195,9 +195,10 @@ paths, gives most of the flat sheets:
 - **Identifiers of links.** A flow catalog numbers its flows and keeps their former numbers and
   the name of the program doing them: links have keys, but no name of their own to be designated
   by (in a process, a check, another sheet).
-- **Services as resources.** Services exposed by an application and consumed by others, with
-  their inputs and outputs: an `api` or `component` per service and a link per consumer work,
-  but a table of consumptions would want the service as the row and the consumer as the column.
+- **Services as resources.** Services exposed by an application and consumed by others: an `api`
+  or `component` per service and a link per consumer; the table of consumptions, the service as
+  the row and the consumer as the column, is a pivot table (`select api`, `group: name`,
+  `count: ["sources(flow)"]`). Left: their inputs and outputs as keys of their own.
 - **History.** The follow-up sheets (who changed what, when) are the history of the files: a
   column with the date and author of the last change of a resource, from git, would replace them.
 
