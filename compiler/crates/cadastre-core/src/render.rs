@@ -1096,6 +1096,16 @@ impl<'a> Scene<'a> {
                 });
             }
         }
+        // The dot of the end that opens the connection (`initiator`).
+        if self.graph.edges.iter().any(|e| self.initiators(e) != (false, false)) {
+            entries.push(LegendEntry {
+                label: self.t("● the end that opens the connection").to_owned(),
+                edges: true,
+                color: None,
+                fill: None,
+                line: Some(Line::Solid),
+            });
+        }
         entries
     }
 
@@ -1169,6 +1179,17 @@ impl<'a> Scene<'a> {
                 None => Arrow::None,
             },
         }
+    }
+
+    /// The ends of an edge that open the connection, marked with a dot (`initiator`): with
+    /// `orientation: data`, the source of the link as written, and its target too when the edge
+    /// merges links going both ways (`merge: pair`); none otherwise.
+    fn initiators(&self, edge: &GraphEdge) -> (bool, bool) {
+        let options = &self.graph.options;
+        if edge.symmetric || options.orientation != Orientation::Data || !options.initiator {
+            return (false, false);
+        }
+        (true, edge.both_ways)
     }
 
     /// Children of a frame (`None` for the top level): nested frames and nodes. A node that is
@@ -1740,7 +1761,42 @@ pub fn dot(scene: &Scene) -> String {
                 .unwrap_or_default()
         };
         let frame_of = |id: ResourceId| scene.node_frame(id).or_else(|| scene.graph.node_group.get(&id).copied());
-        if let Some(label) = labels.iter().find(|l| l.index == index) {
+        // The ends that open the connection, as drawn: a dot beside the arrowhead, if any.
+        let (at_source, at_target) = scene.initiators(edge);
+        let dot_at = |end: ResourceId| (end == edge.source && at_source) || (end == edge.target && at_target);
+        let marks = (dot_at(from), dot_at(to));
+        let shape = |head: bool, dot: bool| -> String {
+            let base = if style.hollow_arrow { "empty" } else { "normal" };
+            match (head, dot) {
+                // The first shape against the node: the dot, then the arrowhead.
+                (true, true) => format!("dot{base}"),
+                (true, false) => base.to_owned(),
+                (false, true) => "dot".to_owned(),
+                (false, false) => "none".to_owned(),
+            }
+        };
+        let tail_shape = shape(matches!(arrow, Arrow::Back | Arrow::Both), marks.0);
+        let head_shape = shape(matches!(arrow, Arrow::Forward | Arrow::Both), marks.1);
+        if marks != (false, false) {
+            if let Some(label) = labels.iter().find(|l| l.index == index) {
+                let (tail, head) = (clip(from, label.frame, "ltail"), clip(to, label.frame, "lhead"));
+                let _ = writeln!(
+                    out,
+                    "  {source} -> e{index} [dir=both, {attrs}, arrowtail={tail_shape}, arrowhead=none{tail}];"
+                );
+                let _ = writeln!(
+                    out,
+                    "  e{index} -> {target} [dir=both, {attrs}, arrowtail=none, arrowhead={head_shape}{head}];"
+                );
+            } else {
+                let tail = clip(from, frame_of(to), "ltail");
+                let head = clip(to, frame_of(from), "lhead");
+                let _ = writeln!(
+                    out,
+                    "  {source} -> {target} [dir=both, {attrs}, arrowtail={tail_shape}, arrowhead={head_shape}{tail}{head}];"
+                );
+            }
+        } else if let Some(label) = labels.iter().find(|l| l.index == index) {
             // The tail arrow is drawn on the first segment, the head arrow on the second.
             let (first, second) = match arrow {
                 Arrow::Forward => ("none", "forward"),

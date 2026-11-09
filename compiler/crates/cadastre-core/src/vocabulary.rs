@@ -190,6 +190,12 @@ pub static RENDER_OPTIONS: &[OptionDef] = &[
         "a node exchanging with two frames or more drawn once in each of them, in gray, rather than once with every edge pulled to it (SVG); the default of a project in `cadastre.toml` (`[render] satellites = true`)",
     ),
     option(
+        "initiator",
+        Values::Closed(BOOLEANS),
+        "true",
+        "with `orientation: data`, a dot at the end that opens the connection (the source of the link as written), the arrowhead following the data (SVG)",
+    ),
+    option(
         "twins",
         Values::Closed(BOOLEANS),
         "true",

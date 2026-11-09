@@ -541,6 +541,7 @@ A group stands for its kinds wherever a kind is expected (`ref(transit)`, `selec
 | `legend` | `true \| false` | `false` | legend of the style rules carrying a `legend` |
 | `icons` | `true \| false` | `true` | icon of its kind in each node and frame |
 | `satellites` | `true \| false` | `false` | a node exchanging with two frames or more drawn once in each of them, in gray, rather than once with every edge pulled to it (SVG); the default of a project in `cadastre.toml` (`[render] satellites = true`) |
+| `initiator` | `true \| false` | `true` | with `orientation: data`, a dot at the end that opens the connection (the source of the link as written), the arrowhead following the data (SVG) |
 | `twins` | `true \| false` | `true` | in a frame, the nodes of one kind with exactly the same edges drawn as one box listing them, with one edge per shared exchange (SVG) |
 | `title` | `true \| false` | `true` | title of a sequence diagram drawing a single process: its label |
 | `columns` | `[<key or path>, …]` |  | columns of a table (`csv`, `tsv`, `markdown`, `html`, `xlsx`): keys, pseudo-attributes or paths, or their count, then a header, quoted: `"on.ancestor(site) as Site"`, `"count(on) as Servers"` |

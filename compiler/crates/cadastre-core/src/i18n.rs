@@ -710,6 +710,7 @@ const FR_MESSAGES: &[(&str, &str)] = &[
         "`nodes`, `edges`, ou une ligne par élément d'un chemin : \"each(on)\"",
     ),
     ("view {}: {} and {} in {}: on the same units", "vue {1} : {2} et {3} dans {4} : sur les mêmes unités"),
+    ("● the end that opens the connection", "● l'extrémité qui ouvre la connexion"),
     (
         "view {}: {} in {}: units {} to {} beyond the {} units of the rack",
         "vue {1} : {2} dans {3} : unités {4} à {5} au-delà des {6} unités de la baie",

@@ -240,8 +240,9 @@ fn the_data_orientation_also_orients_the_layout() {
     assert!(errors(&c).is_empty(), "{:?}", errors(&c));
     let dot = output(&c, "dot");
     let (esb, extractor, portal) = (id(&dot, "app esb"), id(&dot, "app extractor"), id(&dot, "app portal"));
-    assert!(dot.contains(&format!("  {extractor} -> {esb} [dir=forward")), "{dot}");
-    assert!(dot.contains(&format!("  {esb} -> {portal} [dir=forward")), "{dot}");
+    // Drawn from the data source, the dot of the initiator at the ESB in both (`initiator`).
+    assert!(dot.contains(&format!("  {extractor} -> {esb} [dir=both")), "{dot}");
+    assert!(dot.contains(&format!("  {esb} -> {portal} [dir=both")), "{dot}");
     let mermaid = output(&c, "mermaid");
     assert!(mermaid.contains(&format!("{extractor} --> {esb}")), "{mermaid}");
     // Left to right in ASCII art: extractor, then esb, then portal.

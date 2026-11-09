@@ -12,6 +12,45 @@ present, its labels those of both directions in one list. Open:
   style rules apply to the merged edge as to any other;
 - `pair` on a `follow`, whose steps stay apart.
 
+## Who opens the connection, beyond the SVG
+
+`initiator` marks with a dot the end that opens the connection in data orientation, in the SVG
+drawn by Graphviz. Open:
+
+- the other renderings: the drawing of `layout: elk` and the view to move by hand (Cytoscape has a
+  `circle` arrow shape), Mermaid (no tail markers: the label prefixed, or nothing);
+- an edge merging links opened from both ends (`lift`, `merge: pair`): the dot at both ends, and
+  the tooltip saying who opens what.
+
+## `cadastre serve` while editing
+
+`serve` generates the site again when the files change, laying out again only the views whose
+diagram changed. Open:
+
+- the reader never waiting: the previous generation served while the new one is built, the page
+  reloading itself when it is ready;
+- a view laid out when it is opened: the home page and the lists need no drawing.
+
+## Zoom and move around the drawings
+
+Views of 20 to 60 nodes are drawn wider than the screen, their labels too small once fitted to the
+width. The site shows the SVG at its size, the VS Code preview has *Fit to width* and *Actual size*
+only, IntelliJ opens it in the image editor. The same behavior wherever a drawing is shown, the
+SVG files staying plain SVG:
+
+- zoom with the wheel (or Ctrl + wheel, a pinch) around the cursor, between the whole drawing and
+  a few times its size; move by dragging the background and with the arrow keys; buttons to zoom
+  in, out, fit and show at 1:1;
+- the links and tooltips still working (a drag does not open the `url` of the node it starts on);
+- the zoom and the position kept while the page is generated again (`serve`, the preview rebuilt
+  as one types); printing and saving give the whole drawing.
+
+How: one small script shared like the view to move by hand (`render/movable.js`), acting on the
+`viewBox` of the inline SVG; in IntelliJ, the preview in a browser panel with the same script.
+Open: the wheel alone or with Ctrl (the wheel alone scrolls the page today); a minimap; the URL
+keeping the zoom and position (`#zoom=2,x,y`); the search of the site centering a node in the
+drawing.
+
 ## Edges drawn after the layout: where they go
 
 Two views of a real map, anonymized here, where an edge that does not take part in the layout ends

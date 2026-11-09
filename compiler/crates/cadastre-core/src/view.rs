@@ -86,6 +86,8 @@ pub struct RenderOptions {
     /// In a frame, the nodes of one kind with exactly the same edges drawn as one box listing
     /// them, with one edge per shared exchange (SVG).
     pub twins: bool,
+    /// With `orientation: data`, a dot at the end that opens the connection (`initiator`).
+    pub initiator: bool,
     /// Levels of frames or nodes to place in this order, top to bottom (`tb`, `bt`) or left to
     /// right (`lr`, `rl`), several on a level (`[[a, b], c]`): a hint for the layout, real edges
     /// going the other way prevail.
@@ -132,6 +134,7 @@ impl RenderOptions {
             icons: true,
             satellites: model.satellites,
             twins: true,
+            initiator: true,
             stack: Vec::new(),
             cross: Vec::new(),
             first: Vec::new(),
@@ -197,6 +200,7 @@ impl RenderOptions {
                 ("icons", v) => options.icons = v != "false",
                 ("satellites", v) => options.satellites = v != "false",
                 ("twins", v) => options.twins = v != "false",
+                ("initiator", v) => options.initiator = v != "false",
                 ("spacing", _) => {
                     let numbers: Vec<f64> = words.iter().filter_map(|w| positive(w)).collect();
                     options.spacing = match numbers.as_slice() {
