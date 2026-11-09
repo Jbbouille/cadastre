@@ -1384,6 +1384,9 @@ pub struct GraphEdge {
     pub through_origins: BTreeSet<String>,
     /// Step in a `follow` walk: distance from its starting point.
     pub step: Option<usize>,
+    /// An edge of `merge: pair` merging links going both ways: those going from its source to
+    /// its target, and those going back, each merged on its own (their labels kept apart).
+    pub directions: Option<Box<[GraphEdge; 2]>>,
     selector: usize,
 }
 
@@ -2348,6 +2351,7 @@ fn pre_edge(ctx: &Ctx, edge: &BaseEdge, source: ResourceId, target: ResourceId, 
         target,
         symmetric: false,
         both_ways: false,
+        directions: None,
         relation: None,
         ports: BTreeSet::new(),
         layers: BTreeSet::new(),
@@ -2468,8 +2472,10 @@ fn split_through(edges: Vec<GraphEdge>, selected: &HashSet<ResourceId>) -> Vec<G
 fn merge_edges(edges: Vec<GraphEdge>, merge: Merge) -> Vec<GraphEdge> {
     let mut out: Vec<GraphEdge> = Vec::new();
     let mut index: HashMap<(ResourceId, ResourceId, Option<String>, String), usize> = HashMap::new();
-    // `merge: pair`: the links of each merged edge going its way, and the other way.
+    // `merge: pair`: the links of each merged edge going its way, and the other way; and the
+    // edges of each way, merged on their own.
     let mut ways: Vec<(usize, usize)> = Vec::new();
+    let mut parts: Vec<[Option<GraphEdge>; 2]> = Vec::new();
     for (n, mut edge) in edges.into_iter().enumerate() {
         if edge.symmetric && edge.target < edge.source {
             std::mem::swap(&mut edge.source, &mut edge.target);
@@ -2491,71 +2497,89 @@ fn merge_edges(edges: Vec<GraphEdge>, merge: Merge) -> Vec<GraphEdge> {
             Some(&i) => {
                 let target = &mut out[i];
                 // The other way: its exchange is seen from the ends of the merged edge.
-                if !edge.symmetric && edge.source != target.source {
-                    edge.exchange = edge.exchange.map(Exchange::reversed);
-                    target.both_ways = true;
+                let back = !edge.symmetric && edge.source != target.source;
+                if back {
                     ways[i].1 += edge.links.len().max(1);
                 } else {
                     ways[i].0 += edge.links.len().max(1);
                 }
-                target.ports.extend(edge.ports);
-                target.layers.extend(edge.layers);
-                target.carries.extend(edge.carries);
-                target.through.extend(edge.through);
-                target.through_origins.extend(edge.through_origins);
-                target.via.extend(edge.via);
-                target.exchange = Exchange::combine(target.exchange, edge.exchange);
-                target.confidence = target.confidence.max(edge.confidence);
-                target.step = match (target.step, edge.step) {
-                    (Some(a), Some(b)) => Some(a.min(b)),
-                    (a, b) => a.or(b),
-                };
-                for q in edge.questions {
-                    if !target.questions.contains(&q) {
-                        target.questions.push(q);
+                if merge == Merge::Pair {
+                    match &mut parts[i][usize::from(back)] {
+                        Some(part) => absorb(part, edge.clone()),
+                        empty => *empty = Some(edge.clone()),
                     }
                 }
-                for d in edge.descriptions {
-                    if !target.descriptions.contains(&d) {
-                        target.descriptions.push(d);
-                    }
+                if back {
+                    edge.exchange = edge.exchange.map(Exchange::reversed);
+                    target.both_ways = true;
                 }
-                for p in edge.provenance {
-                    if !target.provenance.contains(&p) {
-                        target.provenance.push(p);
-                    }
-                }
-                for l in edge.links {
-                    if !target.links.contains(&l) {
-                        target.links.push(l);
-                    }
-                }
-                for c in edge.connectors {
-                    if !target.connectors.contains(&c) {
-                        target.connectors.push(c);
-                    }
-                }
-                for d in edge.declared {
-                    if !target.declared.contains(&d) {
-                        target.declared.push(d);
-                    }
-                }
+                absorb(target, edge);
             }
             None => {
                 index.insert(key, out.len());
                 ways.push((edge.links.len().max(1), 0));
+                parts.push([(merge == Merge::Pair).then(|| edge.clone()), None]);
                 out.push(edge);
             }
         }
     }
     // A pair laid out the way most of its links go, the first written on a tie.
-    for (edge, (along, against)) in out.iter_mut().zip(ways) {
+    for ((edge, (along, against)), [forth, back]) in out.iter_mut().zip(ways).zip(parts) {
+        let mut directions = forth.zip(back).filter(|_| edge.both_ways);
         if against > along {
             std::mem::swap(&mut edge.source, &mut edge.target);
             edge.exchange = edge.exchange.map(Exchange::reversed);
+            directions = directions.map(|(forth, back)| (back, forth));
         }
+        edge.directions = directions.map(|(forth, back)| Box::new([forth, back]));
     }
     out
+}
+
+/// Merges `edge` into `target`: its ports, layers, data, links and the rest.
+fn absorb(target: &mut GraphEdge, edge: GraphEdge) {
+    target.ports.extend(edge.ports);
+    target.layers.extend(edge.layers);
+    target.carries.extend(edge.carries);
+    target.through.extend(edge.through);
+    target.through_origins.extend(edge.through_origins);
+    target.via.extend(edge.via);
+    target.exchange = Exchange::combine(target.exchange, edge.exchange);
+    target.confidence = target.confidence.max(edge.confidence);
+    target.step = match (target.step, edge.step) {
+        (Some(a), Some(b)) => Some(a.min(b)),
+        (a, b) => a.or(b),
+    };
+    for q in edge.questions {
+        if !target.questions.contains(&q) {
+            target.questions.push(q);
+        }
+    }
+    for d in edge.descriptions {
+        if !target.descriptions.contains(&d) {
+            target.descriptions.push(d);
+        }
+    }
+    for p in edge.provenance {
+        if !target.provenance.contains(&p) {
+            target.provenance.push(p);
+        }
+    }
+    for l in edge.links {
+        if !target.links.contains(&l) {
+            target.links.push(l);
+        }
+    }
+    for c in edge.connectors {
+        if !target.connectors.contains(&c) {
+            target.connectors.push(c);
+        }
+    }
+    for d in edge.declared {
+        if !target.declared.contains(&d) {
+            target.declared.push(d);
+        }
+    }
 }
 
 /// Text of a value kind, used by renderers for node labels.

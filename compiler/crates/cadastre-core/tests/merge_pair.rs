@@ -52,4 +52,6 @@ fn one_edge_per_pair() {
     assert_eq!(edges(&c), [("backup".into(), "proxy".into(), true), ("vcenter".into(), "backup".into(), false)]);
     let text = cadastre_core::build(&c, None).0.into_iter().find(|o| o.format == "text").unwrap().content;
     assert!(text.contains("<->"), "{text}");
+    // The labels of each way apart: backup to proxy, then back.
+    assert!(text.contains("→ tcp/2500, tcp/9392, ← tcp/10006"), "{text}");
 }

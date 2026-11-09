@@ -5,9 +5,8 @@ Ideas met while writing a real map, not decided yet: what they would change, and
 ## `merge: pair`: what is left
 
 `merge: pair` draws one edge per pair of nodes, a head at each end when both directions are
-present, its labels those of both directions in one list. Open:
+present, the labels of each direction apart (`→ jobs, data`, `← disk-blocks`). Open:
 
-- the labels of each direction kept apart, `→ jobs, data` and `← disk-blocks`;
 - the style of an edge merging links of two styles (solid one way, dashed the other): today, the
   style rules apply to the merged edge as to any other;
 - `pair` on a `follow`, whose steps stay apart.

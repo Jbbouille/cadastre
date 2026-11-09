@@ -14,6 +14,7 @@ The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly mod
 
 ## Unreleased
 
+- **`merge: pair`**: an edge going both ways labels each direction apart, `→` the way of the drawing (`→ tcp/9392`, `← tcp/10006`), rather than both in one list.
 - **Zoom and move around the diagrams** on the site, in the playground and in the VS Code preview: Ctrl + wheel (the wheel alone in the playground and the preview) zooms around the cursor, a drag moves the drawing, buttons zoom in, out, fit and show at 1:1; the links and the tooltips keep working, the zoom is kept while the view is drawn again, and a printed page gives the whole drawing. The *Fit to width* / *Actual size* button of the preview gives way to them.
 - **`initiator`**: with `orientation: data`, a dot marks the end that opens the connection, the arrowhead still following the data: a pull reads as a pull (`files ──▶● reader`). On by default, so the views in data orientation change; `initiator: false` draws them as before. In the SVG (Graphviz and `layout: elk`), the DOT and the view to move by hand.
 - **`cadastre serve`** generates the site again when the files of the project change, rather than when a request comes more than a second after the previous one, and lays out again only the views whose diagram changed: a page opens at once, an edit costs the layout of the views it touches.

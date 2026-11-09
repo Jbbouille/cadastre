@@ -500,6 +500,20 @@ impl<'a> Scene<'a> {
             }
             return summary;
         }
+        // An edge of `merge: pair` going both ways: the labels of each way apart, `→` the way of
+        // the drawing.
+        if let Some(directions) = &edge.directions {
+            let reversed = self.drawn(edge).0 != edge.source;
+            let lines: Vec<String> = directions
+                .iter()
+                .zip(if reversed { ["←", "→"] } else { ["→", "←"] })
+                .map(|(part, arrow)| {
+                    let label = self.edge_label(part).replace('\n', ", ");
+                    if label.is_empty() { arrow.to_owned() } else { format!("{arrow} {label}") }
+                })
+                .collect();
+            return lines.join("\n");
+        }
         let relation = edge.relation.as_ref().map(|relation| {
             if edge.provenance.len() > 1 { format!("{relation} ×{}", edge.provenance.len()) } else { relation.clone() }
         });
