@@ -466,6 +466,31 @@ kind printer { like: device }
       (type
         (identifier)))))
 
+
+==================
+Computed keys
+==================
+
+kind app { security: max(availability, integrity), floor: min(availability) }
+
+---
+
+(source_file
+  (kind_declaration
+    (identifier)
+    (key_declaration
+      (identifier)
+      (type
+        (identifier)
+        (key_arguments
+          (identifier)
+          (identifier))))
+    (key_declaration
+      (identifier)
+      (type
+        (identifier)
+        (key_arguments
+          (identifier))))))
 ==================
 Link declarations
 ==================

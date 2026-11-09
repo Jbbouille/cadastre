@@ -1229,6 +1229,7 @@ kind printer {
 
 - **Typed keys.** A key gets a type of § Value types: `string`, `number`, `semver`, `version`, `ip`, `cidr`, `host`, `url`, `bandwidth`, `spdx`, `ref(K)` (kinds or groups, `ref(server | cluster)`), a closed list of values (`vmware | hyperv`), or `pattern("…")`, a string matching a regular expression as a whole (written as is between the quotes: `\d` is a digit). `+`, `*` and `{n}` give its cardinality (§ Reference cardinality); `(required)` makes a resource without it incomplete (§ Required attributes). Its values are then checked like those of a built-in key, and close keys are no longer warned about.
 - **Keys of the links.** `link { … }` declares keys of every link, `layer flow { … }` keys of the links of a layer, with the same types: `link { volume: number }`, `layer flow { package: pattern("PKG-[0-9]+") (required) }`. A link without a required key of one of its layers is incomplete.
+- **Computed keys.** A key computed from other keys of the kind, never written: `max(…)` or `min(…)` of them, all numbers or all of the same list of values, a list ordered as written (`low | medium | high`: `high` is the highest). See § Computed keys below.
 - **A list of one value** is written as the value alone: `hypervisor: vmware`. A name close to a type (`strng`) is taken for a typo of the type.
 - **Kinds of the project.** A new kind is `like` a built-in one: it takes its parents (unless `parents` gives others), its keys, its icon and its shape, and it is in its groups and selections: `select device` and `ref(device)` take the printers. `kind = device` in a filter compares the name of the kind, and does not.
 - **Groups of the project.** `group storage: database | saas` names a union of kinds, written at the root of a `.ca` file, usable wherever a built-in group is: `select storage`, `kind storage` in a style rule, `ref(storage)`, `group-by`, the kinds of a check. Its members are kinds (built in or of the project), built-in groups (`network_device`) or other groups of the project; the kinds of the project like a member are in it. A group named as a kind or a built-in group, declared twice, with an unknown member or whose members make a cycle is an error.
@@ -1236,6 +1237,30 @@ kind printer {
 - **Checks.** A key declared twice, an unknown type or kind, a key the kind or the links already have (built in, or standard), `like` or `parents` on a built-in kind, a pattern that does not compile: errors, at the declaration. A `kind`, `link`, `layer` block or a `group` in a `.cav` file is an error.
 - **What the language keeps.** A key is built into the language when the compiler uses it: placement, views, checks, renderings, exports (`on`, `ip`, `hosting`, `schedule`, `carries`, `through`, `url`…). A key that only describes (a platform, a technology, a protocol) belongs to the schema of the project: its values are the organization's, and the language does not have to follow them.
 - **Conditional constraints** (`provider` required when `hosting: cloud`) are checks (§ Checks): `check cloud-provider { select site where hosting = cloud and not exists(provider) expect none }`.
+
+### Computed keys
+
+A criticality derived from ratings, a cost from its parts: a key the schema computes from other keys of the resource, rather than one written beside them and kept in step by hand.
+
+```
+kind app {
+  availability: low | medium | high
+  integrity: low | medium | high
+  confidentiality: low | medium | high
+  security: max(availability, integrity, confidentiality)
+  cost: number
+  run: number
+  dearest: max(cost, run)
+}
+
+app shop { availability: low, integrity: high }      // security: high
+```
+
+- **`max(…)`, `min(…)`**: the highest, or the lowest, of the values written for the keys it names. Keys of the kind, written ones (not computed), all `number` or all of the same list of values, ordered as written: the first value is the lowest. The computed key has their type.
+- **None written**: a resource without any of the keys has no value for it, as if it were not written (`not exists(security)`).
+- **Read like a written key**: filters (`select app where security = high`), `group-by`, tables (`columns: [name, security]`, `group: security`), tooltips, pages of the site, exports.
+- **Never written**: writing it on a resource is an error (`security is computed: max(availability, integrity, confidentiality)`), and completion does not offer it. `(required)` does not apply to it: make the keys it is computed from required.
+- **Checks.** An unknown function, a key the kind does not have, keys of different types, a key that is neither a number nor a list of values, a computed key computed from another one: errors, at the declaration. The keys of the links are written, not computed.
 
 ## 5. Semantic model
 

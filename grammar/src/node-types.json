@@ -959,6 +959,21 @@
     }
   },
   {
+    "type": "key_arguments",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "key_declaration",
     "named": true,
     "fields": {
@@ -2105,12 +2120,32 @@
     "type": "type",
     "named": true,
     "fields": {
+      "arguments": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "key_arguments",
+            "named": true
+          }
+        ]
+      },
       "cardinality": {
         "multiple": false,
         "required": false,
         "types": [
           {
             "type": "cardinality",
+            "named": true
+          }
+        ]
+      },
+      "function": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "identifier",
             "named": true
           }
         ]

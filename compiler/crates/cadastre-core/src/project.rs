@@ -121,6 +121,8 @@ pub fn compile_modules(files: &[SourceFile], modules: &[Module], options: Option
         &compilation.registry.group_declarations,
         &mut compilation.diagnostics,
     );
+    // The computed keys, before anything reads the keys.
+    crate::declare::compute(&mut compilation.registry, &mut compilation.diagnostics);
     // `parent:` places resources before anything reads where they are.
     let placed = crate::place::place(&mut compilation.registry, &mut compilation.diagnostics);
     let duplicates = duplicate_names(&compilation);

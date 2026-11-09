@@ -148,6 +148,16 @@ impl Lowerer<'_> {
                 TypeForm::Pattern(inner.replace("\\\"", "\""))
             } else if let Some(values) = ty.child_by_field_name("values") {
                 TypeForm::Choices(identifiers(values))
+            } else if let (Some(function), Some(arguments)) =
+                (ty.child_by_field_name("function"), ty.child_by_field_name("arguments"))
+            {
+                let mut c = arguments.walk();
+                let keys = arguments
+                    .named_children(&mut c)
+                    .filter(|i| i.kind() == "identifier")
+                    .map(|i| (ctx.raw(&i).to_owned(), ctx.span(&i)))
+                    .collect();
+                TypeForm::Computed { function: ctx.raw(&function).to_owned(), keys }
             } else {
                 TypeForm::Named(ty.child_by_field_name("name").map(|n| ctx.raw(&n).to_owned()).unwrap_or_default())
             };

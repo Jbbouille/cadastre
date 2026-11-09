@@ -130,11 +130,6 @@ paths, gives most of the flat sheets:
 
 ### What is missing
 
-- **Computed keys.** A security criticality derived from four ratings (availability, integrity,
-  confidentiality, traceability: the highest of them), a business criticality from the impacts
-  (money, reputation, people, health): a key defined in the schema from other keys,
-  `kind app { dict: max(availability, integrity, confidentiality, traceability) }`, checked and
-  shown like a written one.
 - **Identifiers of links.** A flow catalog numbers its flows and keeps their former numbers and
   the name of the program doing them: links have keys, but no name of their own to be designated
   by (in a process, a check, another sheet).

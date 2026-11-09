@@ -54,18 +54,47 @@ pub struct AttrDef {
     pub ty: Ty,
     pub card: Card,
     pub required: bool,
+    /// A key computed from other keys of the resource, never written: `max(availability, integrity)`.
+    pub computed: Option<&'static Computed>,
+}
+
+/// How a key is computed from other keys of the resource (spec § 4, Computed keys).
+#[derive(Debug)]
+pub struct Computed {
+    pub function: Fold,
+    /// The keys it is computed from, of the same kind, all numbers or all of the same list.
+    pub keys: &'static [&'static str],
+}
+
+/// The functions computing a key: the highest or the lowest of the values of its keys, a list
+/// of values ordered as written (`low | medium | high`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Fold {
+    Max,
+    Min,
+}
+
+impl Fold {
+    pub const NAMES: &[(&str, Fold)] = &[("max", Fold::Max), ("min", Fold::Min)];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Fold::Max => "max",
+            Fold::Min => "min",
+        }
+    }
 }
 
 const fn attr(key: &'static str, ty: Ty) -> AttrDef {
-    AttrDef { key, ty, card: Card::One, required: false }
+    AttrDef { key, ty, card: Card::One, required: false, computed: None }
 }
 
 const fn required(key: &'static str, ty: Ty) -> AttrDef {
-    AttrDef { key, ty, card: Card::One, required: true }
+    AttrDef { key, ty, card: Card::One, required: true, computed: None }
 }
 
 const fn many(key: &'static str, ty: Ty) -> AttrDef {
-    AttrDef { key, ty, card: Card::Many, required: false }
+    AttrDef { key, ty, card: Card::Many, required: false, computed: None }
 }
 
 const fn with_card(def: AttrDef, card: Card) -> AttrDef {
@@ -417,8 +446,12 @@ pub fn kind_names() -> impl Iterator<Item = &'static str> {
     KINDS.iter().map(|k| k.name)
 }
 
-/// A type as the reference and the schema of a project write it: `ref(server | cluster)+`.
+/// A type as the reference and the schema of a project write it: `ref(server | cluster)+`; a
+/// computed key as it is declared, `max(availability, integrity)`.
 pub fn type_text(def: &AttrDef) -> String {
+    if let Some(computed) = def.computed {
+        return format!("{}({})", computed.function.name(), computed.keys.join(", "));
+    }
     let ty = match def.ty {
         Ty::Symbol(values) => values.join(" | "),
         Ty::String => "string".to_owned(),

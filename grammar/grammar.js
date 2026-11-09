@@ -134,7 +134,8 @@ module.exports = grammar({
     required: _ => seq('(', 'required', ')'),
 
     // A type: a named one (`string`, `number`, `ip`…), a reference, a pattern, or a closed list of
-    // identifiers; `+` one or more, `*` zero or more, `{n}` exactly n.
+    // identifiers; `+` one or more, `*` zero or more, `{n}` exactly n. Or a key computed from
+    // other keys of the resource: `max(availability, integrity)`.
     type: $ => choice(
       seq(
         choice(
@@ -145,7 +146,11 @@ module.exports = grammar({
         optional(field('cardinality', $.cardinality)),
       ),
       field('values', $.choices),
+      seq(field('function', $.identifier), token.immediate('('), field('arguments', $.key_arguments), ')'),
     ),
+
+    // The keys a computed key is computed from: `availability, integrity`.
+    key_arguments: $ => seq($.identifier, repeat(seq(',', $.identifier))),
 
     // Kinds or groups of a reference: `cluster`, `server | cluster`.
     kinds: $ => seq($.identifier, repeat(seq('|', $.identifier))),

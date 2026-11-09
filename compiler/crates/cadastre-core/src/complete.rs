@@ -534,7 +534,8 @@ impl Completer<'_> {
     }
 
     fn keys<'a>(&mut self, attrs: impl Iterator<Item = &'a AttrDef>) {
-        for attr in attrs {
+        // A computed key is not written.
+        for attr in attrs.filter(|a| a.computed.is_none()) {
             let detail = match attr.ty {
                 Ty::Ref(union) => format!("ref({})", union.replace('|', " | ")),
                 Ty::Symbol(values) => values.join(" | "),

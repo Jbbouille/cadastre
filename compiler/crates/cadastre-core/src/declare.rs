@@ -9,7 +9,7 @@
 use std::collections::{BTreeSet, HashMap};
 
 use crate::diagnostic::Diagnostic;
-use crate::schema::{self, AttrDef, Card, KindDef, Pattern, RESOURCE_KEYS, Schema, Ty};
+use crate::schema::{self, AttrDef, Card, Computed, Fold, KindDef, Pattern, RESOURCE_KEYS, Schema, Ty};
 use crate::source::Span;
 use crate::suggest;
 
@@ -64,6 +64,8 @@ pub enum TypeForm {
     Pattern(String),
     /// `vmware | hyperv`: a closed list of values, or the kinds of `parents`.
     Choices(Vec<String>),
+    /// `max(availability, integrity)`: a key computed from other keys of the resource.
+    Computed { function: String, keys: Vec<(String, Span)> },
 }
 
 /// The named types, as written in a declaration.
@@ -205,6 +207,8 @@ pub fn schema(
         let builtin = schema::kind_def(&decl.name).is_some();
         let mut attrs: Vec<AttrDef> = base.attrs.to_vec();
         let mut keys: BTreeSet<&str> = BTreeSet::new();
+        // The computed keys, once the keys they are computed from are known.
+        let mut computed: Vec<&KeyDecl> = Vec::new();
         for key in &decl.keys {
             if key.key == "parent" {
                 diagnostics.push(
@@ -249,9 +253,24 @@ pub fn schema(
                 });
                 continue;
             }
+            if matches!(key.ty.form, TypeForm::Computed { .. }) {
+                computed.push(key);
+                continue;
+            }
             if let Some(ty) = ty(key, &draft, diagnostics) {
                 let card = key.ty.card.unwrap_or(Card::One);
-                attrs.push(AttrDef { key: schema::intern_str(&key.key), ty, card, required: key.required });
+                attrs.push(AttrDef {
+                    key: schema::intern_str(&key.key),
+                    ty,
+                    card,
+                    required: key.required,
+                    computed: None,
+                });
+            }
+        }
+        for key in computed {
+            if let Some(def) = computed_key(key, &decl.name, &attrs, diagnostics) {
+                attrs.push(def);
             }
         }
         let attrs = intern(format!("{attrs:?}"), attrs).as_slice();
@@ -291,7 +310,13 @@ pub fn schema(
             }
             if let Some(ty) = ty(key, &draft_with(&declared, &likes, &groups), diagnostics) {
                 let card = key.ty.card.unwrap_or(Card::One);
-                attrs.push(AttrDef { key: schema::intern_str(&key.key), ty, card, required: key.required });
+                attrs.push(AttrDef {
+                    key: schema::intern_str(&key.key),
+                    ty,
+                    card,
+                    required: key.required,
+                    computed: None,
+                });
             }
         }
         match layer {
@@ -421,6 +446,148 @@ fn ty(key: &KeyDecl, schema: &Schema, diagnostics: &mut Vec<Diagnostic>) -> Opti
         },
         TypeForm::Choices(values) => {
             Some(Ty::Symbol(intern_slice(&values.iter().map(String::as_str).collect::<Vec<_>>())))
+        }
+        TypeForm::Computed { .. } => {
+            diagnostics.push(Diagnostic::error("a key of the links is written, not computed", key.ty.span).with_help(
+                "computed keys are declared on kinds: `kind app { security: max(availability, integrity) }`",
+            ));
+            None
+        }
+    }
+}
+
+/// A computed key of a kind, checked: `max` or `min` of keys of the kind, written ones, all
+/// numbers or all of the same list of values; its type is theirs.
+fn computed_key(key: &KeyDecl, kind: &str, attrs: &[AttrDef], diagnostics: &mut Vec<Diagnostic>) -> Option<AttrDef> {
+    let TypeForm::Computed { function, keys } = &key.ty.form else { return None };
+    let Some(&(_, fold)) = Fold::NAMES.iter().find(|(name, _)| name == function) else {
+        let mut d = Diagnostic::error(format!("unknown function: {function}"), key.ty.span);
+        d = match suggest::closest(function, Fold::NAMES.iter().map(|(n, _)| *n)) {
+            Some(s) => d.with_help(format!("did you mean `{s}`?")),
+            None => d.with_help("a computed key is `max(…)` or `min(…)` of keys of the kind"),
+        };
+        diagnostics.push(d);
+        return None;
+    };
+    if key.required {
+        diagnostics.push(
+            Diagnostic::error(format!("{} is computed: it is not required", key.key), key.key_span)
+                .with_help("remove `(required)`; make the keys it is computed from required"),
+        );
+    }
+    let mut found: Vec<(&AttrDef, Span)> = Vec::new();
+    for (name, span) in keys {
+        match attrs.iter().find(|a| a.key == name) {
+            Some(def) if def.computed.is_some() => diagnostics.push(Diagnostic::error(
+                format!("{name} is computed: a computed key is computed from written keys"),
+                *span,
+            )),
+            Some(def) => found.push((def, *span)),
+            None => {
+                let mut d = Diagnostic::error(format!("{name} is not a key of {kind}"), *span);
+                if let Some(s) = suggest::closest(name, attrs.iter().map(|a| a.key)) {
+                    d = d.with_help(format!("did you mean `{s}`?"));
+                }
+                diagnostics.push(d);
+            }
+        }
+    }
+    if found.len() < keys.len() {
+        return None;
+    }
+    // All numbers, or all of the same list of values, ordered as written.
+    let same = |a: &AttrDef, b: &AttrDef| match (a.ty, b.ty) {
+        (Ty::Number, Ty::Number) => true,
+        (Ty::Symbol(x), Ty::Symbol(y)) => x == y,
+        _ => false,
+    };
+    let (first, first_span) = found[0];
+    if !matches!(first.ty, Ty::Number | Ty::Symbol(_)) {
+        diagnostics.push(
+            Diagnostic::error(
+                format!(
+                    "{function}: {} is a {}, not a number nor a list of values",
+                    first.key,
+                    schema::type_text(first)
+                ),
+                first_span,
+            )
+            .with_help("a computed key takes numbers, or values of a list ordered as written: `low | medium | high`"),
+        );
+        return None;
+    }
+    if let Some((other, span)) = found.iter().find(|(def, _)| !same(first, def)) {
+        diagnostics.push(
+            Diagnostic::error(
+                format!(
+                    "{function}: {} and {} have different types ({}, {})",
+                    first.key,
+                    other.key,
+                    schema::type_text(first),
+                    schema::type_text(other)
+                ),
+                *span,
+            )
+            .with_help("the keys of a computed key are all numbers, or all of the same list of values"),
+        );
+        return None;
+    }
+    let keys: Vec<&str> = found.iter().map(|(def, _)| def.key).collect();
+    let computed = intern(format!("{fold:?}{keys:?}"), Computed { function: fold, keys: intern_slice(&keys) });
+    Some(AttrDef {
+        key: schema::intern_str(&key.key),
+        ty: first.ty,
+        card: Card::One,
+        required: false,
+        computed: Some(computed),
+    })
+}
+
+/// Computes the computed keys of the resources (spec § 4, Computed keys): the highest or the
+/// lowest of the values written for their keys, with the span of the value it is; none when none
+/// of them is written. A computed key written by hand is an error, replaced by its value.
+pub fn compute(registry: &mut crate::registry::Registry, diagnostics: &mut Vec<Diagnostic>) {
+    use crate::registry::{Attribute, Value, ValueKind};
+    for index in 0..registry.resources.len() {
+        let Some(def) = registry.schema.kind_def(&registry.resources[index].kind) else { continue };
+        let computed: Vec<(&'static str, Ty, &'static Computed)> =
+            def.attrs.iter().filter_map(|a| a.computed.map(|c| (a.key, a.ty, c))).collect();
+        let resource = &mut registry.resources[index];
+        for (key, ty, how) in computed {
+            if let Some(written) = resource.attributes.iter().find(|a| a.key == key) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        format!("{key} is computed: {}({})", how.function.name(), how.keys.join(", ")),
+                        written.key_span,
+                    )
+                    .with_help(format!("write {} instead", how.keys.join(", "))),
+                );
+                resource.attributes.retain(|a| a.key != key);
+            }
+            // Each value with its rank: its place in the list, or the number it is.
+            let rank = |value: &Value| -> Option<f64> {
+                match ty {
+                    Ty::Symbol(values) => values.iter().position(|v| *v == value.raw).map(|p| p as f64),
+                    _ => value.raw.parse::<f64>().ok(),
+                }
+            };
+            let values = resource
+                .attributes
+                .iter()
+                .filter(|a| how.keys.contains(&a.key.as_str()))
+                .flat_map(|a| a.value.items())
+                .filter_map(|v| rank(v).map(|r| (r, v)));
+            let best = match how.function {
+                Fold::Max => values.max_by(|a, b| a.0.total_cmp(&b.0)),
+                Fold::Min => values.min_by(|a, b| a.0.total_cmp(&b.0)),
+            };
+            let Some((_, value)) = best else { continue };
+            let mut value = value.clone();
+            if matches!(ty, Ty::Symbol(_)) {
+                value.kind = ValueKind::Identifier;
+            }
+            let key_span = resource.name_span;
+            resource.attributes.push(Attribute { key: key.to_owned(), key_span, value });
         }
     }
 }

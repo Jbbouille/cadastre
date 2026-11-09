@@ -762,6 +762,39 @@ const FR_MESSAGES: &[(&str, &str)] = &[
     ("unknown key: {}", "clé inconnue : {1}"),
     ("unknown format: {}", "format inconnu : {1}"),
     ("unknown function: {}", "fonction inconnue : {1}"),
+    ("{} is computed: it is not required", "{1} est calculée : elle n'est pas obligatoire"),
+    (
+        "{} is computed: a computed key is computed from written keys",
+        "{1} est calculée : une clé calculée l'est à partir de clés écrites",
+    ),
+    ("{} is computed: {}", "{1} est calculée : {2}"),
+    (
+        "{}: {} is a {}, not a number nor a list of values",
+        "{1} : {2} est de type {3}, ni un nombre ni une liste de valeurs",
+    ),
+    ("{}: {} and {} have different types ({}, {})", "{1} : {2} et {3} sont de types différents ({4}, {5})"),
+    ("a key of the links is written, not computed", "une clé des liens s'écrit, elle n'est pas calculée"),
+    (
+        "remove `(required)`; make the keys it is computed from required",
+        "retirez `(required)` ; rendez obligatoires les clés dont elle est calculée",
+    ),
+    ("write {} instead", "écrivez plutôt {1}"),
+    (
+        "a computed key is `max(…)` or `min(…)` of keys of the kind",
+        "une clé calculée est `max(…)` ou `min(…)` de clés du type",
+    ),
+    (
+        "a computed key takes numbers, or values of a list ordered as written: `low | medium | high`",
+        "une clé calculée prend des nombres, ou les valeurs d'une liste ordonnée comme elle est écrite : `low | medium | high`",
+    ),
+    (
+        "the keys of a computed key are all numbers, or all of the same list of values",
+        "les clés d'une clé calculée sont toutes des nombres, ou toutes de la même liste de valeurs",
+    ),
+    (
+        "computed keys are declared on kinds: `kind app { security: max(availability, integrity) }`",
+        "les clés calculées se déclarent sur les types : `kind app { security: max(availability, integrity) }`",
+    ),
     ("unknown relation: {}", "relation inconnue : {1}"),
     ("unknown edge label: {}", "étiquette d'arête inconnue : {1}"),
     ("unknown group-by level: {}", "niveau de group-by inconnu : {1}"),

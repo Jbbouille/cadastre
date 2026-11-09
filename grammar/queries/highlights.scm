@@ -24,6 +24,8 @@
 (type name: (identifier) @type)
 (kinds (identifier) @type)
 (choices (identifier) @constant)
+(type function: (identifier) @function.builtin)
+(key_arguments (identifier) @property)
 (cardinality) @operator
 (required) @keyword
 
