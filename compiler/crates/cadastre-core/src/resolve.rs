@@ -75,7 +75,7 @@ impl<'r> Resolver<'r> {
             match candidates.len() {
                 0 => continue,
                 1 => return Resolution::Resolved(candidates[0]),
-                _ => return Resolution::Ambiguous(candidates),
+                _ => return self.qualified(reference, candidates),
             }
         }
 
@@ -83,6 +83,18 @@ impl<'r> Resolver<'r> {
         match candidates.len() {
             0 => Resolution::WrongType(matches),
             1 => Resolution::Resolved(candidates[0]),
+            _ => self.qualified(reference, candidates),
+        }
+    }
+
+    /// Among several candidates, the one whose qualified name is the name written: a name written
+    /// in full always designates its resource (`internet` at the root, beside interfaces named
+    /// `internet`), otherwise an ambiguity.
+    fn qualified(&self, reference: &Reference, candidates: Vec<ResourceId>) -> Resolution {
+        let full: Vec<ResourceId> =
+            candidates.iter().copied().filter(|&id| self.registry.path(id).len() == reference.segments.len()).collect();
+        match full[..] {
+            [id] => Resolution::Resolved(id),
             _ => Resolution::Ambiguous(candidates),
         }
     }
@@ -167,6 +179,21 @@ mod tests {
         assert_eq!(
             resolver.resolve(&reference("dmz.web01"), None, &["server"]),
             Resolution::Resolved(find(&r, "a.dmz.web01"))
+        );
+    }
+
+    #[test]
+    fn a_name_written_in_full_wins() {
+        let r = registry("internet internet\nsite s { switch sw { interface internet } }");
+        let resolver = Resolver::new(&r);
+        let expected = ["interface", "internet"];
+        assert_eq!(
+            resolver.resolve(&reference("internet"), None, &expected),
+            Resolution::Resolved(find(&r, "internet"))
+        );
+        assert_eq!(
+            resolver.resolve(&reference("sw.internet"), None, &expected),
+            Resolution::Resolved(find(&r, "s.sw.internet"))
         );
     }
 

@@ -827,6 +827,7 @@ switch sw01 {
 - **Implicit server interface.** A server placed in a subnet has an implicit interface in that subnet; its address is written directly on the server (`server web01 { ip: 10.0.1.10 }`). Additional interfaces (multi-homing, management, backup) are declared explicitly.
 - **`peer`** represents a cable. It takes a single value, is declared on one side only, and the compiler makes it symmetric. Declaring both sides consistently is accepted; a contradiction (A → B and B → C, or A → B and C → B) is an error.
 - `peer: web01` (a server) designates its implicit interface. If the server has explicit interfaces, name the interface (`web01.eth1`).
+- `peer: internet` cables an interface to the `internet`: the access of a site to its provider, without a site nor a router standing for the provider. Its operator and bandwidth go on the interface (`interface wan { peer: internet, operator: carrier-a, bandwidth: "1 Gbps" }`). Many interfaces reach the internet, that is no contradiction; a view draws it once (`select firewall, internet` + `lift(peer, via: parent)`), and network paths do not join two sites through it.
 - The Cadastre name of an interface is an identifier; the vendor name, which often contains `/` or `.`, goes into `label`.
 - **VLANs.** A port carries one VLAN, untagged (`vlan: 65`, an access port), or several, tagged (`vlans: [64, 65, 3001]`, a trunk); a subnet has its VLAN (`subnet esx { cidr: 10.140.65.0/24, vlan: 65 }`). A network path in the subnet only takes the cables whose two ports carry its VLAN; a port without `vlan` nor `vlans` carries any (§ Network paths).
 - **Aggregates.** `aggregate: "po31"` names the port-channel (or vPC) a port belongs to: its cables between two devices make one link in a path view.
@@ -908,7 +909,7 @@ wan_link dx-paris {
 ```
 
 - `technology` is a key of the project, typed in its schema: `kind wan_link { technology: direct_connect | expressroute | interconnect | mpls | leased_line | fiber }`, as the reference example does.
-- `ends: ref(router | firewall | vpn_gateway){2}`. On the cloud side, the Direct Connect or ExpressRoute gateway is a `router` of the cloud site.
+- `ends: ref(router | firewall | vpn_gateway | internet){2}`. On the cloud side, the Direct Connect or ExpressRoute gateway is a `router` of the cloud site. An end may be the `internet`: the access of a router to a provider (`wan_link fiber-east { ends: [rt-east, internet], operator: carrier-a }`).
 - `bandwidth` is typed in the schema of the project (`kind wan_link { bandwidth: bandwidth }`), then compared in filters: `select wan_link where bandwidth < 1Gbps`. `circuit_id` is a free key; the link carrier is its `operator`.
 
 #### Transit gateway
@@ -1243,6 +1244,7 @@ kind printer {
 | 1 | resolved |
 | 0, no resource with that name | error: dangling reference |
 | 0, but the name exists with another kind | error: wrong kind |
+| several, one of them named in full (its qualified name) | resolved to that one: `internet` at the root, beside interfaces named `internet` |
 | several | error: ambiguity, with the minimal suffix that removes it |
 
 Filtering by kind applies at each scope level. Hence adding a resource of another kind, or a resource with the same name in another system, never breaks an existing local reference.

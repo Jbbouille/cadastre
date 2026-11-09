@@ -12,6 +12,10 @@ Cadastre is in **0.x**. Until 1.0:
 
 The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly module share one version number.
 
+## Unreleased
+
+- **The internet as the other end of a cable** (`peer: internet`) and of a `wan_link`: the access of a site to its provider, without a site nor a router standing for it. Many interfaces reach it without contradiction, and network paths do not join two sites through it. A name written in full now designates its resource among others ending with it (`internet` at the root, beside interfaces named `internet`).
+
 ## 0.2.0
 
 Two defaults change the drawings: `satellites` is `false`, and the items of a `stack` level are placed in the order written. To keep the drawings of 0.1, add `[render] satellites = true` to `cadastre.toml` and swap the items of the levels drawn in another order. The rest is added: tables for a CMDB, rack elevations, `merge: pair`, `referrers(…)`.

@@ -664,7 +664,7 @@ impl<'a> Scene<'a> {
             fill: None,
             shape: match self.registry.schema.base(&resource.kind) {
                 "database" => "cylinder",
-                "saas" => "rounded",
+                "saas" | "internet" => "rounded",
                 "actor" => "ellipse",
                 "job" => "hexagon",
                 _ => "box",

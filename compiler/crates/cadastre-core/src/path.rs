@@ -145,7 +145,10 @@ impl<'a> Network<'a> {
             if base == "server" {
                 plugs.entry(id).or_default().push(id);
             }
-            if let Some(&peer) = model.reference(Holder::Resource(id), "peer").first() {
+            // A cable to the internet leads nowhere: the sites it reaches are not joined through it.
+            if let Some(&peer) = model.reference(Holder::Resource(id), "peer").first()
+                && registry.schema.base(&registry.resource(peer).kind) != "internet"
+            {
                 cables.insert(id, peer);
                 cables.insert(peer, id);
             }
