@@ -270,3 +270,16 @@ mod tests {
         assert_eq!(routes[0].points, vec![(40.0, 40.0)]);
     }
 }
+
+#[cfg(test)]
+mod movable_tests {
+    /// The playground serves its own copy of the drawing (`web/movable.js`): the same file.
+    #[test]
+    fn the_playground_copy_is_the_same() {
+        let copy = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../web/movable.js");
+        // A published crate has no `web/` beside it.
+        if let Ok(copy) = std::fs::read_to_string(copy) {
+            assert_eq!(copy.replace("\r\n", "\n"), include_str!("movable.js").replace("\r\n", "\n"));
+        }
+    }
+}

@@ -134,6 +134,12 @@ const FR: &[(&str, &str)] = &[
     ("warning", "avertissement"),
     ("info", "information"),
     ("Open in the playground", "Ouvrir dans le bac à sable"),
+    ("Move by hand", "Déplacer à la main"),
+    ("Back to the diagram", "Revenir au diagramme"),
+    (
+        "Drag the nodes and the frames; right click on an edge to add or remove a bend.",
+        "Glissez les nœuds et les cadres ; clic droit sur une flèche pour ajouter ou retirer un coude.",
+    ),
     ("As a graph", "En graphe"),
     ("Drawing…", "Dessin en cours…"),
     ("Nodes", "Nœuds"),

@@ -36,7 +36,14 @@ fn files() -> Vec<SourceFile> {
 fn built(svgs: &HashMap<String, String>, viz: Option<&str>) -> HashMap<String, String> {
     let files = files();
     let c = compile(&files);
-    let options = site::Options { name: "Acme", svgs, viz, playground: true, language: cadastre_core::Language::En };
+    let options = site::Options {
+        name: "Acme",
+        svgs,
+        elements: &Default::default(),
+        viz,
+        playground: true,
+        language: cadastre_core::Language::En,
+    };
     site::build(&c, &files, &options).into_iter().map(|f| (f.path, f.content)).collect()
 }
 
@@ -125,8 +132,14 @@ fn the_site_speaks_french_when_asked() {
     let files = files();
     let c = compile(&files);
     let svgs = HashMap::new();
-    let options =
-        site::Options { name: "Acme", svgs: &svgs, viz: None, playground: true, language: cadastre_core::Language::Fr };
+    let options = site::Options {
+        name: "Acme",
+        svgs: &svgs,
+        elements: &Default::default(),
+        viz: None,
+        playground: true,
+        language: cadastre_core::Language::Fr,
+    };
     let site: HashMap<String, String> =
         site::build(&c, &files, &options).into_iter().map(|f| (f.path, f.content)).collect();
     let home = &site["index.html"];

@@ -16,6 +16,7 @@ use cadastre_core::{Language, Options as CompileOptions, compile_modules, site};
 const PAGE: &[&str] = &[
     "index.html",
     "cadastre.js",
+    "movable.js",
     "cadastre_wasm.wasm",
     "viz-standalone.js",
     "NOTICE.txt",
@@ -109,15 +110,35 @@ pub fn generate(
         CompileOptions { strict: project.strict(), language, satellites: project.satellites() },
     );
     let dots = site::dots(&compilation);
-    let drawings = crate::svgs_of(&dots.iter().map(|(_, dot)| dot.as_str()).collect::<Vec<_>>());
+    let drawings = crate::drawings_of(&dots.iter().map(|(_, dot)| dot.as_str()).collect::<Vec<_>>());
+    // The views to move by hand: the variant of each diagram laid out again, as JSON.
+    let kept: Vec<(&str, &str)> = dots
+        .iter()
+        .zip(&drawings)
+        .filter_map(|((view, _), drawing)| drawing.as_ref().map(|(_, dot)| (view.as_str(), dot.as_str())))
+        .collect();
+    let layouts = crate::graphviz_all(&kept.iter().map(|(_, dot)| *dot).collect::<Vec<_>>(), "-Tjson");
+    let elements: HashMap<String, String> = kept
+        .iter()
+        .zip(layouts)
+        .filter_map(|((view, _), layout)| {
+            Some(((*view).to_owned(), cadastre_core::cytoscape(&compilation, view, Some(&layout?))?))
+        })
+        .collect();
     let svgs: HashMap<String, String> =
-        dots.into_iter().zip(drawings).filter_map(|((view, _), svg)| Some((view, svg?))).collect();
+        dots.into_iter().zip(drawings).filter_map(|((view, _), drawing)| Some((view, drawing?.0))).collect();
     let viz = match playground {
         Some(dir) if dir.join("viz-standalone.js").is_file() => "playground/viz-standalone.js".to_owned(),
         _ => VIZ_CDN.to_owned(),
     };
-    let options =
-        site::Options { name: title, svgs: &svgs, viz: Some(&viz), playground: playground.is_some(), language };
+    let options = site::Options {
+        name: title,
+        svgs: &svgs,
+        elements: &elements,
+        viz: Some(&viz),
+        playground: playground.is_some(),
+        language,
+    };
     let mut files: Vec<(String, Vec<u8>)> = site::build(&compilation, &project.files, &options)
         .into_iter()
         .map(|f| (f.path, f.content.into_bytes()))

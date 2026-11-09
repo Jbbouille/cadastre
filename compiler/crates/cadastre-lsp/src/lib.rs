@@ -12,6 +12,8 @@
 //! - `cadastre/render` `{ uri, view }` → `{ view, outputs: [{ format, content }], messages, ok }`,
 //!   rendered from the open documents (`svg` outputs are DOT, for the client to lay out);
 //! - `cadastre/icons` `{ svg }` → the SVG laid out from such DOT, with the icons of the kinds.
+//! - `cadastre/cytoscape` `{ uri, view, layout }` → the elements of the view to move by hand,
+//!   laid out as `layout`, the `-Tjson` output of its DOT.
 
 mod hover;
 mod position;
@@ -417,6 +419,19 @@ impl Server<'_> {
                         let project = self.project(&path)?;
                         let file = cadastre_core::drawio(&project.compilation, &params.view, Some(&params.layout));
                         Response::new_ok(request.id, file)
+                    }
+                    None => Response::new_err(request.id, ErrorCode::InvalidParams as i32, "not a file".into()),
+                }
+            }
+            // The elements of a view to move by hand, laid out by Graphviz like the diagram.
+            "cadastre/cytoscape" => {
+                let params: DrawioParams = serde_json::from_value(request.params)?;
+                match path_of(&params.uri) {
+                    Some(path) => {
+                        let project = self.project(&path)?;
+                        let elements =
+                            cadastre_core::cytoscape(&project.compilation, &params.view, Some(&params.layout));
+                        Response::new_ok(request.id, elements)
                     }
                     None => Response::new_err(request.id, ErrorCode::InvalidParams as i32, "not a file".into()),
                 }

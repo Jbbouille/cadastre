@@ -579,6 +579,7 @@ const CYTOSCAPE = [
   "https://cdn.jsdelivr.net/npm/konva@7.0.3/konva.min.js",
   "https://cdn.jsdelivr.net/npm/cytoscape-context-menus@4.2.1/cytoscape-context-menus.js",
   "https://cdn.jsdelivr.net/npm/cytoscape-edge-editing@5.0.0/cytoscape-edge-editing.js",
+  "./movable.js",
 ];
 let cytoscapeLoaded;
 
@@ -591,40 +592,6 @@ function loadCytoscape() {
   })();
   return cytoscapeLoaded;
 }
-
-const MOVABLE_STYLE = [
-  { selector: "node", style: {
-    "shape": "data(shape)", "width": "data(width)", "height": "data(height)",
-    "label": "data(label)", "text-wrap": "wrap", "text-valign": "center", "text-halign": "center",
-    "font-family": "Helvetica, Arial, sans-serif", "font-size": 10, "color": "data(text)",
-    "background-color": "data(fill)", "border-width": 1, "border-color": "data(color)", "border-style": "data(line)",
-  } },
-  { selector: "node[icon]", style: {
-    "background-image": "data(icon)", "background-width": 14, "background-height": 14,
-    "background-position-x": 8, "background-position-y": "50%", "background-clip": "none", "text-margin-x": 9,
-  } },
-  { selector: "node[?frame]", style: {
-    "shape": "rectangle", "label": "data(label)", "text-valign": "top", "text-halign": "center", "color": "#333",
-    "font-size": 11, "background-opacity": 0, "border-color": "data(color)", "padding": 12,
-  } },
-  { selector: "node[?frame][?rounded]", style: { "shape": "round-rectangle" } },
-  { selector: "node[?frame][fill != 'none']", style: { "background-color": "data(fill)", "background-opacity": 1 } },
-  { selector: "node[?frame][icon]", style: {
-    "background-position-x": 6, "background-position-y": 6, "text-margin-x": 0,
-  } },
-  { selector: "edge", style: {
-    "curve-style": "bezier", "width": 1.2, "line-color": "data(color)", "line-style": "data(line)",
-    "target-arrow-color": "data(color)", "source-arrow-color": "data(color)", "arrow-scale": 0.8,
-    "label": "data(label)", "font-size": 9, "text-wrap": "wrap", "text-max-width": 140, "color": "data(color)",
-    "font-family": "Helvetica, Arial, sans-serif",
-    "text-background-color": "#fff", "text-background-opacity": 1, "text-background-padding": 1,
-  } },
-  { selector: "edge[head != 'none']", style: { "target-arrow-shape": "triangle" } },
-  { selector: "edge[head = 'hollow']", style: { "target-arrow-fill": "hollow" } },
-  { selector: "edge[tail != 'none']", style: { "source-arrow-shape": "triangle" } },
-  { selector: "edge[tail = 'hollow']", style: { "source-arrow-fill": "hollow" } },
-  { selector: ":selected", style: { "overlay-color": "#2563eb", "overlay-opacity": 0.12 } },
-];
 
 async function movable(target, files, view, dot) {
   const bar = Object.assign(document.createElement("div"), { className: "drawio" });
@@ -640,40 +607,16 @@ async function movable(target, files, view, dot) {
     box.replaceWith(Object.assign(document.createElement("pre"), { textContent: String(error) }));
     return;
   }
-  // Empty first: cytoscape-edge-editing reads its options in the style of the edges.
-  const cy = cytoscape({ container: box, style: MOVABLE_STYLE, wheelSensitivity: 0.2 });
-  cy.edgeEditing({
-    initAnchorsAutomatically: true,
-    bendCornersIsRoundFunction: () => true,
-    handleReconnectEdge: false,
-    enableCreateAnchorOnDrag: true,
-    addBendMenuItemTitle: lang === "fr" ? "Ajouter un coude" : "Add a bend",
-    removeBendMenuItemTitle: lang === "fr" ? "Retirer le coude" : "Remove the bend",
-    removeAllBendMenuItemTitle: lang === "fr" ? "Retirer tous les coudes" : "Remove all the bends",
-    addControlMenuItemTitle: false, removeControlMenuItemTitle: false, removeAllControlMenuItemTitle: false,
-  });
-  cy.add([...elements.nodes.map((e) => ({ group: "nodes", ...e })), ...elements.edges.map((e) => ({ group: "edges", ...e }))]);
-  // A straight edge gets a bend at its middle, still straight: the extension bends by dragging
-  // only an edge that has one.
-  for (const edge of cy.edges()) {
-    if (edge.data("bendPointPositions") || edge.source().same(edge.target())) continue;
-    const [a, b] = [edge.source().position(), edge.target().position()];
-    edge.data("bendPointPositions", [{ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }]);
-  }
-  cy.edgeEditing("get").initAnchorPoints(cy.edges());
-  cy.style().update();
-  cy.fit(undefined, 20);
-  const button = (label, onclick) => Object.assign(document.createElement("button"), { textContent: t(label), onclick });
+  const cy = cadastreMovable.show(box, elements, { language: lang });
+  const button = (label, onclick) => Object.assign(document.createElement("button"), { textContent: label, onclick });
   bar.append(
-    button("Fit", () => cy.fit(undefined, 20)),
-    button("Reset", () => run()),
-    button("Download {file}", () => {
-      const link = Object.assign(document.createElement("a"), { href: cy.png({ full: true, scale: 2, bg: "#ffffff" }), download: `${view}.png` });
-      link.click();
+    button(t("Fit"), () => cy.fit(undefined, 20)),
+    button(t("Reset"), () => run()),
+    button(t("Download {file}", { file: `${view}.png` }), () => {
+      Object.assign(document.createElement("a"), { href: cadastreMovable.png(cy), download: `${view}.png` }).click();
     }),
     Object.assign(document.createElement("span"), { textContent: t("Drag the nodes and the frames; right click on an edge to add or remove a bend.") }),
   );
-  bar.children[2].textContent = t("Download {file}", { file: `${view}.png` });
 }
 
 function drawioBar(files, view, dot) {
