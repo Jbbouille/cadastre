@@ -5,6 +5,7 @@ style {
 
 view flows {
   title: "Application flows"
+  group: "Applications"
   description: "Every flow between the apps, databases and SaaS, as written in the registry."
   select app, database, saas
   edges  [flow]
@@ -13,6 +14,7 @@ view flows {
 
 view network {
   title: "Network"
+  group: "Network"
   description: "The servers by site and subnet, with the application flows lifted onto the machines that host them."
   select server, saas group-by site > subnet
   edges  lift([flow], via: on)
@@ -21,6 +23,7 @@ view network {
 
 view macro {
   title: "Subnets"
+  group: "Network"
   description: "The flows between subnets, merged by port: what the firewall rules must allow."
   select subnet
   edges  lift([flow], via: on?.ancestor(subnet), merge: port)
@@ -29,6 +32,7 @@ view macro {
 
 view landscape {
   title: "Landscape"
+  group: "Applications"
   description: "The flows between the systems and the SaaS, in the direction of the data."
   select system, saas
   edges  lift([flow], via: ancestor(system))
@@ -37,6 +41,7 @@ view landscape {
 
 view to-verify {
   title: "To verify"
+  group: "To complete"
   description: "The resources and flows assumed or doubtful, or with an open question: what remains to confirm."
   select app, database, saas, server where confidence != confirmed or exists(question) with ends
   edges  [flow] where confidence != confirmed or exists(question)
@@ -45,6 +50,7 @@ view to-verify {
 
 view ownership {
   title: "Ownership"
+  group: "Applications"
   description: "The apps, databases and SaaS by owner team, with their operator."
   select app, database, saas group-by owner
   render svg { node_labels: [label, operator] }
@@ -52,6 +58,7 @@ view ownership {
 
 view to-complete {
   title: "To complete"
+  group: "To complete"
   description: "The resources missing something for a complete model."
   select server, app, database, subnet where incomplete
   render text
@@ -59,6 +66,7 @@ view to-complete {
 
 view inter-sites {
   title: "Between the sites"
+  group: "Network"
   description: "The flows and the connectors between the sites, with the SaaS reached from them."
   select site, saas
   edges  lift([flow], via: on?.ancestor(site)), lift(connector, via: ancestor(site))
@@ -67,6 +75,7 @@ view inter-sites {
 
 view gdpr {
   title: "Personal data"
+  group: "Data"
   description: "The flows carrying personal data, in red: where the customer details travel."
   select app, database, saas without isolated
   edges  [flow] where carries.classification = personal
@@ -78,6 +87,7 @@ view gdpr {
 
 view customer-trail {
   title: "Customer trail"
+  group: "Data"
   description: "The customer details followed step by step from the CRM database."
   select app, database without isolated
   edges  follow(customer, from: crmdb)
@@ -86,6 +96,7 @@ view customer-trail {
 
 view fw01-matrix {
   title: "Firewall matrix"
+  group: "Network/Security"
   description: "The flows through the datacenter firewall, merged by port: its rule table."
   select server, saas
   edges  lift([flow] where through has fw01, via: on, merge: port)
@@ -94,6 +105,7 @@ view fw01-matrix {
 
 view security {
   title: "Security"
+  group: "Network/Security"
   description: "The servers and firewalls by site and subnet, every flow split at the devices it traverses."
   select server, firewall group-by site > subnet
   edges  lift([flow], via: on), through: show
@@ -102,6 +114,7 @@ view security {
 
 view physical {
   title: "Physical"
+  group: "Network"
   description: "The servers, switches and firewalls by site and rack, with their cabling."
   select server, switch, firewall group-by site > rack
   edges  lift(peer, via: parent)
@@ -110,6 +123,7 @@ view physical {
 
 view deployment {
   title: "Deployment"
+  group: "Applications"
   description: "What runs where: the apps and databases with the servers hosting them."
   select app, database, server
   edges  [flow], on
@@ -119,6 +133,7 @@ view deployment {
 // The flows to the internet, through the devices deduced from `egress` (the NAT gateway of the VPC).
 view egress {
   title: "Egress"
+  group: "Network"
   description: "The flows to the SaaS and the devices they leave through, deduced from the egress of the VPC."
   select app, saas, router without isolated
   edges  [flow] where target.kind = saas, through: show
@@ -128,6 +143,7 @@ view egress {
 // Impact analysis: what becomes unavailable when the datacenter firewall fails.
 view fw01-failure {
   title: "If fw01 fails"
+  group: "Failures"
   description: "What becomes unavailable when the datacenter firewall fails: the impact analysis."
   select app, database, saas where failures has fw01
   render svg, text
@@ -136,6 +152,7 @@ view fw01-failure {
 // A scenario: several resources failing together, what fails and what is unavailable in red.
 view web-servers-failure {
   title: "If both web servers fail"
+  group: "Failures"
   description: "web01 and web02 down together: in red, the apps and data that become unavailable."
   failing: [web01, web02]
   select app, database, saas
@@ -146,6 +163,7 @@ view web-servers-failure {
 // A process: its links numbered in the order of its steps, and its sequence diagram.
 view invoicing-process {
   title: "Monthly invoicing"
+  group: "Processes"
   description: "The monthly invoicing process, its links numbered as its steps, and its sequence diagram."
   select app, database, saas
   edges  process(monthly-invoicing)
@@ -156,6 +174,7 @@ view invoicing-process {
 // subnets, their gateways, the cables and the VPN tunnels.
 view invoicing-network {
   title: "Monthly invoicing, through the network"
+  group: "Processes"
   description: "The devices each step of the monthly invoicing goes through: the NAT gateway to the internet, the VPN tunnel and the firewall to the ERP."
   select app, database, saas
   edges  process(monthly-invoicing)
@@ -165,6 +184,7 @@ view invoicing-network {
 // A table: a row per app and server hosting it, as the general sheet of a CMDB.
 view inventory {
   title: "Inventory"
+  group: "Applications"
   description: "Each app with the servers hosting it, their address and their site."
   select app, database
   render xlsx, html {

@@ -115,6 +115,12 @@ pub static VIEW_ATTRIBUTES: &[OptionDef] = &[
     option("title", Values::Text, "", "the title of the view, for its readers; its name otherwise"),
     option("description", Values::Text, "", "what the view shows and what it is for, a sentence or two"),
     option(
+        "group",
+        Values::Text,
+        "",
+        "where its readers find the view in the site: a folder, `/` between a folder and its subfolders (`\"Network/Security\"`); the folder and the file of the view otherwise",
+    ),
+    option(
         "failing",
         Values::Resources,
         "",

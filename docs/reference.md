@@ -582,6 +582,7 @@ For the readers of the view: shown by the site, the previews and the playground.
 |---|---|---|---|
 | `title` | `<string>` |  | the title of the view, for its readers; its name otherwise |
 | `description` | `<string>` |  | what the view shows and what it is for, a sentence or two |
+| `group` | `<string>` |  | where its readers find the view in the site: a folder, `/` between a folder and its subfolders (`"Network/Security"`); the folder and the file of the view otherwise |
 | `failing` | `[<resource>, …]` |  | a scenario: the resources failing together (a system, as what it contains); `down` the resources unavailable then |
 
 ### Values of `edge_labels`

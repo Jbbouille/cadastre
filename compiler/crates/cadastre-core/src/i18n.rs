@@ -70,6 +70,14 @@ const FR: &[(&str, &str)] = &[
     ("Resources", "Ressources"),
     ("Checks", "Vérifications"),
     ("API", "API"),
+    // The home page, the panel of the views, the resources.
+    ("Show the views as", "Afficher les vues en"),
+    ("Thumbnails", "Vignettes"),
+    ("List", "Liste"),
+    ("Show or hide the views", "Afficher ou masquer les vues"),
+    ("hosting not stated", "hébergement non précisé"),
+    ("Filter the resources: name, label, site…", "Filtrer les ressources : nom, libellé, site…"),
+    ("Filter the resources", "Filtrer les ressources"),
     // The default theme in the legends of the diagrams.
     ("Assumed link", "Lien supposé"),
     ("Doubtful link", "Lien douteux"),

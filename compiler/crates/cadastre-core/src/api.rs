@@ -248,13 +248,14 @@ pub fn links(compilation: &Compilation, files: &[SourceFile]) -> Value {
     Value::Array(records.collect())
 }
 
-/// The record of a view, declared: name, title, description, formats, where.
+/// The record of a view, declared: name, title, description, group, formats, where.
 pub fn view_summary(files: &[SourceFile], view: &View) -> Value {
     let formats: Vec<String> = view.render.iter().flat_map(|r| r.formats.iter().map(|f| f.text.clone())).collect();
     json!({
         "name": view.name,
         "title": view.title(),
         "description": view.description(),
+        "group": view.group(),
         "formats": formats,
         "declared": place(files, view.span),
     })

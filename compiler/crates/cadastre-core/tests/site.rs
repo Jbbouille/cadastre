@@ -92,7 +92,28 @@ fn the_pages_and_the_api() {
     let shop_record: serde_json::Value = serde_json::from_str(&site["api/resources/sales.shop.json"]).unwrap();
     assert_eq!(shop_record["site"], "dc1");
     // The sites by hosting, when there are several kinds of them.
-    assert!(home.contains("<b>2</b> sites <span class=\"muted\">(1 cloud, 1 on-prem)</span>"), "{home}");
+    assert!(
+        home.contains(
+            "<a href=\"browse.html#site\"><b>2</b> sites</a> <span class=\"muted\">(1 cloud, 1 on-prem)</span>"
+        ),
+        "{home}"
+    );
+    // The sites by their hosting, the systems in columns; one file of views: no folder.
+    assert!(home.contains("<details class=\"hosting\" open><summary>on-prem <span class=\"count\">1</span>"), "{home}");
+    assert!(
+        home.contains(
+            "<h2>Systems <span class=\"count\">1</span></h2>
+<ul class=\"grid\">"
+        ),
+        "{home}"
+    );
+    assert!(!home.contains("class=\"folder\""), "{home}");
+    // The resources: a filter, each kind folding.
+    assert!(site["browse.html"].contains("<input id=\"filter\""));
+    assert!(
+        site["browse.html"]
+            .contains("<details class=\"fold kind\" id=\"app\" data-open=\"true\" data-count=\"2\" open>")
+    );
     // What runs in a site: the apps on its servers, at any depth.
     let dc1: serde_json::Value = serde_json::from_str(&site["api/resources/dc1.json"]).unwrap();
     assert_eq!(dc1["runs_here"], serde_json::json!(["sales.orders", "sales.shop"]));
@@ -163,7 +184,8 @@ fn the_site_speaks_french_when_asked() {
         "{home}"
     );
     assert!(home.contains("2 vérifications · 1 à connaître"), "{home}");
-    assert!(home.contains("<li><b>2</b> apps</li>"), "{home}");
+    assert!(home.contains("<li><a href=\"browse.html#app\"><b>2</b> apps</a></li>"), "{home}");
+    assert!(home.contains(">Vignettes</button>") && site["browse.html"].contains("Filtrer les ressources"), "{home}");
     let shop = &site["resources/sales.shop.html"];
     assert!(shop.contains("<h2>Liens sortants") && shop.contains("<th>Vers</th>"), "{shop}");
     assert!(site["resources/dc1.html"].contains("Tourne ici"));
@@ -188,4 +210,82 @@ fn a_view_without_svg_is_drawn_in_the_browser() {
     assert!(!site["resources/spare.html"].contains("Exchanges"));
     let none = built(&HashMap::new(), None);
     assert!(none["views/apps.html"].contains("<pre class=\"dot\">"));
+}
+
+#[test]
+fn the_views_in_their_folders() {
+    // The folder and the file of a view, or its `group`.
+    let files = vec![
+        SourceFile { path: "a.ca".into(), text: REGISTRY.into() },
+        SourceFile {
+            path: "apps.cav".into(),
+            text: "view apps { select app }
+view trail {
+  group: \"Processes/Invoicing\"
+  select app
+}
+"
+            .into(),
+        },
+        SourceFile {
+            path: "network/flows.cav".into(),
+            text: "view flows { select app edges [flow] }
+"
+            .into(),
+        },
+        SourceFile {
+            path: "network/subnets.cav".into(),
+            text: "view subnets { select subnet }
+"
+            .into(),
+        },
+    ];
+    let c = compile(&files);
+    assert!(c.diagnostics.iter().all(|d| d.severity != cadastre_core::Severity::Error), "{:?}", c.diagnostics);
+    let mut svgs = HashMap::new();
+    // Much wider than a card: its start, at a size that reads.
+    svgs.insert(
+        "flows".to_owned(),
+        "<svg width=\"2000pt\" height=\"100pt\" viewBox=\"0 0 2000 100\"></svg>".to_owned(),
+    );
+    let options = site::Options {
+        name: "Acme",
+        svgs: &svgs,
+        elements: &Default::default(),
+        viz: None,
+        playground: false,
+        language: cadastre_core::Language::En,
+    };
+    let site: HashMap<String, String> =
+        site::build(&c, &files, &options).into_iter().map(|f| (f.path, f.content)).collect();
+    let home = &site["index.html"];
+    assert!(home.contains("<details class=\"folder\" id=\"views-network\" open>"), "{home}");
+    assert!(home.contains("<summary><h4>flows</h4> <span class=\"count\">1</span></summary>"), "{home}");
+    // A folder holding a single folder is one with it.
+    assert!(
+        home.contains(
+            "id=\"views-Processes-Invoicing\" open>
+<summary><h3>Processes › Invoicing</h3>"
+        ),
+        "{home}"
+    );
+    assert!(
+        home.contains(
+            "<div class=\"thumb crop\"><img src=\"views/flows.svg\" alt=\"\" loading=\"lazy\" style=\"width: 2240px\">"
+        ),
+        "{home}"
+    );
+    // The panel of the views, on the home page and on the page of a view, that view highlighted.
+    assert!(
+        home.contains("<aside class=\"side\"") && home.contains("<span class=\"count\">4</span></button>"),
+        "{home}"
+    );
+    let flows = &site["views/flows.html"];
+    assert!(flows.contains("<a href=\"../views/flows.html\" aria-current=\"page\">flows</a>"), "{flows}");
+    assert!(
+        flows.contains("<p class=\"crumbs\"><a href=\"../index.html#views\">Views</a> › <a href=\"../index.html#views-network\">network</a> › <a href=\"../index.html#views-network-flows\">flows</a> ›</p>"),
+        "{flows}"
+    );
+    let trail: serde_json::Value = serde_json::from_str(&site["api/views/trail.json"]).unwrap();
+    assert_eq!(trail["group"], "Processes/Invoicing");
 }

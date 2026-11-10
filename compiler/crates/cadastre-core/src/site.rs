@@ -180,6 +180,123 @@ struct Site<'a> {
     neighbourhoods: HashMap<String, String>,
 }
 
+/// A folder of views, for the home page and the panel beside the views: the `group` of a view
+/// (`"Network/Security"`), otherwise the folder and the file it is written in
+/// (`network/security.cav`), less what all of them share: one file of views, no folder.
+struct Folder<'v> {
+    name: String,
+    /// Its section on the home page: `views-network-security`.
+    id: String,
+    views: Vec<&'v Value>,
+    folders: Vec<Folder<'v>>,
+}
+
+impl<'v> Folder<'v> {
+    fn of(views: &'v [Value]) -> Self {
+        let paths: Vec<Vec<String>> = views
+            .iter()
+            .map(|view| match view["group"].as_str() {
+                Some(group) => group.split('/').map(str::trim).filter(|s| !s.is_empty()).map(str::to_owned).collect(),
+                None => {
+                    // `path:line:column`: the path alone, its file without its extension.
+                    let declared = text(&view["declared"]);
+                    let file = declared.rsplitn(3, ':').last().unwrap_or(declared.as_str()).replace('\\', "/");
+                    let mut parts: Vec<String> = file.split('/').filter(|s| !s.is_empty()).map(str::to_owned).collect();
+                    if let Some(last) = parts.last_mut()
+                        && let Some(stem) = std::path::Path::new(last.as_str()).file_stem().and_then(|s| s.to_str())
+                    {
+                        *last = stem.to_owned();
+                    }
+                    parts
+                }
+            })
+            .collect();
+        let mut shared = paths.first().cloned().unwrap_or_default();
+        for path in &paths {
+            let same = shared.iter().zip(path).take_while(|(a, b)| a == b).count();
+            shared.truncate(same);
+        }
+        let mut root = Folder { name: String::new(), id: "views".to_owned(), views: Vec::new(), folders: Vec::new() };
+        for (view, path) in views.iter().zip(&paths) {
+            let mut folder = &mut root;
+            for part in &path[shared.len()..] {
+                let at = match folder.folders.iter().position(|f| f.name == *part) {
+                    Some(at) => at,
+                    None => {
+                        let id = format!("{}-{}", folder.id, file_name(part));
+                        folder.folders.push(Folder { name: part.clone(), id, views: Vec::new(), folders: Vec::new() });
+                        folder.folders.len() - 1
+                    }
+                };
+                folder = &mut folder.folders[at];
+            }
+            folder.views.push(view);
+        }
+        for folder in &mut root.folders {
+            folder.merge();
+        }
+        root
+    }
+
+    /// A folder holding a single folder and no view is one with it: `network › security`.
+    fn merge(&mut self) {
+        while self.views.is_empty() && self.folders.len() == 1 {
+            let only = self.folders.pop().expect("one folder");
+            self.name = format!("{} › {}", self.name, only.name);
+            self.id = only.id;
+            self.views = only.views;
+            self.folders = only.folders;
+        }
+        for folder in &mut self.folders {
+            folder.merge();
+        }
+    }
+
+    fn count(&self) -> usize {
+        self.views.len() + self.folders.iter().map(Folder::count).sum::<usize>()
+    }
+
+    /// The folders down to the view `name`, from the first under the root.
+    fn path_to(&self, name: &str) -> Option<Vec<&Folder<'v>>> {
+        if self.views.iter().any(|v| v["name"] == name) {
+            return Some(Vec::new());
+        }
+        self.folders.iter().find_map(|f| {
+            f.path_to(name).map(|mut path| {
+                path.insert(0, f);
+                path
+            })
+        })
+    }
+}
+
+/// A diagram shrunk to a thumbnail until it no longer reads (a thread, or specks): its top left
+/// corner instead, at a size that reads, as wide as the card at least; `None` when it reads whole.
+fn crop(svg: &str) -> Option<f64> {
+    let (width, height) = svg_size(svg)?;
+    // The box of a thumbnail, in points: about 14rem by 7.5rem.
+    let (box_width, box_height) = (170.0, 84.0);
+    let fit = (box_width / width).min(box_height / height);
+    if fit >= 0.4 {
+        return None;
+    }
+    let cover = (box_width / width).max(box_height / height);
+    // Its width in pixels (a point is 4/3 of a pixel).
+    Some((width * cover.max(0.35) * 4.0 / 3.0).round())
+}
+
+/// The size of a drawing, in the unit of its `width` and `height` (points for Graphviz).
+fn svg_size(svg: &str) -> Option<(f64, f64)> {
+    let start = svg.find("<svg")?;
+    let tag = &svg[start..start + svg[start..].find('>')?];
+    let number = |key: &str| -> Option<f64> {
+        let at = tag.find(&format!(" {key}=\""))? + key.len() + 3;
+        let value = &tag[at..at + tag[at..].find('"')?];
+        value.trim_end_matches(|c: char| c.is_ascii_alphabetic()).parse().ok().filter(|n: &f64| *n > 0.0)
+    };
+    Some((number("width")?, number("height")?))
+}
+
 /// The file name of a resource page or record: its qualified name, safe as a file name.
 pub fn file_name(id: &str) -> String {
     id.chars().map(|c| if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' { c } else { '_' }).collect()
@@ -275,15 +392,16 @@ impl Site<'_> {
             list.sort();
             list.dedup();
         }
-        // The pages.
-        out.push(File { path: "index.html".into(), content: self.home(&views, &records) });
+        // The pages; the home page and the pages of the views with the panel of the views.
+        let tree = Folder::of(&views);
+        out.push(File { path: "index.html".into(), content: self.home(&tree, &records) });
         out.push(File { path: "browse.html".into(), content: self.browse(&records) });
         out.push(File { path: "checks.html".into(), content: self.checks() });
         out.push(File { path: "api.html".into(), content: self.api_page(&views, &records) });
         for view in &views {
             out.push(File {
                 path: format!("views/{}.html", file_name(&text(&view["name"]))),
-                content: self.view_page(view, own.get(&text(&view["name"]))),
+                content: self.view_page(view, own.get(&text(&view["name"])), &tree),
             });
         }
         // The pages of the links: the views drawing each (to its edge), the steps taking it.
@@ -372,7 +490,16 @@ impl Site<'_> {
 
     /// The frame of every page: head, header with the search, the body, the footer.
     fn page(&self, root: &str, title: &str, body: &str) -> String {
+        self.framed(root, title, None, body)
+    }
+
+    /// A page with the panel of the views beside it (`side`).
+    fn framed(&self, root: &str, title: &str, side: Option<&str>, body: &str) -> String {
         let name = esc(self.options.name);
+        let (open, close) = match side {
+            Some(side) => (format!("<div class=\"frame\">\n{side}"), "</div>\n"),
+            None => (String::new(), ""),
+        };
         let playground = if self.options.playground {
             format!("<a href=\"{root}playground/\">{}</a>", self.t("Playground"))
         } else {
@@ -384,7 +511,7 @@ impl Site<'_> {
              <body data-root=\"{root}\" data-playground=\"{has_playground}\" data-cannot-draw=\"{cannot_draw}\" data-no-graphviz=\"{no_graphviz}\">\n<header>\n<a class=\"brand\" href=\"{root}index.html\">{name}</a>\n\
              <nav><a href=\"{root}index.html\">{views}</a><a href=\"{root}browse.html\">{resources}</a><a href=\"{root}links.html\">{links}</a><a href=\"{root}checks.html\">{checks}</a><a href=\"{root}api.html\">{api}</a>{playground}</nav>\n\
              <div class=\"search\"><input id=\"search\" type=\"search\" placeholder=\"{search}\" autocomplete=\"off\" aria-label=\"{search_label}\"><ul id=\"results\" hidden></ul></div>\n\
-             </header>\n<main>\n{body}\n</main>\n<footer>{generated} <a href=\"https://github.com/Jbbouille/cadastre\">Cadastre</a> {version} · <a href=\"{root}api/project.json\">{model}</a></footer>\n\
+             </header>\n{open}<main>\n{body}\n</main>\n{close}<footer>{generated} <a href=\"https://github.com/Jbbouille/cadastre\">Cadastre</a> {version} · <a href=\"{root}api/project.json\">{model}</a></footer>\n\
              <script src=\"{root}zoom.js\"></script>\n<script src=\"{root}site.js\"></script>\n</body>\n</html>\n",
             lang = self.options.language.code(),
             title = esc(title),
@@ -414,7 +541,7 @@ impl Site<'_> {
         format!("<a href=\"{root}resources/{}.html\" title=\"{}\">{}</a>", file_name(id), esc(id), esc(&label))
     }
 
-    fn home(&self, views: &[Value], records: &[Value]) -> String {
+    fn home(&self, tree: &Folder, records: &[Value]) -> String {
         let project = &self.project;
         let mut body = format!("<h1>{}</h1>\n", esc(self.options.name));
         let kinds = project["kinds"].as_object().cloned().unwrap_or_default();
@@ -432,18 +559,19 @@ impl Site<'_> {
         } else {
             String::new()
         };
+        // Each count leads to its resources.
         let counts: Vec<String> = ["site", "system", "app", "database", "server", "saas"]
             .iter()
             .filter_map(|k| {
                 kinds.get(*k).and_then(Value::as_u64).map(|n| {
                     let detail = if *k == "site" { by_hosting.as_str() } else { "" };
-                    format!("<li><b>{n}</b> {}{detail}</li>", plural(k, n))
+                    format!("<li><a href=\"browse.html#{k}\"><b>{n}</b> {}</a>{detail}</li>", plural(k, n))
                 })
             })
             .collect();
         let (resources, links) = (project["resources"].as_u64().unwrap_or(0), project["links"].as_u64().unwrap_or(0));
         body.push_str(&format!(
-            "<ul class=\"counts\"><li><b>{resources}</b> {}</li><li><b>{links}</b> {}</li>{}</ul>\n",
+            "<ul class=\"counts\"><li><a href=\"browse.html\"><b>{resources}</b> {}</a></li><li><a href=\"links.html\"><b>{links}</b> {}</a></li>{}</ul>\n",
             self.options.language.plural("resource", resources),
             self.options.language.plural("link", links),
             counts.join("")
@@ -477,88 +605,181 @@ impl Site<'_> {
                     .replace("{n}", &errors.to_string())
             ));
         }
-        // The views by file of views, the files in alphabetical order, each in the order written:
-        // the file is the theme (`network.cav`, `security.cav`). One file: no heading.
-        let mut by_file: BTreeMap<String, Vec<&Value>> = BTreeMap::new();
-        for view in views {
-            // `path:line:column`: the path alone.
-            let declared = text(&view["declared"]);
-            let file = declared.rsplitn(3, ':').last().unwrap_or(declared.as_str());
-            by_file.entry(file.to_owned()).or_default().push(view);
+        // The views in their folders, as cards or as a list (remembered by the browser).
+        body.push_str(&format!("<h2 id=\"views\">{}", self.t("Views")));
+        if tree.count() > 0 {
+            body.push_str(&format!(
+                " <span class=\"shape\" role=\"group\" aria-label=\"{}\"><button type=\"button\" data-shape=\"cards\" aria-pressed=\"true\">{}</button><button type=\"button\" data-shape=\"list\" aria-pressed=\"false\">{}</button></span>",
+                esc(self.t("Show the views as")),
+                self.t("Thumbnails"),
+                self.t("List")
+            ));
         }
-        body.push_str(&format!("<h2 id=\"views\">{}</h2>\n", self.t("Views")));
-        for (file, views) in &by_file {
-            if by_file.len() > 1 {
-                let stem = std::path::Path::new(file).file_stem().and_then(|s| s.to_str()).unwrap_or(file);
-                body.push_str(&format!("<h3 class=\"group\">{}</h3>\n", esc(stem)));
+        body.push_str("</h2>\n<div class=\"views\">\n");
+        self.folder_cards(&mut body, tree, 0);
+        body.push_str("</div>\n");
+        // The systems and the sites, the two entries of a map, compact: not by the files they are
+        // written in (a file per app, a heading per system), the sites by their hosting, a hundred
+        // stores folded under their count, the datacenters in sight.
+        let systems: Vec<&Value> = records.iter().filter(|r| r["kind"] == "system" && r["parent"].is_null()).collect();
+        if !systems.is_empty() {
+            body.push_str(&format!(
+                "<h2>{} <span class=\"count\">{}</span></h2>\n{}",
+                self.t("Systems"),
+                systems.len(),
+                self.grid("system", &systems)
+            ));
+        }
+        let sites: Vec<&Value> = records.iter().filter(|r| r["kind"] == "site" && r["parent"].is_null()).collect();
+        if !sites.is_empty() {
+            body.push_str(&format!("<h2>{} <span class=\"count\">{}</span></h2>\n", self.t("Sites"), sites.len()));
+            let mut by_hosting: Vec<(String, Vec<&Value>)> = Vec::new();
+            for site in sites {
+                let hosting = text(&site["attributes"]["hosting"]);
+                match by_hosting.iter_mut().find(|(h, _)| *h == hosting) {
+                    Some((_, list)) => list.push(site),
+                    None => by_hosting.push((hosting, vec![site])),
+                }
             }
-            body.push_str("<div class=\"cards\">\n");
-            for view in views {
-                let name = text(&view["name"]);
-                let svg = self.options.svgs.get(&name);
-                let thumb = match (svg, self.options.viz) {
-                    // The file of the diagram, loaded when the card comes into view: a light page.
-                    (Some(_), _) => format!(
-                        "<div class=\"thumb\"><img src=\"views/{}.svg\" alt=\"\" loading=\"lazy\"></div>",
-                        file_name(&name)
-                    ),
-                    (None, Some(viz)) => {
-                        let dot = dots(self.compilation)
-                            .into_iter()
-                            .find(|(n, _)| *n == name)
-                            .map(|(_, d)| d)
-                            .unwrap_or_default();
-                        format!(
-                            "<div class=\"thumb\" data-viz=\"{}\"><script type=\"text/vnd.graphviz\">{}</script></div>",
-                            esc(viz),
-                            dot.replace("</script", "<\\/script")
-                        )
-                    }
-                    (None, None) => format!("<div class=\"thumb empty\">{}</div>", self.t("no diagram")),
+            // The fewest first: two datacenters before a hundred stores.
+            by_hosting.sort_by_key(|(_, list)| list.len());
+            const FOLDED_BEYOND: usize = 12;
+            for (hosting, list) in &by_hosting {
+                let grid = self.grid("site", list);
+                if by_hosting.len() == 1 && list.len() <= FOLDED_BEYOND {
+                    body.push_str(&grid);
+                    continue;
+                }
+                let shown = match (hosting.is_empty(), by_hosting.len()) {
+                    (_, 1) => self.options.language.plural("site", list.len() as u64).to_owned(),
+                    (true, _) => self.t("hosting not stated").to_owned(),
+                    (false, _) => esc(hosting),
                 };
                 body.push_str(&format!(
-                    "<a class=\"card\" href=\"views/{}.html\">{thumb}<h3>{}</h3><p>{}</p></a>\n",
-                    file_name(&name),
-                    esc(&text(&view["title"])),
-                    esc(&text(&view["description"]))
+                    "<details class=\"hosting\"{}><summary>{shown} <span class=\"count\">{}</span></summary>\n{grid}</details>\n",
+                    if list.len() <= FOLDED_BEYOND { " open" } else { "" },
+                    list.len()
                 ));
             }
-            body.push_str("</div>\n");
         }
-        // The systems and the sites: the two entries of a map.
-        // Grouped by file when they come from several, as the views are: a file of stores does
-        // not hide the datacenters; in each file, the order written.
-        for (kind, heading) in [("system", "Systems"), ("site", "Sites")] {
-            let items: Vec<&Value> = records.iter().filter(|r| r["kind"] == kind && r["parent"].is_null()).collect();
-            if items.is_empty() {
-                continue;
-            }
-            body.push_str(&format!("<h2>{}</h2>\n", self.t(heading)));
-            let mut by_file: BTreeMap<String, Vec<&Value>> = BTreeMap::new();
-            for r in items {
-                let declared = text(&r["declared"]);
-                let file = declared.rsplitn(3, ':').last().unwrap_or(declared.as_str());
-                by_file.entry(file.to_owned()).or_default().push(r);
-            }
-            for (file, items) in &by_file {
-                if by_file.len() > 1 {
-                    let stem = std::path::Path::new(file).file_stem().and_then(|s| s.to_str()).unwrap_or(file);
-                    body.push_str(&format!("<h3 class=\"group\">{}</h3>\n", esc(stem)));
-                }
-                body.push_str("<ul class=\"list\">\n");
-                for r in items {
-                    let id = text(&r["id"]);
-                    body.push_str(&format!(
-                        "<li>{}{} <span class=\"muted\">{}</span></li>\n",
-                        kind_icon(kind),
-                        self.resource_link("", &id),
-                        esc(&text(&r["description"]))
-                    ));
-                }
-                body.push_str("</ul>\n");
-            }
+        let side = (tree.count() > 0).then(|| self.side("", tree, None));
+        self.framed("", self.t("Home"), side.as_deref(), &body)
+    }
+
+    /// Resources in columns, each with its label and description.
+    fn grid(&self, kind: &str, items: &[&Value]) -> String {
+        let mut out = String::from("<ul class=\"grid\">\n");
+        for r in items {
+            let id = text(&r["id"]);
+            let description = text(&r["description"]);
+            out.push_str(&format!(
+                "<li title=\"{}\">{}{} <span class=\"muted\">{}</span></li>\n",
+                esc(&description),
+                kind_icon(kind),
+                self.resource_link("", &id),
+                esc(&description)
+            ));
         }
-        self.page("", self.t("Home"), &body)
+        out.push_str("</ul>\n");
+        out
+    }
+
+    /// The views of a folder on the home page, as cards, then its folders, each folding.
+    fn folder_cards(&self, out: &mut String, folder: &Folder, depth: usize) {
+        if !folder.views.is_empty() {
+            out.push_str("<div class=\"cards\">\n");
+            for view in &folder.views {
+                out.push_str(&self.card(view));
+            }
+            out.push_str("</div>\n");
+        }
+        let heading = if depth == 0 { "h3" } else { "h4" };
+        for inner in &folder.folders {
+            out.push_str(&format!(
+                "<details class=\"folder\" id=\"{}\" open>\n<summary><{heading}>{}</{heading}> <span class=\"count\">{}</span></summary>\n",
+                inner.id,
+                esc(&inner.name),
+                inner.count()
+            ));
+            self.folder_cards(out, inner, depth + 1);
+            out.push_str("</details>\n");
+        }
+    }
+
+    /// The card of a view: its diagram, title and description.
+    fn card(&self, view: &Value) -> String {
+        let name = text(&view["name"]);
+        let thumb = match (self.options.svgs.get(&name), self.options.viz) {
+            // The file of the diagram, loaded when the card comes into view: a light page.
+            (Some(svg), _) => match crop(svg) {
+                Some(width) => format!(
+                    "<div class=\"thumb crop\"><img src=\"views/{}.svg\" alt=\"\" loading=\"lazy\" style=\"width: {width}px\"></div>",
+                    file_name(&name)
+                ),
+                None => format!(
+                    "<div class=\"thumb\"><img src=\"views/{}.svg\" alt=\"\" loading=\"lazy\"></div>",
+                    file_name(&name)
+                ),
+            },
+            (None, Some(viz)) => {
+                let dot =
+                    dots(self.compilation).into_iter().find(|(n, _)| *n == name).map(|(_, d)| d).unwrap_or_default();
+                format!(
+                    "<div class=\"thumb\" data-viz=\"{}\"><script type=\"text/vnd.graphviz\">{}</script></div>",
+                    esc(viz),
+                    dot.replace("</script", "<\\/script")
+                )
+            }
+            (None, None) => format!("<div class=\"thumb empty\">{}</div>", self.t("no diagram")),
+        };
+        format!(
+            "<a class=\"card\" href=\"views/{}.html\">{thumb}<h3>{}</h3><p>{}</p></a>\n",
+            file_name(&name),
+            esc(&text(&view["title"])),
+            esc(&text(&view["description"]))
+        )
+    }
+
+    /// The panel of the views, beside the home page and the pages of the views: their folders,
+    /// the view shown highlighted and its folders open.
+    fn side(&self, root: &str, tree: &Folder, current: Option<&str>) -> String {
+        let total = tree.count();
+        let mut out = format!(
+            "<aside class=\"side\" aria-label=\"{views}\">\n<button class=\"side-toggle\" type=\"button\" aria-expanded=\"false\" title=\"{toggle}\"><span class=\"label\">{views}</span> <span class=\"count\">{total}</span></button>\n<nav class=\"tree\">\n",
+            views = esc(self.t("Views")),
+            toggle = esc(self.t("Show or hide the views")),
+        );
+        // A few views: every folder open; many: those of the view shown.
+        self.side_list(&mut out, root, tree, current, total <= 30);
+        out.push_str("</nav>\n</aside>\n");
+        out
+    }
+
+    fn side_list(&self, out: &mut String, root: &str, folder: &Folder, current: Option<&str>, open: bool) {
+        out.push_str("<ul>\n");
+        for view in &folder.views {
+            let name = text(&view["name"]);
+            let here = if current == Some(name.as_str()) { " aria-current=\"page\"" } else { "" };
+            let description = text(&view["description"]);
+            let tip = if description.is_empty() { String::new() } else { format!(" title=\"{}\"", esc(&description)) };
+            out.push_str(&format!(
+                "<li><a href=\"{root}views/{}.html\"{here}{tip}>{}</a></li>\n",
+                file_name(&name),
+                esc(&text(&view["title"]))
+            ));
+        }
+        for inner in &folder.folders {
+            let unfolded = open || current.is_some_and(|c| inner.path_to(c).is_some());
+            out.push_str(&format!(
+                "<li><details{}><summary>{} <span class=\"count\">{}</span></summary>\n",
+                if unfolded { " open" } else { "" },
+                esc(&inner.name),
+                inner.count()
+            ));
+            self.side_list(out, root, inner, current, open);
+            out.push_str("</details></li>\n");
+        }
+        out.push_str("</ul>\n");
     }
 
     fn browse(&self, records: &[Value]) -> String {
@@ -580,15 +801,25 @@ impl Site<'_> {
             body.push_str(&format!("<a href=\"#{kind}\">{kind} <span class=\"muted\">{}</span></a> ", items.len()));
         }
         body.push_str("</p>\n");
+        // A filter of the rows, as they are typed; a kind of many resources folded under its count.
+        body.push_str(&format!(
+            "<p><input id=\"filter\" type=\"search\" placeholder=\"{}\" aria-label=\"{}\" autocomplete=\"off\"></p>\n",
+            esc(self.t("Filter the resources: name, label, site…")),
+            esc(self.t("Filter the resources"))
+        ));
+        const FOLDED_BEYOND: usize = 50;
         for (kind, items) in &by_kind {
+            let open = items.len() <= FOLDED_BEYOND;
             body.push_str(&format!(
-                "<h2 id=\"{kind}\">{}{kind}</h2>\n<table>\n<tr><th>{}</th><th>{}</th><th>{}</th><th>{}</th><th>{}</th></tr>\n",
+                "<details class=\"fold kind\" id=\"{kind}\" data-open=\"{open}\" data-count=\"{count}\"{}><summary><h2>{}{kind} <span class=\"count\">{count}</span></h2></summary>\n<table>\n<tr><th>{}</th><th>{}</th><th>{}</th><th>{}</th><th>{}</th></tr>\n",
+                if open { " open" } else { "" },
                 kind_icon(kind),
                 self.t("Name"),
                 self.t("Label"),
                 self.t("Site"),
                 self.t("System"),
-                self.t("Owner")
+                self.t("Owner"),
+                count = items.len(),
             ));
             for r in items {
                 body.push_str(&format!(
@@ -602,7 +833,7 @@ impl Site<'_> {
                     r["owner"].as_str().map(|s| self.resource_link("", s)).unwrap_or_default(),
                 ));
             }
-            body.push_str("</table>\n");
+            body.push_str("</table>\n</details>\n");
         }
         self.page("", self.t("Resources"), &body)
     }
@@ -796,14 +1027,14 @@ impl Site<'_> {
             .join(" ")
     }
 
-    fn view_page(&self, view: &Value, own: Option<&(String, String)>) -> String {
+    fn view_page(&self, view: &Value, own: Option<&(String, String)>, tree: &Folder) -> String {
         let root = "../";
         let name = text(&view["name"]);
-        let mut body = format!(
-            "<p class=\"crumbs\"><a href=\"{root}index.html#views\">{}</a> ›</p>\n<h1>{}</h1>\n",
-            self.t("Views"),
-            esc(&text(&view["title"]))
-        );
+        let mut crumbs = format!("<a href=\"{root}index.html#views\">{}</a> ›", self.t("Views"));
+        for folder in tree.path_to(&name).unwrap_or_default() {
+            crumbs.push_str(&format!(" <a href=\"{root}index.html#{}\">{}</a> ›", folder.id, esc(&folder.name)));
+        }
+        let mut body = format!("<p class=\"crumbs\">{crumbs}</p>\n<h1>{}</h1>\n", esc(&text(&view["title"])));
         if let Some(description) = view["description"].as_str() {
             body.push_str(&format!("<p class=\"lead\">{}</p>\n", esc(description)));
         }
@@ -930,7 +1161,8 @@ impl Site<'_> {
             }
             body.push_str("</table>\n</details>\n");
         }
-        self.page(root, &text(&view["title"]), &body)
+        let side = self.side(root, tree, Some(&name));
+        self.framed(root, &text(&view["title"]), Some(&side), &body)
     }
 
     /// The record of a link (`api/links.json`) by its identifier.
@@ -1431,13 +1663,66 @@ h1 .kind { font-size: .9rem; font-weight: 400; color: var(--muted); margin-left:
 .lead { font-size: 1.05rem; } .muted { color: var(--muted); } .mono { font-family: ui-monospace, Consolas, monospace; font-size: .9rem; }
 .crumbs { color: var(--muted); font-size: .9rem; margin: 0; }
 .counts { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem 1.5rem; }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 1rem; }
-.card { display: block; border: 1px solid var(--line); border-radius: 8px; padding: .8rem; color: var(--fg); background: var(--panel); }
+.counts a { color: var(--fg); } .counts a:hover b { color: var(--accent); }
+.count { color: var(--muted); font-size: .85rem; font-weight: 400; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: .8rem; margin-bottom: 1rem; }
+.card { display: block; border: 1px solid var(--line); border-radius: 8px; padding: .6rem; color: var(--fg); background: var(--panel); }
 .card:hover { text-decoration: none; border-color: var(--accent); }
-.card h3 { margin: .5rem 0 .2rem; font-size: 1rem; } .card p { margin: 0; color: var(--muted); font-size: .9rem; }
-.thumb { height: 9rem; overflow: hidden; background: var(--bg); border-radius: 4px; display: flex; align-items: center; justify-content: center; }
+.card h3 { margin: .45rem 0 .15rem; font-size: .95rem; } .card p { margin: 0; color: var(--muted); font-size: .85rem; }
+.thumb { height: 7.5rem; overflow: hidden; background: var(--bg); border-radius: 4px; display: flex; align-items: center; justify-content: center; }
 .thumb svg, .thumb img { max-width: 100%; max-height: 100%; width: auto; height: auto; }
-h3.group { font-size: 1rem; color: var(--muted); margin: 1.2rem 0 .5rem; }
+/* A diagram that would not read shrunk to its card: its top left corner, at a size that reads, fading out. */
+.thumb.crop { justify-content: flex-start; align-items: flex-start;
+  -webkit-mask-image: linear-gradient(to right, #000 80%, transparent), linear-gradient(to bottom, #000 70%, transparent); -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, #000 80%, transparent), linear-gradient(to bottom, #000 70%, transparent); mask-composite: intersect; }
+.thumb.crop img { flex: none; max-width: none; max-height: none; height: auto; }
+/* The views as a list: a line each. */
+h2 .shape { float: right; display: inline-flex; font-size: .8rem; font-weight: 400; }
+.shape button { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); padding: .05rem .6rem; cursor: pointer; }
+.shape button:first-child { border-radius: 4px 0 0 4px; } .shape button:last-child { border-radius: 0 4px 4px 0; border-left: 0; }
+.shape button[aria-pressed="true"] { background: var(--panel); color: var(--accent); font-weight: 600; }
+.views.as-list .cards { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.views.as-list .card { display: flex; gap: 1rem; align-items: baseline; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: none; padding: .3rem .2rem; }
+.views.as-list .card:hover { background: var(--panel); }
+.views.as-list .thumb { display: none; }
+.views.as-list .card h3 { margin: 0; flex: 0 0 16rem; }
+@media (max-width: 40rem) { .views.as-list .card { display: block; } }
+/* The folders of the views, and the sites by hosting, folding. */
+details.folder, details.hosting { margin: .6rem 0; }
+details.folder > summary, details.hosting > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: .45rem; margin-bottom: .5rem; }
+details.folder > summary::-webkit-details-marker, details.hosting > summary::-webkit-details-marker { display: none; }
+details.folder > summary::before, details.hosting > summary::before { content: "▸"; color: var(--muted); } details.folder[open] > summary::before, details.hosting[open] > summary::before { content: "▾"; }
+details.folder > summary h3, details.folder > summary h4 { margin: 0; font-size: 1rem; }
+details.folder details.folder { margin-left: 1rem; }
+details.hosting > summary { font-weight: 600; }
+ul.grid { list-style: none; padding: 0; margin: .3rem 0 .8rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: .1rem 1.5rem; }
+ul.grid li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#filter { font: inherit; width: min(100%, 26rem); padding: .3rem .6rem; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
+/* The panel of the views: a button above the page on a narrow screen, the tree under it when
+   asked; a column beside it on a wide one, unless its reader shut it. */
+.side { font-size: .9rem; }
+.frame > .side { padding: 1rem 1.5rem 0; }
+.side-toggle { font: inherit; font-weight: 600; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: .25rem .7rem; cursor: pointer; }
+.side-toggle::before { content: "☰ "; }
+.frame:not(.flip) .tree { display: none; }
+.tree { margin-top: .5rem; border: 1px solid var(--line); border-radius: 8px; padding: .4rem; max-height: 60vh; overflow: auto; }
+.tree ul { list-style: none; margin: 0; padding: 0; } .tree ul ul { padding-left: .8rem; }
+.tree a { display: block; color: var(--fg); padding: .08rem .4rem; border-radius: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree a:hover { background: var(--panel); text-decoration: none; }
+.tree a[aria-current] { background: var(--panel); color: var(--accent); font-weight: 600; }
+.tree summary { cursor: pointer; padding: .08rem .2rem; color: var(--muted); font-weight: 600; white-space: nowrap; }
+@media (min-width: 75rem) {
+  .frame { display: grid; grid-template-columns: 16rem minmax(0, 1fr); }
+  .frame > .side { position: sticky; top: var(--head, 3.2rem); align-self: start; height: calc(100vh - var(--head, 3.2rem)); overflow: hidden auto; padding: 1rem .6rem 1rem 1rem; border-right: 1px solid var(--line); }
+  .frame:not(.flip) .tree { display: block; border: 0; padding: 0; max-height: none; }
+  .frame.flip { grid-template-columns: 3rem minmax(0, 1fr); }
+  .frame.flip > .side { padding: 1rem .35rem; }
+  .frame.flip .side-toggle { padding: .25rem .55rem; }
+  .frame.flip .tree, .frame.flip .side-toggle .label, .frame.flip .side-toggle .count { display: none; }
+  .frame.flip .side-toggle::before { content: "☰"; }
+  .frame .diagram.wide { --wide: min(calc(100vw - 20rem), 140rem); }
+  .frame.flip .diagram.wide { --wide: min(calc(100vw - 7rem), 140rem); }
+}
 .missing { margin: .3rem 0 0; padding-left: 1.2rem; font-size: .9rem; }
 .mermaid { font-size: .9rem; }
 .check.info { border-color: var(--accent); }
@@ -1447,7 +1732,7 @@ h3.group { font-size: 1rem; color: var(--muted); margin: 1.2rem 0 .5rem; }
 .movable { height: 75vh; margin: 1rem 0; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .diagram svg { max-width: 100%; height: auto; }
 .diagram.wide { --wide: min(calc(100vw - 4rem), 140rem); width: var(--wide); max-width: none; margin-left: calc((100% - var(--wide)) / 2); }
-tr[id] { scroll-margin-top: 5rem; } tr:target td { background: var(--hl); }
+tr[id], details[id] { scroll-margin-top: 5rem; } tr:target td { background: var(--hl); }
 details.fold > summary { cursor: pointer; list-style: none; } details.fold > summary::-webkit-details-marker { display: none; }
 details.fold > summary h2 { display: block; } details.fold > summary h2::before { content: "▸ "; color: var(--muted); } details.fold[open] > summary h2::before { content: "▾ "; }
 .data a { font-weight: 600; }
@@ -1463,7 +1748,7 @@ th { color: var(--muted); font-weight: 600; }
 .warning { color: var(--ko); } tr.error td:first-child { color: var(--ko); }
 .toc a { margin-right: 1rem; } .actions { font-size: .9rem; }
 pre.dot { font-size: .8rem; overflow: auto; }
-@media print { header, footer, .actions, .search { display: none; } main { max-width: none; padding: 0; } }
+@media print { header, footer, .actions, .search, .side, .shape { display: none; } .frame { display: block; } main { max-width: none; padding: 0; } }
 "#;
 
 /// The drawing of a view to move by hand, shared with the playground and the VS Code preview.
@@ -1478,6 +1763,74 @@ const JS: &str = r#"
   const results = document.getElementById("results");
   let index = null, active = -1;
   const fileName = (id) => id.replace(/[^A-Za-z0-9._-]/g, "_");
+  // The height of the header, under which the panel of the views stays.
+  const header = document.querySelector("header");
+  const head = () => document.documentElement.style.setProperty("--head", header.offsetHeight + "px");
+  head();
+  addEventListener("resize", head);
+  // Kept by the browser when it can: a private window or blocked storage forgets it.
+  const remember = (key, value) => { try { if (value === undefined) return localStorage.getItem(key); localStorage.setItem(key, value); } catch { return null; } };
+  // The panel of the views: folded on a narrow screen, unfolded on a wide one unless its reader
+  // shut it (remembered); the view shown in sight.
+  const frame = document.querySelector(".frame");
+  if (frame) {
+    const wide = matchMedia("(min-width: 75rem)");
+    const toggle = frame.querySelector(".side-toggle");
+    const sync = () => toggle.setAttribute("aria-expanded", String(wide.matches !== frame.classList.contains("flip")));
+    const restore = () => { frame.classList.toggle("flip", wide.matches && remember("cadastre-side") === "shut"); sync(); };
+    toggle.addEventListener("click", () => {
+      frame.classList.toggle("flip");
+      if (wide.matches) remember("cadastre-side", frame.classList.contains("flip") ? "shut" : "open");
+      sync();
+    });
+    wide.addEventListener("change", restore);
+    restore();
+    const current = frame.querySelector(".tree [aria-current]");
+    if (current && wide.matches) {
+      const side = frame.querySelector(".side");
+      side.scrollTop = Math.max(0, current.offsetTop - side.clientHeight / 2);
+    }
+  }
+  // The views as cards or as a list, remembered.
+  const views = document.querySelector(".views");
+  const shapes = document.querySelectorAll(".shape button");
+  if (views && shapes.length) {
+    const shape = (name) => {
+      views.classList.toggle("as-list", name === "list");
+      for (const button of shapes) button.setAttribute("aria-pressed", String(button.dataset.shape === name));
+    };
+    shape(remember("cadastre-views") || "cards");
+    for (const button of shapes) button.addEventListener("click", () => { shape(button.dataset.shape); remember("cadastre-views", button.dataset.shape); });
+  }
+  // A link to what a folded section holds opens it: `browse.html#server`, `index.html#views-network`.
+  const reveal = () => {
+    const target = location.hash.length > 1 && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (!target) return;
+    let opened = false;
+    for (let fold = target.closest("details"); fold; fold = fold.parentElement?.closest("details")) {
+      if (!fold.open) { fold.open = true; opened = true; }
+    }
+    if (opened) target.scrollIntoView();
+  };
+  reveal();
+  addEventListener("hashchange", reveal);
+  // The resources filtered as the filter is typed: the kinds with a match open, the others hidden.
+  const filter = document.getElementById("filter");
+  if (filter) filter.addEventListener("input", () => {
+    const q = filter.value.trim().toLowerCase();
+    for (const kind of document.querySelectorAll("details.kind")) {
+      let shown = 0;
+      for (const row of kind.querySelectorAll("tr")) {
+        if (row.querySelector("th")) continue;
+        const hit = !q || row.textContent.toLowerCase().includes(q);
+        row.hidden = !hit;
+        if (hit) shown++;
+      }
+      kind.hidden = q !== "" && shown === 0;
+      kind.open = q ? shown > 0 : kind.dataset.open === "true";
+      kind.querySelector(".count").textContent = q ? shown + " / " + kind.dataset.count : kind.dataset.count;
+    }
+  });
   // The diagrams of a page, zoomed with Ctrl + wheel and moved by dragging (zoom.js).
   const zoomable = (figure) => globalThis.cadastreZoom?.attach(figure, { language: document.documentElement.lang });
   for (const figure of document.querySelectorAll("figure.diagram")) if (figure.querySelector(":scope > svg")) zoomable(figure);

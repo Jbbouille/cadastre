@@ -710,7 +710,7 @@ mod tests {
         assert_eq!(labels(&at("c.cac", "|")), ["check"]);
         assert_eq!(
             labels(&at("v.cav", "view v {\n  |")),
-            ["select", "zone", "edges", "style", "render", "title", "description", "failing"]
+            ["select", "zone", "edges", "style", "render", "title", "description", "group", "failing"]
         );
         assert_eq!(
             labels(&at("c.cac", "check c {\n  |")),

@@ -35,7 +35,7 @@ The site describes these files on its **API** page (`api.html`), with a live exa
   "name": "acme-is",
   "resources": 55, "links": 36,
   "kinds": { "app": 12, "database": 4, "server": 9, "site": 3 },
-  "views": [{ "name": "flows", "title": "Application flows", "description": "…", "formats": ["svg"], "declared": "src/views/flows.cav:3:6" }],
+  "views": [{ "name": "flows", "title": "Application flows", "description": "…", "group": "Network", "formats": ["svg"], "declared": "src/views/flows.cav:3:6" }],
   "checks": [{ "name": "owned", "severity": "error", "message": "…", "result": "passed", "summary": "no node selected, none expected", "selected": 0, "failing": [] }],
   "modules": [{ "name": "shared", "files": [12, 15] }],
   "files": ["src/apps.ca", "src/views/flows.cav"],
@@ -68,7 +68,7 @@ The short record (what `resources.json` lists) then the detail:
 
 ## A view (`views/<name>.json`)
 
-`name`, `title`, `description`, `formats`, `declared`, then:
+`name`, `title`, `description`, `group` (as written, `null` without it), `formats`, `declared`, then:
 
 - `nodes`: `id`, `kind`, `label`, `frame` (the id of its innermost frame);
 - `frames`: `id`, `title`, `resource` (the qualified name the frame stands for, or null for a zone or a value), `in` (the frame it is in);

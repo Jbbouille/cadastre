@@ -27,7 +27,7 @@ pub struct View {
     pub style: Vec<StyleRule>,
     pub render: Option<Render>,
     pub zones: Vec<Zone>,
-    /// `title` and `description`, for the readers of the view; unknown keys are reported.
+    /// `title`, `description` and `group`, for the readers of the view; unknown keys are reported.
     pub attributes: Vec<Attribute>,
 }
 
@@ -39,6 +39,11 @@ impl View {
 
     pub fn description(&self) -> Option<String> {
         self.attribute("description")
+    }
+
+    /// Where its readers find the view in the site: `group`, its folders separated by `/`.
+    pub fn group(&self) -> Option<String> {
+        self.attribute("group")
     }
 
     fn attribute(&self, key: &str) -> Option<String> {
