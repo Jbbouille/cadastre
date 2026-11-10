@@ -66,6 +66,16 @@ cadastre site src --out public            # the same site, as a folder for a sta
 
 The address of the page names what it shows, in its hash (never sent to the server): `#view=flux-pricing&format=svg`, `#example=retail&view=landscape` in the demo. An ad-hoc view is in it too, compressed: `#q=K07NSU0u…&format=svg`. **Copy link** copies it; opening the link shows the same view, the same format, the same ad-hoc view.
 
+## The home page
+
+`demo.html` is the home page of [cadastre-lang.org](https://cadastre-lang.org/), built by [`build-demo.mjs`](build-demo.mjs) with the module above:
+
+```bash
+node web/build-demo.mjs --wasm web/cadastre_wasm.wasm --examples examples --out site/index.html
+```
+
+Its code is colored at build time by the grammar of the language, as in the playground and the editors (`highlight`). Its examples are taken from `examples/`: `<pre class="code" data-file="tutorial/registry.ca">` gets a file, `<pre class="code" data-view="retail/landscape">` the block of a view with the comment above it, `<pre class="mermaid" data-sequence="reference/invoicing-process">` the sequence diagram of a view, drawn by the page with Mermaid. A view or a file that is not found fails the build. The pictures of the gallery are the diagrams of the sites of the examples, published beside it (`retail/views/landscape.svg`), as the Pages workflow does.
+
 ## Self-hosting the playground
 
 The releases hold `cadastre-playground-<version>.zip`: unzip it on any static web server (IIS, nginx, Apache…) and open `index.html`. It holds the page, the WebAssembly module, Graphviz for the browser and the examples, and loads nothing from the internet; the files of a project opened in it are read by the browser and sent nowhere.

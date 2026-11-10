@@ -152,6 +152,16 @@ view invoicing-process {
   render svg, sequence { edge_labels: [step, port] }
 }
 
+// The same process through the network: the devices each step goes through, deduced from the
+// subnets, their gateways, the cables and the VPN tunnels.
+view invoicing-network {
+  title: "Monthly invoicing, through the network"
+  description: "The devices each step of the monthly invoicing goes through: the NAT gateway to the internet, the VPN tunnel and the firewall to the ERP."
+  select app, database, saas
+  edges  process(monthly-invoicing)
+  render traversal
+}
+
 // A table: a row per app and server hosting it, as the general sheet of a CMDB.
 view inventory {
   title: "Inventory"

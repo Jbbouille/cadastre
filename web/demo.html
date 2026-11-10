@@ -9,13 +9,19 @@
 :root {
   --bg: #ffffff; --fg: #142033; --muted: #55657d; --line: #d6dfec; --panel: #f3f6fb;
   --accent: #1d4ed8; --blueprint: #17408b; --blueprint-deep: #0f2f6b; --grid: rgba(255,255,255,.09);
-  --code: #f3f6fb; --kw: #1d4ed8; --str: #0f766e; --com: #6b7a90;
+  --code: #f3f6fb;
+  --hl-comment: #6e7781; --hl-keyword: #cf222e; --hl-type: #8250df; --hl-function: #8250df;
+  --hl-property: #0550ae; --hl-string: #0a3069; --hl-special: #116329; --hl-number: #0550ae;
+  --hl-constant: #0550ae; --hl-label: #953800; --hl-operator: #cf222e; --hl-punctuation: #57606a;
 }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #0b1424; --fg: #dbe4f3; --muted: #93a3bd; --line: #24344f; --panel: #111d33;
           --accent: #7aa7ff; --blueprint: #12336f; --blueprint-deep: #0b2350; --code: #0f1a2e;
-          --kw: #8ab4ff; --str: #5eead4; --com: #7d8ca6; }
+          --hl-comment: #8b949e; --hl-keyword: #ff7b72; --hl-type: #d2a8ff; --hl-function: #d2a8ff;
+          --hl-property: #79c0ff; --hl-string: #a5d6ff; --hl-special: #7ee787; --hl-number: #79c0ff;
+          --hl-constant: #79c0ff; --hl-label: #ffa657; --hl-operator: #ff7b72; --hl-punctuation: #8b949e; }
 }
+:root { color-scheme: light dark; }
 * { box-sizing: border-box; }
 body { margin: 0; font: 16px/1.55 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: var(--fg); background: var(--bg); }
 a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
@@ -57,12 +63,42 @@ h2 { font-size: 1.6rem; margin: 0 0 .5rem; letter-spacing: -.01em; }
 .tabs button[aria-selected="true"] { background: var(--code); border-color: var(--line); color: var(--fg); }
 pre { margin: 0; padding: 1rem; background: var(--code); border: 1px solid var(--line); border-top: none; border-radius: 0 0 8px 8px;
   overflow: auto; max-height: 30rem; }
-pre .k { color: var(--kw); font-weight: 600; } pre .s { color: var(--str); } pre .c { color: var(--com); font-style: italic; }
+/* The code, colored at build time by the grammar of the language (build-demo.mjs), as in the playground. */
+.hl-comment { color: var(--hl-comment); font-style: italic; } .hl-keyword { color: var(--hl-keyword); }
+.hl-type { color: var(--hl-type); } .hl-function { color: var(--hl-function); font-weight: 600; }
+.hl-property { color: var(--hl-property); } .hl-string { color: var(--hl-string); } .hl-string-special { color: var(--hl-special); }
+.hl-number { color: var(--hl-number); } .hl-constant { color: var(--hl-constant); } .hl-label { color: var(--hl-label); }
+.hl-operator { color: var(--hl-operator); } .hl-punctuation { color: var(--hl-punctuation); }
 /* The diagram follows the theme of the reader, as on the sites. */
 .figure { margin: 0; border: 1px solid var(--line); border-radius: 8px; padding: 1rem; background: var(--bg); }
 .figure img { display: block; width: 100%; max-width: 42rem; height: auto; margin: 0 auto; }
 .figure figcaption { color: var(--muted); font-size: .9rem; margin-top: .6rem; }
 
+/* The gallery: each drawing above the lines of the view that asks for it. */
+.shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 30rem), 1fr)); gap: 1.5rem; grid-auto-flow: dense; }
+.shot { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); overflow: hidden; }
+.shot .picture { display: flex; align-items: center; justify-content: center; height: 17rem; padding: .75rem; background: var(--bg);
+  border-bottom: 1px solid var(--line); overflow: hidden; }
+.shot .picture img { max-width: 100%; max-height: 100%; width: auto; height: auto; }
+.shot .picture pre.mermaid { border: none; background: none; padding: 0; max-height: none; width: 100%; height: 100%; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 11px; }
+.shot .picture pre.mermaid svg { max-width: 100%; max-height: 100%; }
+.shot .text { padding: 1rem 1.2rem 1.1rem; display: flex; flex-direction: column; gap: .6rem; flex: 1; }
+.shot h3 { margin: 0; font-size: 1.05rem; } .shot p { margin: 0; color: var(--muted); font-size: .95rem; }
+.shot pre.code { border: 1px solid var(--line); border-radius: 6px; max-height: 15rem; font-size: 12.5px; padding: .75rem .9rem; background: var(--code); }
+.shot .actions { display: flex; gap: 1rem; flex-wrap: wrap; font-size: .9rem; margin-top: auto; }
+/* A wide drawing across the gallery, its code beside its text; a tall one shown from its top. */
+.shot.wide { grid-column: 1 / -1; }
+.shot.wide .picture { height: auto; min-height: 7rem; }
+.shot.wide .picture img { width: auto; max-width: 100%; max-height: 24rem; }
+.shot.wide .text { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); grid-template-rows: auto auto 1fr; column-gap: 1.5rem; row-gap: .6rem; }
+.shot.wide .text .actions { align-self: end; }
+.shot.wide .text pre.code { grid-column: 2; grid-row: 1 / span 3; margin: 0; }
+@media (max-width: 52rem) { .shot.wide .text { grid-template-columns: minmax(0, 1fr); } .shot.wide .text pre.code { grid-column: 1; grid-row: auto; } }
+.shot.tall .picture { height: 20rem; padding: 0; align-items: flex-start;
+  -webkit-mask-image: linear-gradient(to bottom, #000 75%, transparent); mask-image: linear-gradient(to bottom, #000 75%, transparent); }
+.shot.tall .picture { padding-top: .75rem; }
+.shot.tall .picture img { width: auto; max-width: 100%; height: auto; max-height: none; }
 .compare { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; }
 @media (max-width: 52rem) { .compare { grid-template-columns: minmax(0, 1fr); } }
 .compare ul { margin: .5rem 0 0; padding-left: 1.1rem; color: var(--muted); font-size: .95rem; } .compare li { margin-bottom: .35rem; }
@@ -142,78 +178,145 @@ if (/[#&?](example|view|q)=/.test(location.hash)) location.replace("playground/"
           <button role="tab" aria-selected="false" data-file="views">views.cav</button>
           <button role="tab" aria-selected="false" data-file="checks">checks.cac</button>
         </div>
-<pre id="registry">team ops
-team sales-team
-
-site dc1 {
-  hosting: on-prem
-  owner: ops
-  network lan {
-    subnet apps {
-      cidr: 10.0.1.0/24
-      server web01 { ip: 10.0.1.10 }
-      server db01  { ip: 10.0.1.20 }
-    }
-  }
-}
-
-data order
-
-system sales {
-  owner: sales-team
-  app shop {
-    on: web01
-    -> orders : https/443 [flow] { carries: [order] }
-  }
-  app orders {
-    on: web01
-    -> orders-db : tcp/5432 [flow] { carries: [order] }
-  }
-  database orders-db { on: db01 }
-}</pre>
-<pre id="views" hidden>view apps {
-  title: "Applications"
-  select app, database group-by system
-  edges  [flow]
-  render svg, text
-}
-
-// The flows between apps, lifted onto the servers they run on.
-view servers {
-  title: "Servers"
-  select server group-by site > subnet
-  edges  lift([flow], via: on)
-  render text
-}
-
-// Where an order goes, step by step, from the shop.
-view order-path {
-  title: "Order path"
-  select app, database without isolated
-  edges  follow(order, from: shop)
-  render text { edge_labels: [step, port] }
-}</pre>
-<pre id="checks" hidden>check owned {
-  select system where not exists(owner)
-  expect none
-  message: "every system has an owner"
-}</pre>
+<pre id="registry" class="code" data-file="tutorial/registry.ca"></pre>
+<pre id="views" class="code" data-file="tutorial/views.cav" hidden></pre>
+<pre id="checks" class="code" data-file="tutorial/checks.cac" hidden></pre>
       </div>
     </div>
   </div>
 </section>
 
-<section>
+<section class="gallery">
   <div class="wrap">
-    <h2>What it works out for you</h2>
-    <p class="sub">The registry holds the facts you know; the compiler derives the rest, in every view that asks for it.</p>
-    <div class="grid3">
-      <div class="card"><h3>Lifted flows</h3><p>The flows between servers, subnets or sites, from the flows between the apps they host: <code>lift([flow], via: on)</code>.</p></div>
-      <div class="card"><h3>The path of a data object</h3><p>Where a piece of data goes, step by step, from where it is produced: <code>follow(order, from: shop)</code>.</p></div>
-      <div class="card"><h3>Failures</h3><p>What becomes unavailable when a resource fails, alone or in pairs (what a redundancy really rests on), or in a scenario of your own, drawn in red.</p></div>
-      <div class="card"><h3>Network paths</h3><p>The route of a flow through the network devices, deduced from the cabling.</p></div>
-      <div class="card"><h3>Egress and ingress</h3><p>What leaves the network and what comes in, with the data it carries.</p></div>
-      <div class="card"><h3>Partial knowledge</h3><p>Confidence, open questions, incomplete elements: a model can say what is not known yet, and what is left to check.</p></div>
+    <h2>What it draws</h2>
+    <p class="sub">Every drawing below comes from the registry of an example, with the lines of the view that ask for it: the compiler works out the rest (lifted flows, the path of a piece of data, the devices crossed, what fails with what). A click opens it in the site of its example, where each node and each link leads to its page.</p>
+    <div class="shots">
+      <article class="shot wide">
+        <a class="picture" href="retail/views/landscape.html"><img src="retail/views/landscape.svg" alt="Where the data go" loading="lazy"></a>
+        <div class="text">
+          <h3>Where the data go</h3>
+          <p>The flows between systems, lifted from those of their apps, drawn in the direction of the data; a dot marks the end that opens the connection.</p>
+          <pre class="code" data-view="retail/landscape"></pre>
+          <p class="actions"><a href="retail/views/landscape.html">Open it in the site</a><a href="playground/#example=retail&amp;view=landscape">Edit it in the playground</a></p>
+        </div>
+      </article>
+      <article class="shot">
+        <a class="picture" href="reference/views/customer-trail.html"><img src="reference/views/customer-trail.svg" alt="The path of a piece of data" loading="lazy"></a>
+        <div class="text">
+          <h3>The path of a piece of data</h3>
+          <p>Where the customer records go, step by step, from the database they live in: <code>follow</code> walks the links that carry them.</p>
+          <pre class="code" data-view="reference/customer-trail"></pre>
+          <p class="actions"><a href="reference/views/customer-trail.html">Open it in the site</a><a href="playground/#example=reference&amp;view=customer-trail">Edit it in the playground</a></p>
+        </div>
+      </article>
+      <article class="shot">
+        <a class="picture" href="reference/views/invoicing-process.html"><pre class="mermaid" data-sequence="reference/invoicing-process"></pre></a>
+        <div class="text">
+          <h3>A process, as a sequence</h3>
+          <p>The steps of the monthly invoicing, its calls and replies, drawn by Mermaid from the same links.</p>
+          <pre class="code" data-view="reference/invoicing-process"></pre>
+          <p class="actions"><a href="reference/views/invoicing-process.html">Open it in the site</a><a href="playground/#example=reference&amp;view=invoicing-process">Edit it in the playground</a></p>
+        </div>
+      </article>
+      <article class="shot tall">
+        <a class="picture" href="reference/views/invoicing-network.html"><img src="reference/views/invoicing-network.traversal.svg" alt="A process, through the network" loading="lazy"></a>
+        <div class="text">
+          <h3>A process, through the network</h3>
+          <p>The devices each step goes through, deduced from the subnets, their gateways, the cables and the VPN tunnels.</p>
+          <pre class="code" data-view="reference/invoicing-network"></pre>
+          <p class="actions"><a href="reference/views/invoicing-network.html">Open it in the site</a><a href="playground/#example=reference&amp;view=invoicing-network">Edit it in the playground</a></p>
+        </div>
+      </article>
+      <article class="shot">
+        <a class="picture" href="reference/views/inter-sites.html"><img src="reference/views/inter-sites.svg" alt="Flows lifted between sites" loading="lazy"></a>
+        <div class="text">
+          <h3>Flows lifted between sites</h3>
+          <p>The flows between the apps, lifted onto the sites that host them: what crosses from one site to another, and through what.</p>
+          <pre class="code" data-view="reference/inter-sites"></pre>
+          <p class="actions"><a href="reference/views/inter-sites.html">Open it in the site</a><a href="playground/#example=reference&amp;view=inter-sites">Edit it in the playground</a></p>
+        </div>
+      </article>
+      <article class="shot wide">
+        <a class="picture" href="reference/views/gdpr.html"><img src="reference/views/gdpr.svg" alt="Where personal data go" loading="lazy"></a>
+        <div class="text">
+          <h3>Where personal data go</h3>
+          <p>The links that carry personal data, with what they carry: the map a data protection officer asks for.</p>
+          <pre class="code" data-view="reference/gdpr"></pre>
+          <p class="actions"><a href="reference/views/gdpr.html">Open it in the site</a><a href="playground/#example=reference&amp;view=gdpr">Edit it in the playground</a></p>
+        </div>
+      </article>
+      <article class="shot">
+        <a class="picture" href="reference/views/security.html"><img src="reference/views/security.svg" alt="Network and security zones" loading="lazy"></a>
+        <div class="text">
+          <h3>Network and security zones</h3>
+          <p>The servers in their subnets and zones, the flows between them; a resource shared by several zones is drawn in each of them.</p>
+          <pre class="code" data-view="reference/security"></pre>
+          <p class="actions"><a href="reference/views/security.html">Open it in the site</a><a href="playground/#example=reference&amp;view=security">Edit it in the playground</a></p>
+        </div>
+      </article>
+      <article class="shot tall">
+        <a class="picture" href="reference/views/physical.html"><img src="reference/views/physical.racks.svg" alt="Racks" loading="lazy"></a>
+        <div class="text">
+          <h3>Racks</h3>
+          <p>The devices in their racks, at their height, as they are mounted.</p>
+          <pre class="code" data-view="reference/physical"></pre>
+          <p class="actions"><a href="reference/views/physical.html">Open it in the site</a><a href="playground/#example=reference&amp;view=physical">Edit it in the playground</a></p>
+        </div>
+      </article>
+      <article class="shot wide">
+        <a class="picture" href="reference/views/egress.html"><img src="reference/views/egress.svg" alt="What leaves for the internet" loading="lazy"></a>
+        <div class="text">
+          <h3>What leaves for the internet</h3>
+          <p>The flows leaving the network, through their egress, with the data they carry.</p>
+          <pre class="code" data-view="reference/egress"></pre>
+          <p class="actions"><a href="reference/views/egress.html">Open it in the site</a><a href="playground/#example=reference&amp;view=egress">Edit it in the playground</a></p>
+        </div>
+      </article>
+      <article class="shot">
+        <a class="picture" href="reference/views/web-servers-failure.html"><img src="reference/views/web-servers-failure.svg" alt="What fails with it" loading="lazy"></a>
+        <div class="text">
+          <h3>What fails with it</h3>
+          <p>A scenario: both web servers down, and everything that becomes unavailable with them, in red.</p>
+          <pre class="code" data-view="reference/web-servers-failure"></pre>
+          <p class="actions"><a href="reference/views/web-servers-failure.html">Open it in the site</a><a href="playground/#example=reference&amp;view=web-servers-failure">Edit it in the playground</a></p>
+        </div>
+      </article>
+      <article class="shot tall">
+        <a class="picture" href="reference/views/ownership.html"><img src="reference/views/ownership.svg" alt="Who owns it, who runs it" loading="lazy"></a>
+        <div class="text">
+          <h3>Who owns it, who runs it</h3>
+          <p>The resources grouped by the team that owns them, each with the one that operates it.</p>
+          <pre class="code" data-view="reference/ownership"></pre>
+          <p class="actions"><a href="reference/views/ownership.html">Open it in the site</a><a href="playground/#example=reference&amp;view=ownership">Edit it in the playground</a></p>
+        </div>
+      </article>
+      <article class="shot wide">
+        <a class="picture" href="retail/views/systems-stacked.html"><img src="retail/views/systems-stacked.svg" alt="Systems in layers" loading="lazy"></a>
+        <div class="text">
+          <h3>Systems in layers</h3>
+          <p>The systems stacked in the order of the chain, from top to bottom, their apps inside.</p>
+          <pre class="code" data-view="retail/systems-stacked"></pre>
+          <p class="actions"><a href="retail/views/systems-stacked.html">Open it in the site</a><a href="playground/#example=retail&amp;view=systems-stacked">Edit it in the playground</a></p>
+        </div>
+      </article>
+      <article class="shot wide tall">
+        <a class="picture" href="retail/views/building-blocks.html"><img src="retail/views/building-blocks.svg" alt="The building blocks, with a legend" loading="lazy"></a>
+        <div class="text">
+          <h3>The building blocks, with a legend</h3>
+          <p>Every app, job and database of four systems, and every flow, authentication and trigger between them; the legend says what each line means.</p>
+          <pre class="code" data-view="retail/building-blocks"></pre>
+          <p class="actions"><a href="retail/views/building-blocks.html">Open it in the site</a><a href="playground/#example=retail&amp;view=building-blocks">Edit it in the playground</a></p>
+        </div>
+      </article>
+      <article class="shot wide">
+        <a class="picture" href="retail/views/to-verify.html"><img src="retail/views/to-verify.svg" alt="What is not known yet" loading="lazy"></a>
+        <div class="text">
+          <h3>What is not known yet</h3>
+          <p>The links still assumed or doubtful: a model says what is left to confirm, and the drawing shows it, dashed or dotted.</p>
+          <pre class="code" data-view="retail/to-verify"></pre>
+          <p class="actions"><a href="retail/views/to-verify.html">Open it in the site</a><a href="playground/#example=retail&amp;view=to-verify">Edit it in the playground</a></p>
+        </div>
+      </article>
     </div>
   </div>
 </section>
@@ -300,18 +403,21 @@ for (const tab of document.querySelectorAll(".tabs button")) {
     }
   });
 }
-// A light highlighting of the example: keywords, strings, comments.
-const KEYWORDS = /(?<![\w-])(team|site|network|subnet|server|data|system|app|database|view|check|select|edges|render|group-by|where|expect|without|none|not|exists|lift|follow|via|from|on|title|message|owner|carries|hosting|cidr|ip)(?![\w-])/g;
-const escape = text => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-for (const pre of document.querySelectorAll(".example pre")) {
-  pre.innerHTML = pre.textContent.split("\n").map(line => {
-    const at = line.indexOf("//");
-    const [code, comment] = at >= 0 ? [line.slice(0, at), line.slice(at)] : [line, ""];
-    const body = code.split(/("[^"]*")/).map((part, i) => i % 2
-      ? `<span class="s">${escape(part)}</span>`
-      : escape(part).replace(KEYWORDS, '<span class="k">$1</span>')).join("");
-    return body + (comment ? `<span class="c">${escape(comment)}</span>` : "");
-  }).join("\n");
+// The sequence diagrams, drawn by Mermaid (from a CDN, as the sites do) once they come into view.
+const sequences = [...document.querySelectorAll("pre.mermaid")];
+if (sequences.length && "IntersectionObserver" in window) {
+  const observer = new IntersectionObserver(async (entries) => {
+    if (!entries.some((e) => e.isIntersecting)) return;
+    observer.disconnect();
+    try {
+      const { default: mermaid } = await import("https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs");
+      mermaid.initialize({ startOnLoad: false, theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default" });
+      await mermaid.run({ nodes: sequences });
+    } catch (error) {
+      console.warn("Mermaid unavailable:", error);
+    }
+  }, { rootMargin: "300px" });
+  for (const pre of sequences) observer.observe(pre);
 }
 </script>
 </body>

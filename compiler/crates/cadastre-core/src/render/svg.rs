@@ -25,7 +25,7 @@ pub(super) const FRAME_COLOR: &str = "#666666";
 /// the background, the default strokes, arrowheads and texts, the frame borders, the halo of the
 /// labels on edges and the icons turn light; the colors of the layers and of the style rules stay,
 /// and a text on a light fill of a style rule stays dark.
-const DARK_STYLE: &str = "\n<style>@media (prefers-color-scheme: dark) { \
+pub(crate) const DARK_STYLE: &str = "\n<style>@media (prefers-color-scheme: dark) { \
 .graph > polygon, [fill=\"white\"] { fill: #1b1f23 } \
 [stroke=\"black\"] { stroke: #d1d5db } [fill=\"black\"] { fill: #d1d5db } \
 [stroke=\"#999999\"] { stroke: #6b7280 } [style=\"color:black\"] { color: #d1d5db } \

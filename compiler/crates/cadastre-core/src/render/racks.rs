@@ -169,7 +169,9 @@ pub fn racks(scene: &Scene) -> (String, Vec<String>) {
         m = -MARGIN,
     );
     out.push_str(&body);
-    out.push_str("</svg>\n");
+    // Dark where it is shown dark, as the drawings of Graphviz.
+    out.push_str(super::svg::DARK_STYLE);
+    out.push_str("\n</svg>\n");
     (out, problems)
 }
 

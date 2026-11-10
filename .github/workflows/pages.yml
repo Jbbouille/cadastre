@@ -52,7 +52,10 @@ jobs:
           $cadastre site examples/retail --out site/retail --playground site/playground --title "Retail"
           $cadastre site examples/reference --out site/reference --playground site/playground --title "Reference"
           $cadastre site examples/tutorial --out site/tutorial --playground site/playground --title "Tutorial"
-          cp web/demo.html site/index.html
+      # The home page: its code colored by the grammar of the language, its gallery filled from
+      # the views of the examples.
+      - name: Home page
+        run: node web/build-demo.mjs --wasm compiler/target/wasm32-unknown-unknown/wasm/cadastre_wasm.wasm --examples examples --out site/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
