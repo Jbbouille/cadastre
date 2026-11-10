@@ -1,5 +1,9 @@
 //! Layout hints (spec § 6, `render`): `direction: rl | bt`, `stack`, and `layout: free` edges.
 
+use std::collections::HashMap;
+use std::io::Write;
+use std::process::{Command, Stdio};
+
 use cadastre_core::{Compilation, Severity, SourceFile, build, compile};
 
 /// Two clusters: iSCSI flows go from the second one to the storage VMs of the first one,
@@ -364,21 +368,21 @@ fn a_level_of_stack_side_by_side() {
     let edge = |from: &str, to: &str| {
         dot.lines().find(|l| l.trim_start().starts_with(&format!("{from} -> {to} "))).unwrap_or_default().to_owned()
     };
-    // Written from cluster-a, the first of the level (`lr`: Graphviz turns it), their arrows turned.
+    // Written from cluster-a, the first of the level, their arrows turned: Graphviz puts the tail
+    // of a flat edge first, on top in `lr`.
     let across = |a: &str, b: &str| format!("{}{}", edge(a, b), edge(b, a));
     assert!(across(&esx4, &datacore01).contains("minlen=0"), "{dot}");
     assert!(across(&esx4, &datacore02).contains("minlen=0"), "{dot}");
+    assert!(edge(&datacore01, &esx4).contains("[dir=back, minlen=0"), "{dot}");
     assert!(!dot.contains("constraint=false"), "{dot}");
     assert!(!edge(&datacore01, &datacore02).contains("minlen=0"), "{dot}");
-    // An invisible point before the level, pulling both clusters to the same rank.
-    assert!(dot.contains("level0 [shape=point, style=invis"), "{dot}");
-    assert!(
-        dot.contains(&format!(
-            "level0 -> {} [style=invis, weight=100, lhead=cluster_",
-            id(&dot, "server dc.lan.servers.esx4")
-        )),
-        "{dot}"
-    );
+    // An invisible point before each cluster, all on one rank, pulling the clusters to the same
+    // rank; the point and the nodes of its cluster in a group, the points in the order of the level.
+    assert!(dot.contains("  { rank=same; level0_0; level0_1; }"), "{dot}");
+    assert!(dot.contains("  level0_1 [shape=point, style=invis"), "{dot}");
+    assert!(dot.contains(&format!("  level0_1 -> {esx4} [style=invis, lhead=cluster_")), "{dot}");
+    assert!(dot.contains(&format!("  {esx4} [group=\"level0_1\"];")), "{dot}");
+    assert!(dot.contains("  level0_0 -> level0_1 [style=invis];"), "{dot}");
 }
 
 #[test]
@@ -406,7 +410,13 @@ fn cross_orders_a_level_of_stack() {
     let (esx4, datacore01) = (id(&dot, "server dc.lan.servers.esx4"), id(&dot, "app datacore01"));
     assert!(dot.contains("remincross=false"), "{dot}");
     assert!(dot.contains(&format!("  {datacore01} -> {esx4} [dir=back,")), "{dot}");
-    assert!(dot.lines().any(|l| l.ends_with("[style=invis, minlen=0];")), "{dot}");
+    assert!(dot.contains("  level0_0 -> level0_1 [style=invis];"), "{dot}");
+    // `cross` the other way: the points of the level the other way.
+    let other = output(
+        &compilation("dot { direction: tb, stack: [[cluster-a, cluster-b]], cross: [cluster-b, cluster-a] }", ""),
+        "dot",
+    );
+    assert!(other.contains("  level0_1 -> level0_0 [style=invis];"), "{other}");
     // Without `cross`, the order the level is written in: the same drawing.
     let same = output(&compilation("dot { direction: tb, stack: [[cluster-a, cluster-b]] }", ""), "dot");
     assert!(
@@ -430,4 +440,130 @@ fn cross_orders_a_level_of_stack() {
     // Written the other way, cluster-b first.
     let dot = output(&compilation("dot { direction: tb, stack: [[cluster-b, cluster-a]] }", ""), "dot");
     assert!(dot.contains(&format!("  {esx4} -> {datacore01} [dir=forward,")), "{dot}");
+}
+
+/// Two data centers on each of two levels: hosts reaching the storage VMs of both over iSCSI in
+/// the first ones, three servers in each of the others.
+const SITES: &str = r#"
+site dc-a {
+  server host-a3 { serial: "A3" }
+  server host-a1 { serial: "A1" }
+  virtual server vm-a { on: host-a1 }
+  server host-a2 { serial: "A2", -> store-a : iscsi [flow], -> store-b : iscsi [flow] }
+}
+site dc-b {
+  server host-b3 { serial: "B3" }
+  server host-b1 { serial: "B1" }
+  virtual server vm-b { on: host-b1 }
+  server host-b2 { serial: "B2", -> store-a : iscsi [flow], -> store-b : iscsi [flow] }
+}
+app store-a { on: vm-a, -> store-b [flow] }
+app store-b { on: vm-b, -> store-a [flow] }
+site dc-c { server host-c1 { serial: "C1" }, server host-c2 { serial: "C2" }, server host-c3 { serial: "C3" } }
+site dc-d { server host-d1 { serial: "D1" }, server host-d2 { serial: "D2" }, server host-d3 { serial: "D3" } }
+"#;
+
+/// The DOT of the storage view of [`SITES`], with these render options.
+fn sites(render: &str) -> String {
+    let view = format!(
+        "view storage {{\n  select server, app where exists(serial) or name in [store-a, store-b] group-by site > on\n  \
+         edges [flow] where proto = iscsi or source.name in [store-a, store-b]\n  \
+         style {{ edges where source.name in [store-a, store-b] and target.name in [store-a, store-b] {{ layout: free, routing: straight }} }}\n  \
+         render dot {{ satellites: false, {render} }}\n}}"
+    );
+    let c = compile(&[
+        SourceFile { path: "a.ca".into(), text: SITES.into() },
+        SourceFile { path: "v.cav".into(), text: view },
+    ]);
+    assert!(errors(&c).is_empty(), "{:?}", errors(&c));
+    output(&c, "dot")
+}
+
+/// The boxes of the frames of DOT graphs laid out by Graphviz, all in one process (it takes
+/// about a second to start on some machines), by their tooltip (`site dc-a`): `[x0, y0, x1, y1]`
+/// in points, the origin at the bottom left; `None` when Graphviz is not installed.
+fn frame_boxes(dots: &[String]) -> Option<Vec<HashMap<String, [f64; 4]>>> {
+    let mut child = Command::new("dot")
+        .arg("-Tjson")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+    // Written while Graphviz writes its layouts: a full pipe would block both.
+    let mut stdin = child.stdin.take()?;
+    let input = dots.concat();
+    let writer = std::thread::spawn(move || stdin.write_all(input.as_bytes()));
+    let output = child.wait_with_output().ok()?;
+    writer.join().ok()?.ok()?;
+    let layouts: Vec<serde_json::Value> =
+        serde_json::Deserializer::from_slice(&output.stdout).into_iter().collect::<Result<_, _>>().unwrap();
+    assert_eq!(layouts.len(), dots.len(), "a layout per graph");
+    let boxes = layouts.iter().map(|layout| {
+        let objects = layout["objects"].as_array().map(Vec::as_slice).unwrap_or_default();
+        objects
+            .iter()
+            .filter_map(|object| {
+                let bb: Vec<f64> = object["bb"].as_str()?.split(',').filter_map(|v| v.parse().ok()).collect();
+                Some((object["tooltip"].as_str()?.to_owned(), bb.try_into().ok()?))
+            })
+            .collect()
+    });
+    Some(boxes.collect())
+}
+
+#[test]
+fn the_items_of_a_level_of_stack_in_their_order_in_every_direction() {
+    // A flat edge between two frames does not order them: Graphviz orders the frames of a rank
+    // as blocks. The points before the items of a level are ordered instead, each in a group with
+    // the nodes of its item, which follows it.
+    let mut cases = Vec::new();
+    for direction in ["tb", "bt", "lr", "rl"] {
+        // As written; and the other way, by `cross`.
+        for (cross, levels) in [
+            ("", [["dc-a", "dc-b"], ["dc-c", "dc-d"]]),
+            (", cross: [dc-b, dc-a, dc-d, dc-c]", [["dc-b", "dc-a"], ["dc-d", "dc-c"]]),
+        ] {
+            let dot = sites(&format!("direction: {direction}, stack: [[dc-a, dc-b], [dc-c, dc-d]]{cross}"));
+            // In every direction, the points in the order across it: Graphviz puts the tail of a
+            // flat edge first, left to right (`tb`, `bt`) or top to bottom (`lr`, `rl`).
+            let (first, second) = if cross.is_empty() { ("0", "1") } else { ("1", "0") };
+            for level in 0..2 {
+                assert!(dot.contains(&format!("  {{ rank=same; level{level}_0; level{level}_1; }}")), "{dot}");
+                assert!(
+                    dot.contains(&format!("  level{level}_{first} -> level{level}_{second} [style=invis];")),
+                    "{direction}{cross}: {dot}"
+                );
+            }
+            // The nodes of a site in the group of its point.
+            for host in ["host-c1", "host-c2", "host-c3"] {
+                let node = id(&dot, &format!("server dc-c.{host}"));
+                assert!(dot.contains(&format!("  {node} [group=\"level1_0\"];")), "{dot}");
+            }
+            // The level ranked first reaches the points of the other one, not its sites: the
+            // points have a rank of their own (`bt`, `rl`: the second level is ranked first).
+            let later = if ["tb", "lr"].contains(&direction) { 1 } else { 0 };
+            assert!(dot.contains(&format!(" -> level{later}_0 [style=invis, ltail=cluster_")), "{dot}");
+            cases.push((direction, cross, levels, dot));
+        }
+    }
+    // Laid out by Graphviz: the sites of each level in that order, those of the second level (no
+    // edge between them) side by side, not on either side of the first level.
+    let dots: Vec<String> = cases.iter().map(|(.., dot)| dot.clone()).collect();
+    let Some(layouts) = frame_boxes(&dots) else {
+        eprintln!("Graphviz is not installed: layout not checked");
+        return;
+    };
+    for ((direction, cross, levels, dot), boxes) in cases.iter().zip(layouts) {
+        // Where a site starts and ends across the direction, in its order.
+        let span = |site: &str| {
+            let [x0, y0, x1, y1] = boxes[&format!("site {site}")];
+            if ["tb", "bt"].contains(direction) { (x0, x1) } else { (-y1, -y0) }
+        };
+        for (level, [a, b]) in levels.iter().enumerate() {
+            let gap = span(b).0 - span(a).1;
+            assert!(gap >= 0.0, "{direction}{cross}: {a} not before {b}: {boxes:?}\n{dot}");
+            assert!(level == 0 || gap < 36.0, "{direction}{cross}: {a} and {b} apart: {boxes:?}\n{dot}");
+        }
+    }
 }

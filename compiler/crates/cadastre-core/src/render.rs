@@ -1329,11 +1329,16 @@ impl<'a> Scene<'a> {
         }
     }
 
-    /// The items of each level of `stack` in their order across the direction of the layout: the
-    /// order of `cross` when it names some of them (the others then left where Graphviz puts
-    /// them), the order the level is written in otherwise; reversed for `lr` and `rl`, which
-    /// Graphviz turns after the layout.
+    /// The items of each level of `stack` in their order across the direction of the layout (left
+    /// to right in `tb` / `bt`, top to bottom in `lr` / `rl`): the order of `cross` when it names
+    /// some of them (the others then left where Graphviz puts them), the order the level is
+    /// written in otherwise. Graphviz puts the tail of a flat edge first in every direction.
     fn level_orders(&self) -> Vec<Vec<Placed>> {
+        self.stack().iter().map(|level| self.level_order(level)).filter(|ordered| ordered.len() > 1).collect()
+    }
+
+    /// The items of a level of `stack` in their order across the direction (see `level_orders`).
+    fn level_order(&self, level: &[Placed]) -> Vec<Placed> {
         let cross = &self.graph.options.cross;
         let position = |item: &Placed| {
             cross.iter().position(|name| match item {
@@ -1341,20 +1346,10 @@ impl<'a> Scene<'a> {
                 Placed::Node(n) => self.designates(name, *n),
             })
         };
-        self.stack()
-            .into_iter()
-            .filter_map(|level| {
-                let mut named: Vec<(usize, Placed)> =
-                    level.iter().filter_map(|item| position(item).map(|p| (p, *item))).collect();
-                named.sort_by_key(|(p, _)| *p);
-                let mut ordered: Vec<Placed> =
-                    if named.is_empty() { level } else { named.into_iter().map(|(_, item)| item).collect() };
-                if !self.graph.options.direction.vertical() {
-                    ordered.reverse();
-                }
-                (ordered.len() > 1).then_some(ordered)
-            })
-            .collect()
+        let mut named: Vec<(usize, Placed)> =
+            level.iter().filter_map(|item| position(item).map(|p| (p, *item))).collect();
+        named.sort_by_key(|(p, _)| *p);
+        if named.is_empty() { level.to_vec() } else { named.into_iter().map(|(_, item)| item).collect() }
     }
 
     /// The level ordered by `cross` holding a node, and the place of its item in that level.
@@ -1902,46 +1897,71 @@ pub fn dot(scene: &Scene) -> String {
         }
     }
 
-    // `stack`: invisible edges between consecutive items, from a node of each.
+    // The invisible point before an item of a level of several items of `stack` (see below).
+    let stack = scene.stack();
+    let level_point = |item: Placed| {
+        stack
+            .iter()
+            .enumerate()
+            .filter(|(_, level)| level.len() > 1)
+            .find_map(|(index, level)| level.iter().position(|&i| i == item).map(|at| format!("level{index}_{at}")))
+    };
+    // `stack`: invisible edges between consecutive items, from a node of each; to the point
+    // before the second one when it has one, so that the points have a rank of their own, with
+    // no other edge to cross than those of the level before reaching them all.
     for (first, second) in scene.stack_pairs() {
         let mut attrs = vec!["style=invis".to_owned()];
         if let Placed::Frame(g) = first {
             attrs.push(format!("ltail=cluster_{g}"));
         }
-        if let Placed::Frame(g) = second {
-            attrs.push(format!("lhead=cluster_{g}"));
-        }
+        let heads = match level_point(second) {
+            Some(point) => vec![point],
+            None => {
+                if let Placed::Frame(g) = second {
+                    attrs.push(format!("lhead=cluster_{g}"));
+                }
+                scene.anchors(second, false).into_iter().map(|b| scene.dot_id(b)).collect()
+            }
+        };
         let attrs = attrs.join(", ");
         for a in scene.anchors(first, true) {
-            for b in scene.anchors(second, false) {
-                let _ = writeln!(out, "  {} -> {} [{attrs}];", scene.dot_id(a), scene.dot_id(b));
+            for b in &heads {
+                let _ = writeln!(out, "  {} -> {b} [{attrs}];", scene.dot_id(a));
             }
         }
     }
-    // A level of several items: an invisible point before them, pulling them to the same rank,
-    // so that they stay side by side whatever the edges between the levels (a label laid out as
-    // a node takes a rank of its own).
-    for (index, level) in scene.stack().iter().enumerate().filter(|(_, level)| level.len() > 1) {
-        let _ = writeln!(out, "  level{index} [shape=point, style=invis, width=0, height=0, label=\"\"];");
-        for &item in level {
+    // A level of several items: an invisible point before each item, all on one rank, pulling
+    // the items to the rank after it, so that they stay side by side whatever the edges between
+    // the levels (a label laid out as a node takes a rank of its own).
+    //
+    // The items in their order across the direction: an invisible edge from each point to the
+    // next. Between two nodes outside the frames, Graphviz keeps such an edge flat, its tail
+    // first (left in `tb` / `bt`, on top in `lr` / `rl`): the points are in order. Between two
+    // frames, it would be dropped: Graphviz orders the frames of a rank as blocks, by crossing
+    // minimization. A point and the nodes of its item share a `group`, which makes the edges
+    // between them cost a thousand times more to cross (and weigh 100): an item out of the
+    // order of the points crosses the edges of the others, and Graphviz puts it back.
+    for (index, level) in stack.iter().enumerate().filter(|(_, level)| level.len() > 1) {
+        let point = |item: &Placed| format!("level{index}_{}", level.iter().position(|i| i == item).unwrap_or(0));
+        let points: Vec<String> = level.iter().map(point).collect();
+        let _ = writeln!(out, "  {{ rank=same; {}; }}", points.join("; "));
+        for (item, point) in level.iter().zip(&points) {
+            let _ = writeln!(
+                out,
+                "  {point} [shape=point, style=invis, width=0, height=0, label=\"\", group=\"{point}\"];"
+            );
             let head = match item {
                 Placed::Frame(g) => format!(", lhead=cluster_{g}"),
                 Placed::Node(_) => String::new(),
             };
-            for a in scene.anchors(item, false) {
-                let _ = writeln!(out, "  level{index} -> {} [style=invis, weight=100{head}];", scene.dot_id(a));
+            for a in scene.anchors(*item, false) {
+                let id = scene.dot_id(a);
+                let _ = writeln!(out, "  {id} [group=\"{point}\"];");
+                let _ = writeln!(out, "  {point} -> {id} [style=invis{head}];");
             }
         }
-    }
-    // The items of a level, in their order across the direction: an invisible edge of length
-    // zero from each to the next, which Graphviz draws flat, its tail first.
-    for ordered in scene.level_orders() {
-        for pair in ordered.windows(2) {
-            let first = scene.anchors(pair[0], false).first().copied();
-            let second = scene.anchors(pair[1], false).first().copied();
-            if let (Some(a), Some(b)) = (first, second) {
-                let _ = writeln!(out, "  {} -> {} [style=invis, minlen=0];", scene.dot_id(a), scene.dot_id(b));
-            }
+        for pair in scene.level_order(level).windows(2) {
+            let _ = writeln!(out, "  {} -> {} [style=invis];", point(&pair[0]), point(&pair[1]));
         }
     }
 
