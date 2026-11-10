@@ -1892,6 +1892,8 @@ pub fn dot(scene: &Scene) -> String {
         if let Some(link) = scene.edge_link(index, edge) {
             attrs.push(format!("URL={}", quote(&link)));
         }
+        // Its place in the view, for an editor to find where its links are written.
+        attrs.push(format!("id=\"graph-edge-{index}\""));
         let attrs = attrs.join(", ");
         let (mut from, mut to, mut arrow) = scene.drawn(edge);
         // Between two items of a level, written in their order: Graphviz puts the tail of an edge

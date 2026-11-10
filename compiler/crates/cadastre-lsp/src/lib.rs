@@ -14,6 +14,9 @@
 //! - `cadastre/icons` `{ svg }` → the SVG laid out from such DOT, with the icons of the kinds.
 //! - `cadastre/cytoscape` `{ uri, view, layout }` → the elements of the view to move by hand,
 //!   laid out as `layout`, the `-Tjson` output of its DOT.
+//! - `cadastre/source` `{ uri, view, node?, edge? }` → `[{ location, label }]`, where an item of
+//!   the drawing of a view is written: a node (`n12` in the DOT) its resource, an edge (its place
+//!   in the view, `graph-edge-3`) each of its links, for a click on the preview.
 
 mod hover;
 mod position;
@@ -436,6 +439,16 @@ impl Server<'_> {
                     None => Response::new_err(request.id, ErrorCode::InvalidParams as i32, "not a file".into()),
                 }
             }
+            "cadastre/source" => {
+                let params: SourceParams = serde_json::from_value(request.params)?;
+                match path_of(&params.uri) {
+                    Some(path) => {
+                        self.project(&path)?;
+                        Response::new_ok(request.id, self.sources(&path, &params))
+                    }
+                    None => Response::new_err(request.id, ErrorCode::InvalidParams as i32, "not a file".into()),
+                }
+            }
             "cadastre/icons" => {
                 let params: IconsParams = serde_json::from_value(request.params)?;
                 Response::new_ok(request.id, cadastre_core::render::with_icons(&params.svg))
@@ -655,6 +668,59 @@ impl Server<'_> {
         let text = &project.files[span.file.0 as usize].text;
         let range = LineIndex::new(text).range(span.start, span.end, self.encoding);
         Location::new(self.uri(&project.paths[span.file.0 as usize]), range)
+    }
+
+    /// Where an item of the drawing of a view is written (`cadastre/source`): the declaration of
+    /// the resource of a node; each link of an edge, otherwise the resource declaring the
+    /// reference it draws.
+    fn sources(&self, path: &Path, params: &SourceParams) -> serde_json::Value {
+        let Some(project) = self.projects.get(&self.root_of(path)) else {
+            return serde_json::json!([]);
+        };
+        let compilation = &project.compilation;
+        let registry = &compilation.registry;
+        let mut places: Vec<(cadastre_core::source::Span, String)> = Vec::new();
+        if let Some(node) = params.node.filter(|&n| (n as usize) < registry.resources.len()) {
+            let id = ResourceId(node);
+            places.push((registry.resource(id).name_span, registry.qualified_name(id)));
+        }
+        if let Some(index) = params.edge
+            && let Some(view) = compilation.plans.views.iter().find(|v| v.name == params.view)
+        {
+            let graph = cadastre_core::view::evaluate(view, registry, &compilation.model, &mut Vec::new());
+            if let Some(edge) = graph.edges.get(index) {
+                let links: BTreeSet<usize> = edge.links.iter().copied().collect();
+                for link in links {
+                    let written = &registry.links[link];
+                    let ends = compilation.model.link_ends.get(link).copied().flatten();
+                    let label = match ends {
+                        Some((source, target)) => {
+                            let port =
+                                written.port.as_ref().map(|p| format!(" : {}", p.normalized())).unwrap_or_default();
+                            let name = written.name.as_ref().map(|(n, _)| format!(" as {n}")).unwrap_or_default();
+                            format!(
+                                "{} -> {}{port}{name}",
+                                registry.qualified_name(source),
+                                registry.qualified_name(target)
+                            )
+                        }
+                        None => "link".to_owned(),
+                    };
+                    places.push((written.span, label));
+                }
+                if places.is_empty() {
+                    for &(holder, _) in &edge.declared {
+                        places.push((registry.resource(holder).name_span, registry.qualified_name(holder)));
+                    }
+                }
+            }
+        }
+        serde_json::Value::Array(
+            places
+                .into_iter()
+                .map(|(span, label)| serde_json::json!({ "location": self.location(project, span), "label": label }))
+                .collect(),
+        )
     }
 
     /// The project of a file and the resources designated at a position, from its last compilation.
@@ -946,6 +1012,16 @@ struct DrawioParams {
 }
 
 #[derive(serde::Deserialize)]
+struct SourceParams {
+    uri: Url,
+    view: String,
+    /// A node of the drawing: the index of its resource (`n12`).
+    node: Option<u32>,
+    /// An edge of the drawing: its place in the view (`graph-edge-3`).
+    edge: Option<usize>,
+}
+
+#[derive(serde::Deserialize)]
 struct ViewParams {
     uri: Url,
     view: Option<String>,
@@ -1198,5 +1274,64 @@ app crm { owner: t }
         assert_eq!((b[0].range.start.line, b[0].range.start.character), (1, 8));
         // The project has an error: its views are not rendered.
         assert!(server.projects[&root].compilation.diagnostics.iter().any(|d| d.severity == Severity::Error));
+    }
+
+    #[test]
+    fn where_an_item_of_a_drawing_is_written() {
+        let root = std::env::temp_dir().join(format!("cadastre-lsp-source-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(
+            root.join("a.ca"),
+            "app shop {
+  -> db : tcp/5432 [flow]
+}
+database db
+",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("v.cav"),
+            "view v {
+  select app, database
+  edges [flow]
+}
+",
+        )
+        .unwrap();
+        let (server_side, _client_side) = Connection::memory();
+        let mut server = Server {
+            connection: &server_side,
+            encoding: Encoding::Utf16,
+            codicons: true,
+            config: Config::default(),
+            language: cadastre_core::Language::default(),
+            roots: vec![root.clone()],
+            disk: HashMap::new(),
+            undecodable: HashMap::new(),
+            scanned: HashSet::new(),
+            open: HashMap::new(),
+            uris: HashMap::new(),
+            published: HashMap::new(),
+            projects: HashMap::new(),
+            next_request: 0,
+        };
+        server.compile(&root).unwrap();
+        let path = root.join("v.cav");
+        let uri = Url::from_file_path(&path).unwrap();
+        let place = |node: Option<u32>, edge: Option<usize>| {
+            server.sources(&path, &SourceParams { uri: uri.clone(), view: "v".into(), node, edge })
+        };
+        // The edge: its link, on the second line of a.ca.
+        let edge = place(None, Some(0));
+        std::fs::remove_dir_all(&root).unwrap();
+        assert_eq!(edge[0]["label"], "shop -> db : tcp/5432", "{edge}");
+        assert!(edge[0]["location"]["uri"].as_str().unwrap().ends_with("a.ca"), "{edge}");
+        assert_eq!(edge[0]["location"]["range"]["start"]["line"], 1, "{edge}");
+        // A node: the declaration of its resource.
+        let shop = server.projects[&root].compilation.registry.ids().next().unwrap();
+        let node = place(Some(shop.0), None);
+        assert_eq!(node[0]["label"], "shop", "{node}");
+        assert_eq!(node[0]["location"]["range"]["start"]["line"], 0, "{node}");
+        assert_eq!(place(None, Some(9)), serde_json::json!([]));
     }
 }

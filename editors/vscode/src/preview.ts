@@ -20,6 +20,12 @@ export interface Rendering {
   ok: boolean;
 }
 
+// Where an item of a drawing is written (`cadastre/source`).
+interface Place {
+  location: { uri: string; range: { start: { line: number; character: number }; end: { line: number; character: number } } };
+  label: string;
+}
+
 export class Preview {
   private static readonly panels = new Map<string, Preview>();
 
@@ -53,6 +59,7 @@ export class Preview {
       if (message?.type === "ready") preview.update();
       if (message?.type === "build") onBuild();
       if (message?.type === "open" && typeof message.url === "string") open(message.url);
+      if (message?.type === "source") void preview.reveal(message.node, message.edge);
       if (message?.type === "save" && typeof message.content === "string") {
         void save(view, message.content, message.format === "xlsx" ? "xlsx" : "drawio");
       }
@@ -72,6 +79,30 @@ export class Preview {
     private readonly uri: string,
     private readonly view: string,
   ) {}
+
+  // Opens where an item of the drawing is written: the resource of a node, the link of an edge;
+  // a list to choose from when an edge draws several links.
+  private async reveal(node: unknown, edge: unknown): Promise<void> {
+    const client = this.client();
+    if (!client) return;
+    const places = await client.sendRequest<Place[]>("cadastre/source", {
+      uri: this.uri,
+      view: this.view,
+      node: typeof node === "number" ? node : undefined,
+      edge: typeof edge === "number" ? edge : undefined,
+    });
+    let place: Place | undefined = places[0];
+    if (places.length > 1) {
+      const items = places.map((p) => ({ label: p.label, description: vscode.workspace.asRelativePath(vscode.Uri.parse(p.location.uri)), place: p }));
+      place = (await vscode.window.showQuickPick(items, { placeHolder: "The links of this edge" }))?.place;
+    }
+    if (!place) return;
+    const { start, end } = place.location.range;
+    await vscode.window.showTextDocument(vscode.Uri.parse(place.location.uri), {
+      viewColumn: vscode.ViewColumn.One,
+      selection: new vscode.Range(start.line, start.character, end.line, end.character),
+    });
+  }
 
   private schedule(): void {
     clearTimeout(this.timer);

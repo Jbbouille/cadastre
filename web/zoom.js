@@ -71,6 +71,8 @@ svg.cz-focus g.node:not(.cz-lit), svg.cz-focus g.edge:not(.cz-lit) { opacity: .1
         if (!g.matches(".node, .edge, .cluster")) continue;
         const key = title ? title.textContent : "";
         if (title) title.remove();
+        // What the item is, for the host: `n12` a node, `n3->n5` an edge, `e3` the label of one.
+        if (key) g.dataset.key = key;
         for (const a of g.querySelectorAll("a")) {
           tip = tip || a.getAttributeNS(XLINK, "title") || a.getAttribute("xlink:title") || a.getAttribute("title") || "";
           a.removeAttributeNS(XLINK, "title");

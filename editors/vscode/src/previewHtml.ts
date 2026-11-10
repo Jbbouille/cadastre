@@ -89,15 +89,32 @@ export function previewHtml(view: string, resources: PreviewResources): string {
     zoomed = zoom ? { format: state.format, zoom } : null;
   }
 
-  // A click on a link (the url or console of a resource) opens it outside the panel.
+  // A click on a link (the url or console of a resource) opens it outside the panel; on an edge,
+  // on a node without a link, or with Ctrl (Cmd), where it is written.
   function links(root) {
     root.addEventListener("click", (event) => {
       const link = event.target.closest?.("a");
       const href = link && (link.getAttribute("href") || link.getAttribute("xlink:href"));
+      const item = event.target.closest?.("svg g.node, svg g.edge");
+      const source = item && sourceOf(item);
+      if (source && (!href || event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        vscode.postMessage({ type: "source", ...source });
+        return;
+      }
       if (!href || href.startsWith("#")) return;
       event.preventDefault();
       vscode.postMessage({ type: "open", url: href });
     });
+  }
+  // The item of the drawing a click designates (zoom.js keeps the DOT id as \`data-key\`): a node
+  // (\`n12\`, its resource), an edge (\`graph-edge-3\`, its place in the view), or the label of an
+  // edge drawn as a point (\`e3\`).
+  function sourceOf(item) {
+    const edge = /^graph-edge-(\\d+)$/.exec(item.id) || /^e(\\d+)$/.exec(item.dataset.key || "");
+    if (edge) return { edge: Number(edge[1]) };
+    const node = /^n(\\d+)/.exec(item.dataset.key || "");
+    return node ? { node: Number(node[1]) } : null;
   }
   links(content);
 
