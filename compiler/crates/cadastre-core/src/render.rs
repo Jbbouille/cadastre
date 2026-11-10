@@ -1532,7 +1532,7 @@ pub(crate) fn base64(bytes: &[u8]) -> String {
     out
 }
 
-fn node_id(id: ResourceId) -> String {
+pub(crate) fn node_id(id: ResourceId) -> String {
     format!("n{}", id.0)
 }
 

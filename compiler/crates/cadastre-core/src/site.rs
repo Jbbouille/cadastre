@@ -61,13 +61,111 @@ pub fn dots(compilation: &Compilation) -> Vec<(String, String)> {
         .collect()
 }
 
+/// The DOT of the neighbourhood of each resource exchanging with others, by qualified name:
+/// itself, in bold, the resources at the other ends of its links, and those links, drawn in the
+/// direction of the data (`orientation: data`), each node leading to its page and each edge of a
+/// link to the page of its link. One view of every link is evaluated, then cut around each.
+pub fn neighbourhoods(compilation: &Compilation) -> HashMap<String, String> {
+    use crate::plan::{EdgeSelector, Name, Render, Select, Selector, View};
+    use crate::registry::{Attribute, Value as Literal, ValueKind};
+    let (registry, model) = (&compilation.registry, &compilation.model);
+    if compilation.diagnostics.iter().any(|d| d.severity == crate::diagnostic::Severity::Error) {
+        return HashMap::new();
+    }
+    let span = crate::source::Span { file: crate::source::FileId(0), start: 0, end: 0, line: 0, column: 0 };
+    let name = |text: &str| Name { text: text.to_owned(), span };
+    let (mut kinds, mut layers) = (std::collections::BTreeSet::new(), std::collections::BTreeSet::new());
+    for (index, link) in registry.links.iter().enumerate() {
+        if let Some((source, target)) = model.link_ends.get(index).copied().flatten() {
+            kinds.insert(registry.resource(source).kind.clone());
+            kinds.insert(registry.resource(target).kind.clone());
+            layers.extend(link.layers.iter().map(|(l, _)| l.clone()));
+        }
+    }
+    if layers.is_empty() {
+        return HashMap::new();
+    }
+    let option = |key: &str, value: &str| Attribute {
+        key: key.to_owned(),
+        key_span: span,
+        value: Literal { kind: ValueKind::Identifier, raw: value.to_owned(), span },
+    };
+    let view = View {
+        name: "neighbourhood".to_owned(),
+        span,
+        select: Some(Select {
+            kinds: kinds.iter().map(|k| name(k)).collect(),
+            filter: None,
+            with_ends: false,
+            without_isolated: true,
+            group_by: Vec::new(),
+            span,
+        }),
+        edges: vec![EdgeSelector {
+            selector: Selector::Layers(layers.iter().map(|l| name(l)).collect()),
+            filter: None,
+            span,
+        }],
+        through_show: false,
+        edge_options: Vec::new(),
+        style: Vec::new(),
+        render: Some(Render {
+            formats: vec![name("svg")],
+            options: vec![option("orientation", "data"), option("direction", "lr")],
+            span,
+        }),
+        zones: Vec::new(),
+        attributes: Vec::new(),
+    };
+    let graph = crate::view::evaluate(&view, registry, model, &mut Vec::new());
+    let mut around: HashMap<crate::registry::ResourceId, Vec<usize>> = HashMap::new();
+    for (index, edge) in graph.edges.iter().enumerate() {
+        around.entry(edge.source).or_default().push(index);
+        if edge.target != edge.source {
+            around.entry(edge.target).or_default().push(index);
+        }
+    }
+    let mut out = HashMap::new();
+    for (&id, edges) in &around {
+        let edges: Vec<crate::view::GraphEdge> = edges.iter().map(|&e| graph.edges[e].clone()).collect();
+        let ends: std::collections::BTreeSet<crate::registry::ResourceId> =
+            edges.iter().flat_map(|e| [e.source, e.target]).collect();
+        let cut = crate::view::Graph {
+            nodes: graph.nodes.iter().copied().filter(|n| ends.contains(n)).collect(),
+            edges,
+            groups: Vec::new(),
+            node_group: HashMap::new(),
+            ..graph.clone()
+        };
+        let scene = crate::render::Scene::new(&cut, &compilation.plans, registry, model)
+            .with_language(compilation.language)
+            .with_page_links("../resources/")
+            .with_link_pages("../links/", None);
+        let mut dot = crate::render::dot(&scene);
+        // The resource of the page in bold.
+        if let Some(end) = dot.rfind('}') {
+            dot.insert_str(end, &format!("  {} [penwidth=2.5];\n", crate::render::node_id(id)));
+        }
+        out.insert(registry.qualified_name(id), dot);
+    }
+    out
+}
+
 /// Builds the site.
 pub fn build(compilation: &Compilation, files: &[SourceFile], options: &Options) -> Vec<File> {
     let links = match api::links(compilation, files) {
         Value::Array(links) => links,
         _ => Vec::new(),
     };
-    let site = Site { compilation, files, options, project: api::project(compilation, files, options.name), links };
+    let neighbourhoods = if options.viz.is_some() { neighbourhoods(compilation) } else { HashMap::new() };
+    let site = Site {
+        compilation,
+        files,
+        options,
+        project: api::project(compilation, files, options.name),
+        links,
+        neighbourhoods,
+    };
     site.build()
 }
 
@@ -78,6 +176,8 @@ struct Site<'a> {
     project: Value,
     /// The records of the links (`api/links.json`), each with its identifier.
     links: Vec<Value>,
+    /// The DOT of the neighbourhood of each resource exchanging with others.
+    neighbourhoods: HashMap<String, String>,
 }
 
 /// The file name of a resource page or record: its qualified name, safe as a file name.
@@ -1119,6 +1219,16 @@ impl Site<'_> {
             let owned: Vec<String> =
                 records.iter().filter(|r| r["owner"] == id && r["id"] != id).map(|r| text(&r["id"])).collect();
             list(&mut body, "Owns", &owned);
+        }
+        // What it exchanges with, drawn by the browser.
+        if let (Some(viz), Some(dot)) = (self.options.viz, self.neighbourhoods.get(&id)) {
+            body.push_str(&format!(
+                "<h2>{}</h2>\n<figure class=\"diagram\" data-viz=\"{}\"><script type=\"text/vnd.graphviz\">{}</script><p class=\"muted\">{}</p></figure>\n",
+                self.t("Exchanges"),
+                esc(viz),
+                dot.replace("</script", "<\\/script"),
+                self.t("Drawing…")
+            ));
         }
         for (key, title) in [("outgoing", "Outgoing links"), ("incoming", "Incoming links")] {
             let links = record[key].as_array().cloned().unwrap_or_default();

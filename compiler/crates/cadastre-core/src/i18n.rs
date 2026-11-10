@@ -95,6 +95,7 @@ const FR: &[(&str, &str)] = &[
     ("both ways", "dans les deux sens"),
     ("step", "étape"),
     ("Steps of processes", "Étapes de processus"),
+    ("Exchanges", "Échanges"),
     ("Where the data go, seen from this resource (exchange)", "Où vont les données, vu de cette ressource (exchange)"),
     (
         "Where the data go: → from the first column to the second, ← back (exchange)",

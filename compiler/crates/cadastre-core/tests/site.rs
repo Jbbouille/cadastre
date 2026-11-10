@@ -178,6 +178,14 @@ fn a_view_without_svg_is_drawn_in_the_browser() {
     assert!(view.contains("text/vnd.graphviz") && view.contains("digraph"), "{view}");
     // The nodes of the DOT link to the pages of their resources.
     assert!(view.contains("URL=\"../resources/sales.shop.html\""), "{view}");
+    // Its edges lead to the pages of their links.
+    assert!(view.contains("URL=\"../links/sales.shop--sales.orders--https-443.html\""), "{view}");
+    // The page of a resource draws what it exchanges with, itself in bold.
+    let shop = &site["resources/sales.shop.html"];
+    assert!(shop.contains("<h2>Exchanges</h2>") && shop.contains("data-viz="), "{shop}");
+    assert!(shop.contains("penwidth=2.5") && shop.contains("URL=\"../resources/sales.orders.html\""), "{shop}");
+    // Nothing to draw for a resource without links.
+    assert!(!site["resources/spare.html"].contains("Exchanges"));
     let none = built(&HashMap::new(), None);
     assert!(none["views/apps.html"].contains("<pre class=\"dot\">"));
 }
