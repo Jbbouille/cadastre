@@ -2381,7 +2381,9 @@ fn provenance(ctx: &Ctx, edge: &BaseEdge) -> String {
             let link = &ctx.registry.links[*i];
             let port = link.port.as_ref().map(|p| format!(" : {}", p.normalized())).unwrap_or_default();
             let named = link.name.as_ref().map(|(n, _)| format!(" as {n}")).unwrap_or_default();
-            format!("{} -> {}{port}{named}", name(edge.source), name(edge.target))
+            // The way of its data, each link of a merged edge its own.
+            let exchange = link.attribute("exchange").map(|a| format!(" ({})", a.value.raw)).unwrap_or_default();
+            format!("{} -> {}{port}{named}{exchange}", name(edge.source), name(edge.target))
         }
         Origin::Reference(key) => format!("{} {key} {}", name(edge.source), name(edge.target)),
         Origin::Connector(r) => name(*r),

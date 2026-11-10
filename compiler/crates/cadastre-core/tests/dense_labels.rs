@@ -32,7 +32,13 @@ fn a_dense_diagram_leaves_its_labels_to_the_tooltips() {
     let outputs = outputs("view v { select app, saas\n  edges [flow]\n  render svg, mermaid, text }");
     let dot = &outputs.iter().find(|o| o.format == "svg").unwrap().content;
     assert!(!dot.contains("label=\"https/443\""), "{dot}");
-    assert!(dot.contains("tooltip=\"from: hub -> svc-a : https/443"), "{dot}");
+    // The ends and the direction of the data first, then where the edge comes from.
+    assert!(
+        dot.contains(
+            "tooltip=\"hub → svc-a : https/443\\ndata: direction not stated (no exchange)\\nfrom: hub -> svc-a : https/443"
+        ),
+        "{dot}"
+    );
     let mermaid = &outputs.iter().find(|o| o.format == "mermaid").unwrap().content;
     assert!(!mermaid.contains("https/443"), "{mermaid}");
     // The text keeps them.

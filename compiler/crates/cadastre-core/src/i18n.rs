@@ -240,6 +240,10 @@ const FR: &[(&str, &str)] = &[
     ("(drawn here for the exchanges of this frame; {where})", "(dessiné ici pour les échanges de ce cadre ; {where})"),
     ("at the root of the view", "à la racine de la vue"),
     ("in {frame}", "dans {frame}"),
+    ("data: {source} → {target} (push, sent)", "données : {source} → {target} (push, envoyées)"),
+    ("data: {target} → {source} (pull, fetched)", "données : {target} → {source} (pull, récupérées)"),
+    ("data: {source} ↔ {target} (both ways)", "données : {source} ↔ {target} (dans les deux sens)"),
+    ("data: direction not stated (no exchange)", "données : sens non précisé (pas d'exchange)"),
 ];
 
 // ---------------------------------------------------------------------------
@@ -901,7 +905,9 @@ mod tests {
     #[test]
     fn every_french_text_keeps_the_placeholders_of_its_english() {
         for (en, fr) in FR {
-            for placeholder in ["{n}", "{kind}", "{name}", "{where}", "{frame}", "{version}", "{example}"] {
+            for placeholder in
+                ["{n}", "{kind}", "{name}", "{where}", "{frame}", "{version}", "{example}", "{source}", "{target}"]
+            {
                 assert_eq!(en.contains(placeholder), fr.contains(placeholder), "{en}");
             }
         }

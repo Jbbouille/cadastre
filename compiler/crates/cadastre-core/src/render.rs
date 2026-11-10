@@ -632,20 +632,59 @@ impl<'a> Scene<'a> {
         })
     }
 
+    /// What a reader calls a resource: its `label`, otherwise its name.
+    fn label(&self, id: ResourceId) -> String {
+        view::attribute_text(&self.ctx(), id, "label").into_iter().next().unwrap_or_else(|| self.name(id).to_owned())
+    }
+
+    /// The first lines of the tooltip of an edge of links: its ends in the direction of the
+    /// connection, with its ports, then where the data go, in words, whatever the direction of
+    /// the drawing (`exchange`): with `push` or `pull` alone, the arrow of the connection does
+    /// not say it.
+    fn edge_heading(&self, edge: &GraphEdge) -> Vec<String> {
+        if edge.links.is_empty() || edge.symmetric {
+            return Vec::new();
+        }
+        let (source, target) = (self.label(edge.source), self.label(edge.target));
+        let ports = if edge.ports.is_empty() {
+            String::new()
+        } else {
+            format!(" : {}", edge.ports.iter().cloned().collect::<Vec<_>>().join(", "))
+        };
+        let data = match edge.exchange {
+            Some(Exchange::Push) => self.t("data: {source} → {target} (push, sent)"),
+            Some(Exchange::Pull) => self.t("data: {target} → {source} (pull, fetched)"),
+            Some(Exchange::Both) => self.t("data: {source} ↔ {target} (both ways)"),
+            None => self.t("data: direction not stated (no exchange)"),
+        };
+        vec![format!("{source} → {target}{ports}"), data.replace("{source}", &source).replace("{target}", &target)]
+    }
+
     fn edge_tooltip(&self, edge: &GraphEdge) -> String {
+        self.edge_notes(edge, true)
+    }
+
+    /// What an edge says beyond its label: its heading first (`edge_heading`) when `heading`,
+    /// for the tooltips; without it for the text output, which writes the edge on its line.
+    fn edge_notes(&self, edge: &GraphEdge, heading: bool) -> String {
         // An edge of `merge: pair`: each way on its own, its ends first.
         if let Some(directions) = &edge.directions {
             return directions
                 .iter()
                 .map(|part| {
-                    let mut lines = vec![format!("{} → {}", self.name(part.source), self.name(part.target))];
-                    lines.extend(self.edge_tooltip(part).lines().map(|line| format!("  {line}")));
-                    lines.join("\n")
+                    let notes = self.edge_notes(part, heading);
+                    let mut lines = notes.lines();
+                    let mut out = match heading && !self.edge_heading(part).is_empty() {
+                        false => vec![format!("{} → {}", self.name(part.source), self.name(part.target))],
+                        true => lines.next().map(str::to_owned).into_iter().collect(),
+                    };
+                    out.extend(lines.map(|line| format!("  {line}")));
+                    out.join("\n")
                 })
                 .collect::<Vec<_>>()
                 .join("\n");
         }
-        let mut lines = Vec::new();
+        let mut lines = if heading { self.edge_heading(edge) } else { Vec::new() };
         if let Some(step) = edge.step {
             lines.push(format!("step: {step}"));
         }
@@ -2326,7 +2365,7 @@ pub fn text(scene: &Scene) -> String {
             scene.registry.qualified_name(edge.target),
             if label.is_empty() { String::new() } else { format!("  [{label}]") }
         );
-        for line in scene.edge_tooltip(edge).lines() {
+        for line in scene.edge_notes(edge, false).lines() {
             let _ = writeln!(out, "      {line}");
         }
     }
