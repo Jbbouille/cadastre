@@ -89,7 +89,7 @@ svg.cz-focus g.node:not(.cz-lit), svg.cz-focus g.edge:not(.cz-lit) { opacity: .1
       if (tip) g.dataset.tip = tip;
       // An edge pointed at from a few pixels away rather than exactly on its line.
       if (g.matches(".edge")) {
-        const path = g.querySelector("path");
+        const path = g.querySelector("path, polyline");
         if (path) {
           const hit = path.cloneNode(false);
           hit.removeAttribute("id");

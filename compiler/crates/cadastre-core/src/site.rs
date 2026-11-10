@@ -54,7 +54,8 @@ pub fn dots(compilation: &Compilation) -> Vec<(String, String)> {
             let scene =
                 crate::render::Scene::new(&graph, &compilation.plans, &compilation.registry, &compilation.model)
                     .with_language(compilation.language)
-                    .with_page_links("../resources/");
+                    .with_page_links("../resources/")
+                    .with_link_pages("../links/", Some(""));
             (view.name.clone(), crate::render::dot(&scene))
         })
         .collect()
@@ -62,7 +63,11 @@ pub fn dots(compilation: &Compilation) -> Vec<(String, String)> {
 
 /// Builds the site.
 pub fn build(compilation: &Compilation, files: &[SourceFile], options: &Options) -> Vec<File> {
-    let site = Site { compilation, files, options, project: api::project(compilation, files, options.name) };
+    let links = match api::links(compilation, files) {
+        Value::Array(links) => links,
+        _ => Vec::new(),
+    };
+    let site = Site { compilation, files, options, project: api::project(compilation, files, options.name), links };
     site.build()
 }
 
@@ -71,6 +76,8 @@ struct Site<'a> {
     files: &'a [SourceFile],
     options: &'a Options<'a>,
     project: Value,
+    /// The records of the links (`api/links.json`), each with its identifier.
+    links: Vec<Value>,
 }
 
 /// The file name of a resource page or record: its qualified name, safe as a file name.
@@ -117,7 +124,7 @@ impl Site<'_> {
         let index = api::index(self.compilation, self.files);
         out.push(File { path: "api/project.json".into(), content: pretty(&self.project) });
         out.push(File { path: "api/resources.json".into(), content: pretty(&index) });
-        out.push(File { path: "api/links.json".into(), content: pretty(&api::links(self.compilation, self.files)) });
+        out.push(File { path: "api/links.json".into(), content: pretty(&Value::Array(self.links.clone())) });
         out.push(File { path: "api/checks.json".into(), content: pretty(&api::checks(self.compilation, self.files)) });
         out.push(File { path: "api/search.json".into(), content: pretty(&api::search(self.compilation)) });
         let mut records = Vec::new();
@@ -179,6 +186,43 @@ impl Site<'_> {
                 content: self.view_page(view, own.get(&text(&view["name"]))),
             });
         }
+        // The pages of the links: the views drawing each (to its edge), the steps taking it.
+        let mut drawn: BTreeMap<String, Vec<(String, String, usize)>> = BTreeMap::new();
+        for view in &views {
+            for (index, edge) in view["edges"].as_array().into_iter().flatten().enumerate() {
+                for id in strings(&edge["links"]) {
+                    drawn.entry(id).or_default().push((text(&view["name"]), text(&view["title"]), index));
+                }
+            }
+        }
+        let ids = self.compilation.model.link_ids(&self.compilation.registry);
+        let mut steps: BTreeMap<String, Vec<(String, usize)>> = BTreeMap::new();
+        for (process, events) in &self.compilation.model.processes {
+            for (number, step) in events.iter().filter_map(|e| e.step()).enumerate() {
+                for &link in &step.links {
+                    if let Some(Some(id)) = ids.get(link) {
+                        let process = self.compilation.registry.qualified_name(*process);
+                        steps.entry(id.clone()).or_default().push((process, number + 1));
+                    }
+                }
+            }
+        }
+        for list in steps.values_mut() {
+            list.sort();
+            list.dedup();
+        }
+        out.push(File { path: "links.html".into(), content: self.links_page() });
+        for link in &self.links {
+            let id = text(&link["id"]);
+            out.push(File {
+                path: format!("links/{}.html", file_name(&id)),
+                content: self.link_page(
+                    link,
+                    drawn.get(&id).map(Vec::as_slice).unwrap_or_default(),
+                    steps.get(&id).map(Vec::as_slice).unwrap_or_default(),
+                ),
+            });
+        }
         for record in &records {
             let id = text(&record["id"]);
             let views_of = appears.get(&id).cloned().unwrap_or_default();
@@ -238,7 +282,7 @@ impl Site<'_> {
             "<!doctype html>\n<html lang=\"{lang}\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n\
              <title>{title} · {name}</title>\n<link rel=\"stylesheet\" href=\"{root}site.css\">\n</head>\n\
              <body data-root=\"{root}\" data-playground=\"{has_playground}\" data-cannot-draw=\"{cannot_draw}\" data-no-graphviz=\"{no_graphviz}\">\n<header>\n<a class=\"brand\" href=\"{root}index.html\">{name}</a>\n\
-             <nav><a href=\"{root}index.html\">{views}</a><a href=\"{root}browse.html\">{resources}</a><a href=\"{root}checks.html\">{checks}</a><a href=\"{root}api.html\">{api}</a>{playground}</nav>\n\
+             <nav><a href=\"{root}index.html\">{views}</a><a href=\"{root}browse.html\">{resources}</a><a href=\"{root}links.html\">{links}</a><a href=\"{root}checks.html\">{checks}</a><a href=\"{root}api.html\">{api}</a>{playground}</nav>\n\
              <div class=\"search\"><input id=\"search\" type=\"search\" placeholder=\"{search}\" autocomplete=\"off\" aria-label=\"{search_label}\"><ul id=\"results\" hidden></ul></div>\n\
              </header>\n<main>\n{body}\n</main>\n<footer>{generated} <a href=\"https://github.com/Jbbouille/cadastre\">Cadastre</a> {version} · <a href=\"{root}api/project.json\">{model}</a></footer>\n\
              <script src=\"{root}zoom.js\"></script>\n<script src=\"{root}site.js\"></script>\n</body>\n</html>\n",
@@ -250,9 +294,10 @@ impl Site<'_> {
             no_graphviz = esc(self.t("Graphviz for the browser could not be loaded.")),
             views = self.t("Views"),
             resources = self.t("Resources"),
+            links = self.t("Links"),
             checks = self.t("Checks"),
             api = self.t("API"),
-            search = esc(self.t("Search a resource…")),
+            search = esc(self.t("Search a resource, a view, a link…")),
             search_label = esc(self.t("Search a resource")),
             generated = self.t("Generated by"),
             model = self.t("JSON model"),
@@ -341,7 +386,7 @@ impl Site<'_> {
             let file = declared.rsplitn(3, ':').last().unwrap_or(declared.as_str());
             by_file.entry(file.to_owned()).or_default().push(view);
         }
-        body.push_str(&format!("<h2>{}</h2>\n", self.t("Views")));
+        body.push_str(&format!("<h2 id=\"views\">{}</h2>\n", self.t("Views")));
         for (file, views) in &by_file {
             if by_file.len() > 1 {
                 let stem = std::path::Path::new(file).file_stem().and_then(|s| s.to_str()).unwrap_or(file);
@@ -606,12 +651,12 @@ impl Site<'_> {
         );
         row(
             "api/links.json",
-            "every link, both ends named: source, target, port, layers, carries, through, attributes, declared",
+            "every link, both ends named: source, target, id, name, port, layers, carries, through, attributes, declared",
             Some("api/links.json".to_owned()),
         );
         row(
             "api/views/<name>.json",
-            "a view evaluated: name, title, description, formats, declared, then nodes (id, kind, label, frame), frames (id, title, resource, in), edges (source, target, relation, ports, layers, carries, through, through_steps, step), diagnostics; absent while the project has errors",
+            "a view evaluated: name, title, description, formats, declared, then nodes (id, kind, label, frame), frames (id, title, resource, in), edges (source, target, relation, ports, layers, carries, through, through_steps, step, links, exchange, reversed), diagnostics; absent while the project has errors",
             example_view.map(|name| format!("api/views/{}.json", file_name(&name))),
         );
         row(
@@ -654,7 +699,11 @@ impl Site<'_> {
     fn view_page(&self, view: &Value, own: Option<&(String, String)>) -> String {
         let root = "../";
         let name = text(&view["name"]);
-        let mut body = format!("<h1>{}</h1>\n", esc(&text(&view["title"])));
+        let mut body = format!(
+            "<p class=\"crumbs\"><a href=\"{root}index.html#views\">{}</a> ›</p>\n<h1>{}</h1>\n",
+            self.t("Views"),
+            esc(&text(&view["title"]))
+        );
         if let Some(description) = view["description"].as_str() {
             body.push_str(&format!("<p class=\"lead\">{}</p>\n", esc(description)));
         }
@@ -693,20 +742,20 @@ impl Site<'_> {
             Some(svg) if self.options.elements.contains_key(&name) => body.push_str(&format!(
                 "<p class=\"actions\"><button class=\"move\" data-elements=\"{root}views/{}.elements.json\" \
                  data-back=\"{}\">{}</button> <span class=\"muted move-help\" hidden>{}</span></p>\n\
-                 <figure class=\"diagram\">{}</figure>\n",
+                 <figure class=\"diagram wide\">{}</figure>\n",
                 file_name(&name),
                 esc(self.t("Back to the diagram")),
                 esc(self.t("Move by hand")),
                 esc(self.t("Drag the nodes and the frames; right click on an edge to add or remove a bend.")),
                 svg_body(svg)
             )),
-            Some(svg) => body.push_str(&format!("<figure class=\"diagram\">{}</figure>\n", svg_body(svg))),
+            Some(svg) => body.push_str(&format!("<figure class=\"diagram wide\">{}</figure>\n", svg_body(svg))),
             None => {
                 let dot =
                     dots(self.compilation).into_iter().find(|(n, _)| *n == name).map(|(_, d)| d).unwrap_or_default();
                 match self.options.viz {
                     Some(viz) => body.push_str(&format!(
-                        "<figure class=\"diagram\" data-viz=\"{}\"><script type=\"text/vnd.graphviz\">{}</script><p class=\"muted\">{}</p></figure>\n",
+                        "<figure class=\"diagram wide\" data-viz=\"{}\"><script type=\"text/vnd.graphviz\">{}</script><p class=\"muted\">{}</p></figure>\n",
                         esc(viz),
                         dot.replace("</script", "<\\/script"),
                         self.t("Drawing…")
@@ -718,10 +767,52 @@ impl Site<'_> {
         for warning in view["diagnostics"].as_array().into_iter().flatten() {
             body.push_str(&format!("<p class=\"warning\">{}</p>\n", esc(&text(&warning["message"]))));
         }
+        // The edges, in the direction of the drawing, each a click away from the drawing
+        // (`#edge-3`); then the nodes, folded.
+        let edges = view["edges"].as_array().cloned().unwrap_or_default();
+        if !edges.is_empty() {
+            body.push_str(&format!(
+                "<h2>{} <span class=\"muted\">{}</span></h2>\n<table>\n<tr><th>{}</th><th>{}</th><th>{}</th><th title=\"{}\">{}</th><th>{}</th><th>{}</th><th>{}</th></tr>\n",
+                self.t("Edges"),
+                edges.len(),
+                self.t("From"),
+                self.t("To"),
+                self.t("Links"),
+                esc(self.t("Where the data go: → from the first column to the second, ← back (exchange)")),
+                self.t("Data"),
+                self.t("Layers"),
+                self.t("Carries"),
+                self.t("Through")
+            ));
+            for (index, e) in edges.iter().enumerate() {
+                let reversed = e["reversed"] == true;
+                let (from, to) = if reversed { (&e["target"], &e["source"]) } else { (&e["source"], &e["target"]) };
+                let links: Vec<String> = strings(&e["links"])
+                    .iter()
+                    .filter_map(|id| self.link(id))
+                    .map(|l| self.link_cell(root, l))
+                    .collect();
+                let links = if links.is_empty() {
+                    esc(&e["relation"].as_str().map_or_else(|| strings(&e["ports"]).join(", "), str::to_owned))
+                } else {
+                    links.join(", ")
+                };
+                body.push_str(&format!(
+                    "<tr id=\"edge-{index}\"><td>{}</td><td>{}</td><td>{links}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
+                    self.resource_link(root, &text(from)),
+                    self.resource_link(root, &text(to)),
+                    data_along(&text(&e["exchange"]), reversed),
+                    esc(&strings(&e["layers"]).join(", ")),
+                    strings(&e["carries"]).iter().map(|c| self.resource_link(root, c)).collect::<Vec<_>>().join(", "),
+                    self.way(root, &e["through_steps"]),
+                ));
+            }
+            body.push_str("</table>\n");
+        }
         let nodes = view["nodes"].as_array().cloned().unwrap_or_default();
         if !nodes.is_empty() {
             body.push_str(&format!(
-                "<h2>{} <span class=\"muted\">{}</span></h2>\n<table>\n<tr><th>{}</th><th>{}</th><th>{}</th></tr>\n",
+                "<details class=\"fold\"><summary><h2>{} <span class=\"muted\">{}</span></h2></summary>\n<table>\n<tr><th>{}</th><th>{}</th><th>{}</th></tr>\n",
                 self.t("Nodes"),
                 nodes.len(),
                 self.t("Resource"),
@@ -737,35 +828,190 @@ impl Site<'_> {
                     esc(&frame_title(view, &node["frame"]))
                 ));
             }
-            body.push_str("</table>\n");
-        }
-        let edges = view["edges"].as_array().cloned().unwrap_or_default();
-        if !edges.is_empty() {
-            body.push_str(&format!(
-                "<h2>{} <span class=\"muted\">{}</span></h2>\n<table>\n<tr><th>{}</th><th>{}</th><th>{}</th><th>{}</th><th>{}</th><th>{}</th></tr>\n",
-                self.t("Edges"),
-                edges.len(),
-                self.t("From"),
-                self.t("To"),
-                self.t("Ports"),
-                self.t("Layers"),
-                self.t("Carries"),
-                self.t("Through")
-            ));
-            for e in &edges {
-                body.push_str(&format!(
-                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
-                    self.resource_link(root, &text(&e["source"])),
-                    self.resource_link(root, &text(&e["target"])),
-                    esc(&strings(&e["ports"]).join(", ")),
-                    esc(&strings(&e["layers"]).join(", ")),
-                    strings(&e["carries"]).iter().map(|c| self.resource_link(root, c)).collect::<Vec<_>>().join(", "),
-                    self.way(root, &e["through_steps"]),
-                ));
-            }
-            body.push_str("</table>\n");
+            body.push_str("</table>\n</details>\n");
         }
         self.page(root, &text(&view["title"]), &body)
+    }
+
+    /// The record of a link (`api/links.json`) by its identifier.
+    fn link(&self, id: &str) -> Option<&Value> {
+        self.links.iter().find(|l| l["id"] == id)
+    }
+
+    /// A link in a table: its port (`link` without one) leading to its page, its name beside.
+    fn link_cell(&self, root: &str, link: &Value) -> String {
+        let port = link["port"].as_str().unwrap_or(self.t("link"));
+        let shown = match link["name"].as_str() {
+            Some(name) => format!("{} <span class=\"muted\">{}</span>", esc(port), esc(name)),
+            None => esc(port),
+        };
+        match link["id"].as_str() {
+            Some(id) => format!("<a href=\"{root}links/{}.html\">{shown}</a>", file_name(id)),
+            None => shown,
+        }
+    }
+
+    /// Where the data of a link go, seen from one of its ends (`source`: the end opening the
+    /// connection): sends, receives, both ways; empty when its `exchange` is not written.
+    fn data_seen_from(&self, exchange: &str, source: bool) -> String {
+        let word = match (exchange, source) {
+            ("push", true) | ("pull", false) => self.t("sends"),
+            ("pull", true) | ("push", false) => self.t("receives"),
+            ("both", _) => self.t("both ways"),
+            _ => return String::new(),
+        };
+        format!("{word} <span class=\"muted\">({})</span>", esc(exchange))
+    }
+
+    /// The sentence of a link page saying where its data go and who opens the connection.
+    fn data_sentence(&self, root: &str, link: &Value) -> String {
+        let (source, target) =
+            (self.resource_link(root, &text(&link["source"])), self.resource_link(root, &text(&link["target"])));
+        let sentence = match text(&link["attributes"]["exchange"]).as_str() {
+            "push" => self.t("{source} sends the data to {target} (push), opening the connection."),
+            "pull" => self.t("{source} fetches the data from {target} (pull), opening the connection."),
+            "both" => self.t("{source} and {target} exchange data both ways (both); {source} opens the connection."),
+            _ => self.t(
+                "{source} opens the connection to {target}; where the data go is not written (exchange: push, pull or both).",
+            ),
+        };
+        sentence.replace("{source}", &source).replace("{target}", &target)
+    }
+
+    /// The page of a link: where its data go, its facts, the views drawing it, the steps of the
+    /// processes taking it.
+    fn link_page(&self, link: &Value, drawn: &[(String, String, usize)], steps: &[(String, usize)]) -> String {
+        let root = "../";
+        let (source, target) = (text(&link["source"]), text(&link["target"]));
+        let label = |id: &str| {
+            let registry = &self.compilation.registry;
+            registry
+                .ids()
+                .find(|&r| registry.qualified_name(r) == id)
+                .and_then(|r| api::label(registry, r))
+                .unwrap_or_else(|| id.rsplit('.').next().unwrap_or(id).to_owned())
+        };
+        let title = format!("{} → {}", label(&source), label(&target));
+        let mut body = format!(
+            "<p class=\"crumbs\"><a href=\"{root}links.html\">{}</a> › {}</p>\n",
+            self.t("Links"),
+            self.resource_link(root, &source)
+        );
+        body.push_str(&format!(
+            "<h1>{} <span class=\"kind\">{}{}</span></h1>\n<p class=\"muted mono\">{}</p>\n",
+            esc(&title),
+            self.t("link"),
+            link["name"].as_str().map(|n| format!(" {}", esc(n))).unwrap_or_default(),
+            esc(&text(&link["id"]))
+        ));
+        if let Some(description) = link["attributes"]["description"].as_str() {
+            body.push_str(&format!("<p class=\"lead\">{}</p>\n", esc(description)));
+        }
+        body.push_str(&format!("<p class=\"lead data\">{}</p>\n", self.data_sentence(root, link)));
+        let mut facts: Vec<(String, String)> = vec![
+            (self.t("From").to_owned(), self.resource_link(root, &source)),
+            (self.t("To").to_owned(), self.resource_link(root, &target)),
+        ];
+        if let Some(port) = link["port"].as_str() {
+            facts.push((self.t("Port").to_owned(), esc(port)));
+        }
+        let layers = strings(&link["layers"]);
+        if !layers.is_empty() {
+            facts.push((self.t("Layers").to_owned(), esc(&layers.join(", "))));
+        }
+        let carries = strings(&link["carries"]);
+        if !carries.is_empty() {
+            facts.push((
+                self.t("Carries").to_owned(),
+                carries.iter().map(|c| self.resource_link(root, c)).collect::<Vec<_>>().join(", "),
+            ));
+        }
+        let way = self.way(root, &link["through_steps"]);
+        if !way.is_empty() {
+            let deduced = if link["through_deduced"] == true {
+                format!(" <span class=\"muted\">({})</span>", self.t("deduced"))
+            } else {
+                String::new()
+            };
+            facts.push((self.t("Through").to_owned(), format!("{way}{deduced}")));
+        }
+        if let Some(name) = link["name"].as_str() {
+            facts.push((self.t("Name").to_owned(), esc(name)));
+        }
+        if let Some(attributes) = link["attributes"].as_object() {
+            for (key, value) in attributes {
+                if ["description", "carries", "through"].contains(&key.as_str()) {
+                    continue;
+                }
+                facts.push((key.clone(), esc(&strings_or_text(value))));
+            }
+        }
+        body.push_str("<dl class=\"facts\">\n");
+        for (key, value) in &facts {
+            body.push_str(&format!("<dt>{}</dt><dd>{value}</dd>\n", esc(key)));
+        }
+        body.push_str("</dl>\n");
+        if !drawn.is_empty() {
+            body.push_str(&format!("<h2>{}</h2>\n<ul class=\"list\">\n", self.t("Shown in")));
+            for (name, title, edge) in drawn {
+                body.push_str(&format!(
+                    "<li><a href=\"{root}views/{}.html#edge-{edge}\">{}</a></li>\n",
+                    file_name(name),
+                    esc(title)
+                ));
+            }
+            body.push_str("</ul>\n");
+        }
+        if !steps.is_empty() {
+            body.push_str(&format!("<h2>{}</h2>\n<ul class=\"list\">\n", self.t("Steps of processes")));
+            for (process, step) in steps {
+                body.push_str(&format!(
+                    "<li>{} <span class=\"muted\">{} {step}</span></li>\n",
+                    self.resource_link(root, process),
+                    self.t("step")
+                ));
+            }
+            body.push_str("</ul>\n");
+        }
+        body.push_str(&format!(
+            "<p class=\"muted\">{} <code>{}</code> · <a href=\"{root}api/links.json\">JSON</a></p>\n",
+            self.t("Declared at"),
+            esc(&text(&link["declared"]))
+        ));
+        self.page(root, &title, &body)
+    }
+
+    /// Every link: who opens the connection, where the data go.
+    fn links_page(&self) -> String {
+        let mut body = format!(
+            "<h1>{}</h1>\n<p class=\"muted\">{}</p>\n",
+            self.t("Links"),
+            self.t("Every link of the registry, from the resource opening the connection; Data says where the data go: → along the link, ← back.")
+        );
+        let mut links: Vec<&Value> = self.links.iter().collect();
+        links.sort_by_key(|l| (text(&l["source"]), text(&l["target"]), text(&l["port"])));
+        body.push_str(&format!(
+            "<table>\n<tr><th>{}</th><th>{}</th><th>{}</th><th>{}</th><th>{}</th><th>{}</th></tr>\n",
+            self.t("From"),
+            self.t("To"),
+            self.t("Link"),
+            self.t("Data"),
+            self.t("Layers"),
+            self.t("Carries")
+        ));
+        for l in links {
+            body.push_str(&format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
+                self.resource_link("", &text(&l["source"])),
+                self.resource_link("", &text(&l["target"])),
+                self.link_cell("", l),
+                data_along(&text(&l["attributes"]["exchange"]), false),
+                esc(&strings(&l["layers"]).join(", ")),
+                strings(&l["carries"]).iter().map(|c| self.resource_link("", c)).collect::<Vec<_>>().join(", "),
+            ));
+        }
+        body.push_str("</table>\n");
+        self.page("", self.t("Links"), &body)
     }
 
     fn resource_page(&self, record: &Value, records: &[Value], views: &[(String, String)]) -> String {
@@ -774,13 +1020,13 @@ impl Site<'_> {
         let kind = text(&record["kind"]);
         let label = record["label"].as_str().map(str::to_owned).unwrap_or_else(|| text(&record["name"]));
         let mut body = String::new();
-        // The path from the root, as a breadcrumb.
-        let path = strings(&record["path"]);
-        if !path.is_empty() {
-            body.push_str("<p class=\"crumbs\">");
-            body.push_str(&path.iter().map(|p| self.resource_link(root, p)).collect::<Vec<_>>().join(" › "));
-            body.push_str("</p>\n");
-        }
+        // Where it is: the resources of its kind, then the path from the root.
+        let mut crumbs = vec![
+            format!("<a href=\"{root}browse.html\">{}</a>", self.t("Resources")),
+            format!("<a href=\"{root}browse.html#{}\">{}</a>", esc(&kind), esc(&kind)),
+        ];
+        crumbs.extend(strings(&record["path"]).iter().map(|p| self.resource_link(root, p)));
+        body.push_str(&format!("<p class=\"crumbs\">{}</p>\n", crumbs.join(" › ")));
         body.push_str(&format!(
             "<h1>{}{} <span class=\"kind\">{}{}</span></h1>\n<p class=\"muted mono\">{}</p>\n",
             kind_icon(&kind),
@@ -880,23 +1126,23 @@ impl Site<'_> {
                 continue;
             }
             body.push_str(&format!(
-                "<h2>{} <span class=\"muted\">{}</span></h2>\n<table>\n<tr><th>{}</th><th>{}</th><th>{}</th><th>{}</th><th>{}</th></tr>\n",
+                "<h2>{} <span class=\"muted\">{}</span></h2>\n<table>\n<tr><th>{}</th><th>{}</th><th title=\"{}\">{}</th><th>{}</th><th>{}</th><th>{}</th></tr>\n",
                 self.t(title),
                 links.len(),
                 if key == "outgoing" { self.t("To") } else { self.t("From") },
-                self.t("Port"),
+                self.t("Link"),
+                esc(self.t("Where the data go, seen from this resource (exchange)")),
+                self.t("Data"),
                 self.t("Layers"),
                 self.t("Carries"),
                 self.t("Through")
             ));
             for l in &links {
                 body.push_str(&format!(
-                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}{}</td></tr>\n",
+                    "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}{}</td></tr>\n",
                     self.resource_link(root, &text(&l["with"])),
-                    match l["name"].as_str() {
-                        Some(name) => format!("{} <span class=\"muted\">{}</span>", esc(&text(&l["port"])), esc(name)),
-                        None => esc(&text(&l["port"])),
-                    },
+                    self.link_cell(root, l),
+                    self.data_seen_from(&text(&l["attributes"]["exchange"]), key == "outgoing"),
                     esc(&strings(&l["layers"]).join(", ")),
                     strings(&l["carries"]).iter().map(|c| self.resource_link(root, c)).collect::<Vec<_>>().join(", "),
                     self.way(root, &l["through_steps"]),
@@ -985,6 +1231,18 @@ fn frame_title(view: &Value, frame: &Value) -> String {
         .unwrap_or_default()
 }
 
+/// Where the data of an edge or a link go, along a row of a table from its first column to its
+/// second (`reversed`: the row from the target to the source): `→ push`, `← pull`, `↔ both`.
+fn data_along(exchange: &str, reversed: bool) -> String {
+    let arrow = match (exchange, reversed) {
+        ("push", false) | ("pull", true) => "→",
+        ("pull", false) | ("push", true) => "←",
+        ("both", _) => "↔",
+        _ => return String::new(),
+    };
+    format!("{arrow} <span class=\"muted\">{}</span>", esc(exchange))
+}
+
 fn plural(kind: &str, n: u64) -> String {
     if n == 1 { kind.to_owned() } else { crate::render::plural(kind) }
 }
@@ -1042,8 +1300,8 @@ fn svg_body(svg: &str) -> String {
 }
 
 const CSS: &str = r#"
-:root { --bg: #ffffff; --fg: #1f2328; --muted: #6b7280; --line: #d6dfec; --accent: #1d4ed8; --ok: #15803d; --ko: #b91c1c; --panel: #f3f6fb; }
-@media (prefers-color-scheme: dark) { :root { --bg: #1b1f23; --fg: #d1d5db; --muted: #9ca3af; --line: #30363d; --accent: #60a5fa; --ok: #4ade80; --ko: #f87171; --panel: #22272e; } }
+:root { --bg: #ffffff; --fg: #1f2328; --muted: #6b7280; --line: #d6dfec; --accent: #1d4ed8; --ok: #15803d; --ko: #b91c1c; --panel: #f3f6fb; --hl: #fff3bf; }
+@media (prefers-color-scheme: dark) { :root { --bg: #1b1f23; --fg: #d1d5db; --muted: #9ca3af; --line: #30363d; --accent: #60a5fa; --ok: #4ade80; --ko: #f87171; --panel: #22272e; --hl: #3d3520; } }
 * { box-sizing: border-box; }
 body { margin: 0; font: 15px/1.5 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: var(--fg); background: var(--bg); }
 a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
@@ -1078,6 +1336,11 @@ h3.group { font-size: 1rem; color: var(--muted); margin: 1.2rem 0 .5rem; }
 .diagram { margin: 1rem 0; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: .5rem; background: var(--bg); }
 .movable { height: 75vh; margin: 1rem 0; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .diagram svg { max-width: 100%; height: auto; }
+.diagram.wide { --wide: min(calc(100vw - 4rem), 140rem); width: var(--wide); max-width: none; margin-left: calc((100% - var(--wide)) / 2); }
+tr[id] { scroll-margin-top: 5rem; } tr:target td { background: var(--hl); }
+details.fold > summary { cursor: pointer; list-style: none; } details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary h2 { display: block; } details.fold > summary h2::before { content: "▸ "; color: var(--muted); } details.fold[open] > summary h2::before { content: "▾ "; }
+.data a { font-weight: 600; }
 .diagram a:hover { text-decoration: none; } .diagram a[*|href]:hover > text, .diagram a[*|href]:hover > g > text { text-decoration: underline; }
 .list { list-style: none; padding: 0; } .list li { padding: .15rem 0; }
 table { border-collapse: collapse; width: 100%; font-size: .92rem; } th, td { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -1118,7 +1381,7 @@ const JS: &str = r#"
     results.replaceChildren(...items.slice(0, 12).map((r) => {
       const li = document.createElement("li");
       const a = document.createElement("a");
-      a.href = root + "resources/" + fileName(r.id) + ".html";
+      a.href = root + (r.href || "resources/" + fileName(r.id) + ".html");
       a.textContent = r.label;
       const kind = document.createElement("span");
       kind.className = "kind";

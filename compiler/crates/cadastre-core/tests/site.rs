@@ -119,8 +119,23 @@ fn the_pages_and_the_api() {
     assert!(shop.contains("https/443"), "{shop}");
     assert!(shop.contains("href=\"../views/apps.html\""), "{shop}");
     let view = &site["views/apps.html"];
-    assert!(view.contains("<figure class=\"diagram\"><svg"), "{view}");
+    assert!(view.contains("<figure class=\"diagram wide\"><svg"), "{view}");
     assert!(view.contains("playground/#view=apps"), "{view}");
+    // The links: a page each, from the tables of the resources and of the edges of the views.
+    let link = &site["links/sales.shop--sales.orders--https-443.html"];
+    assert!(link.contains("Web shop → orders"), "{link}");
+    assert!(link.contains("(push), opening the connection.") || link.contains("opens the connection to"), "{link}");
+    assert!(link.contains("href=\"../views/apps.html#edge-0\""), "{link}");
+    assert!(shop.contains("href=\"../links/sales.shop--sales.orders--https-443.html\">https/443</a>"), "{shop}");
+    assert!(view.contains("<tr id=\"edge-0\">"), "{view}");
+    assert!(view.contains("<details class=\"fold\">"), "{view}");
+    assert!(site["links.html"].contains("links/sales.shop--sales.orders--https-443.html"));
+    // The breadcrumbs.
+    assert!(shop.contains("<a href=\"../browse.html#app\">app</a> › "), "{shop}");
+    assert!(view.contains("<a href=\"../index.html#views\">Views</a>"), "{view}");
+    // The search finds the views too.
+    let search: serde_json::Value = serde_json::from_str(&site["api/search.json"]).unwrap();
+    assert!(search.as_array().unwrap().iter().any(|e| e["href"] == "views/apps.html"), "{search}");
     assert!(checks.contains("owned") && checks.contains("passed"), "{checks}");
     let project: serde_json::Value = serde_json::from_str(&site["api/project.json"]).unwrap();
     assert_eq!(project["name"], "Acme");

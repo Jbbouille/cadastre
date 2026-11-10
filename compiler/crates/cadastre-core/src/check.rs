@@ -69,6 +69,9 @@ pub struct Model {
     /// The last change of each resource, from the version control of the project (`[history]`
     /// in `cadastre.toml`): empty without it.
     pub changes: HashMap<ResourceId, crate::history::Change>,
+    /// The identifier of each link for its page in the site, computed when first asked
+    /// ([`Model::link_ids`]).
+    pub link_ids: std::sync::OnceLock<Vec<Option<String>>>,
 }
 
 impl Model {
@@ -103,6 +106,38 @@ impl Model {
             .get_or_init(|| crate::impact::failures(registry, self, false))
             .get(&id)
             .map_or(&[], Vec::as_slice)
+    }
+
+    /// The identifier of each link (same index as `Registry::links`), for its page in the site
+    /// (`links/<id>.html`) and its record: its name (`F-042`), otherwise its ends and its port
+    /// (`shop--db--tcp-5432`), numbered from the second link sharing them (`-2`); `None` for a
+    /// link whose ends are unknown.
+    pub fn link_ids(&self, registry: &Registry) -> &[Option<String>] {
+        self.link_ids.get_or_init(|| {
+            let mut seen: HashMap<String, usize> = HashMap::new();
+            self.link_ends
+                .iter()
+                .enumerate()
+                .map(|(index, ends)| {
+                    let (source, target) = (*ends)?;
+                    let link = &registry.links[index];
+                    let base = match &link.name {
+                        Some((name, _)) => name.clone(),
+                        None => {
+                            let port = link
+                                .port
+                                .as_ref()
+                                .map(|p| format!("--{}", p.normalized().replace('/', "-")))
+                                .unwrap_or_default();
+                            format!("{}--{}{port}", registry.qualified_name(source), registry.qualified_name(target))
+                        }
+                    };
+                    let count = seen.entry(base.clone()).or_default();
+                    *count += 1;
+                    Some(if *count == 1 { base } else { format!("{base}-{count}") })
+                })
+                .collect()
+        })
     }
 
     /// The system a resource belongs to: the nearest enclosing system (itself included),

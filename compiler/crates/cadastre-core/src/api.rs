@@ -118,6 +118,7 @@ fn link_record(compilation: &Compilation, files: &[SourceFile], index: usize, ot
     };
     json!({
         "with": registry.qualified_name(other),
+        "id": compilation.model.link_ids(registry).get(index).cloned().flatten(),
         "name": written.name.as_ref().map(|(n, _)| n.clone()),
         "port": written.port.as_ref().map(|p| match &p.port {
             Some(port) => format!("{}/{port}", p.protocol),
@@ -312,6 +313,7 @@ pub fn view(compilation: &Compilation, files: &[SourceFile], view: &View) -> Res
             })
         })
         .collect();
+    let link_ids = compilation.model.link_ids(registry);
     let edges: Vec<Value> = graph
         .edges
         .iter()
@@ -326,6 +328,12 @@ pub fn view(compilation: &Compilation, files: &[SourceFile], view: &View) -> Res
                 "through": e.through.iter().map(|&t| registry.qualified_name(t)).collect::<Vec<_>>(),
                 "through_steps": through_steps(registry, e),
                 "step": e.step,
+                "links": e.links.iter().filter_map(|&l| link_ids.get(l).cloned().flatten()).collect::<Vec<_>>(),
+                "exchange": e.exchange.map(|x| x.name()),
+                // Drawn from its target to its source: a `pull` with `orientation: data`.
+                "reversed": graph.options.orientation == crate::view::Orientation::Data
+                    && e.exchange == Some(crate::view::Exchange::Pull)
+                    && !e.symmetric,
             })
         })
         .collect();
@@ -434,7 +442,7 @@ pub fn project(compilation: &Compilation, files: &[SourceFile], name: &str) -> V
 /// The index of the search of the site: id, kind, label and the words to match.
 pub fn search(compilation: &Compilation) -> Value {
     let registry = &compilation.registry;
-    let entries = registry.ids().map(|id| {
+    let resources = registry.ids().map(|id| {
         let resource = registry.resource(id);
         let mut text = vec![resource.name.clone()];
         text.extend(label(registry, id));
@@ -446,7 +454,38 @@ pub fn search(compilation: &Compilation) -> Value {
             "text": text.join(" "),
         })
     });
-    Value::Array(entries.collect())
+    // The views, by their name and title; the links named (`as F-042`), by their names.
+    let views = compilation.plans.views.iter().map(|view| {
+        let title = view.title();
+        let text = format!("{} {title} {}", view.name, view.description().unwrap_or_default());
+        json!({
+            "id": view.name,
+            "kind": "view",
+            "label": title,
+            "text": text,
+            "href": format!("views/{}.html", crate::site::file_name(&view.name)),
+        })
+    });
+    let ids = compilation.model.link_ids(registry);
+    let links = registry.links.iter().enumerate().filter_map(|(index, link)| {
+        let (name, _) = link.name.as_ref()?;
+        let (source, target) = compilation.model.link_ends.get(index).copied().flatten()?;
+        let id = ids.get(index).cloned().flatten()?;
+        let ends = format!(
+            "{} → {}",
+            label(registry, source).unwrap_or_else(|| registry.resource(source).name.clone()),
+            label(registry, target).unwrap_or_else(|| registry.resource(target).name.clone())
+        );
+        let aliases: Vec<String> = link.aliases().into_iter().map(|(a, _)| a).collect();
+        Some(json!({
+            "id": name,
+            "kind": "link",
+            "label": format!("{name} · {ends}"),
+            "text": format!("{name} {} {ends}", aliases.join(" ")),
+            "href": format!("links/{}.html", crate::site::file_name(&id)),
+        }))
+    });
+    Value::Array(resources.chain(views).chain(links).collect())
 }
 
 /// The whole model in one document: `cadastre export json`.

@@ -327,6 +327,8 @@ pub struct Scene<'a> {
     /// Where the nodes and frames link to, for the site: a prefix before the file name of the
     /// page of each resource (`../resources/`); `None`: their `url` or `console`.
     pub page_links: Option<String>,
+    /// Where the edges of links lead, for the site: the pages of their links.
+    pub link_pages: Option<LinkPages>,
     /// The language of the words the drawing adds: the legend, the tooltips.
     pub language: crate::i18n::Language,
     /// The satellites of the drawing (`satellites`).
@@ -335,6 +337,16 @@ pub struct Scene<'a> {
     /// box listing them (`twins`); each box, its members in the order of their names, the first
     /// one standing for them all in the edges.
     pub twins: Vec<Vec<Drawn>>,
+}
+
+/// Where a click on an edge of links leads, in the site.
+#[derive(Clone, Debug)]
+pub struct LinkPages {
+    /// Before the file name of the page of a link (`../links/`).
+    pub prefix: String,
+    /// The page holding the table of the edges of the view (`""`: the page of the drawing),
+    /// where an edge of several links leads, to its row (`#edge-3`); `None`: nowhere.
+    pub rows: Option<String>,
 }
 
 /// A node as drawn in one place: itself, or one of its satellite copies, by its DOT id.
@@ -362,6 +374,7 @@ impl<'a> Scene<'a> {
             model,
             rules,
             page_links: None,
+            link_pages: None,
             language: Default::default(),
             satellites: Satellites::new(),
             twins: Vec::new(),
@@ -419,6 +432,35 @@ impl<'a> Scene<'a> {
     pub fn with_page_links(mut self, prefix: &str) -> Self {
         self.page_links = Some(prefix.to_owned());
         self
+    }
+
+    /// The edges of links leading to the pages of their links, under `prefix`; an edge of
+    /// several links to its row in the table of the edges of `rows`.
+    pub fn with_link_pages(mut self, prefix: &str, rows: Option<&str>) -> Self {
+        self.link_pages = Some(LinkPages { prefix: prefix.to_owned(), rows: rows.map(str::to_owned) });
+        self
+    }
+
+    /// Where a click on an edge leads (`index`, its place in the graph): the page of its link
+    /// in the site; for an edge of several links, its row in the table of the edges of the view.
+    pub fn edge_link(&self, index: usize, edge: &GraphEdge) -> Option<String> {
+        let pages = self.link_pages.as_ref()?;
+        let links: BTreeSet<usize> = edge.links.iter().copied().collect();
+        match links.len() {
+            0 => None,
+            1 => {
+                let link = links.into_iter().next()?;
+                let id = self.model.link_ids(self.registry).get(link)?.as_ref()?;
+                Some(format!("{}{}.html", pages.prefix, crate::site::file_name(id)))
+            }
+            _ => pages.rows.as_ref().map(|page| format!("{page}#edge-{index}")),
+        }
+    }
+
+    /// The target of the links of the drawing: a new tab for the `url` of a resource, the same
+    /// tab for the pages of the site.
+    fn link_target(&self) -> &'static str {
+        if self.page_links.is_some() { "" } else { " target=\"_blank\";" }
     }
 
     fn ctx(&self) -> Ctx<'_> {
@@ -1781,6 +1823,7 @@ pub fn dot(scene: &Scene) -> String {
                 text,
                 color: scene.edge_style(edge).color.clone(),
                 tooltip: scene.edge_tooltip(edge),
+                link: scene.edge_link(index, edge),
             })
         })
         .collect();
@@ -1845,6 +1888,9 @@ pub fn dot(scene: &Scene) -> String {
         }
         if !tooltip.is_empty() {
             attrs.push(format!("tooltip={}", quote(&tooltip)));
+        }
+        if let Some(link) = scene.edge_link(index, edge) {
+            attrs.push(format!("URL={}", quote(&link)));
         }
         let attrs = attrs.join(", ");
         let (mut from, mut to, mut arrow) = scene.drawn(edge);
@@ -2050,6 +2096,8 @@ struct EdgeLabel {
     text: String,
     color: Option<String>,
     tooltip: String,
+    /// Where a click on the label leads, as on its edge.
+    link: Option<String>,
 }
 
 /// The innermost frame holding both nodes (`None`: the root of the graph).
@@ -2131,7 +2179,7 @@ fn dot_frame(
             quote(&resource.map_or_else(|| lines.join("\n"), |r| scene.node_tooltip(r))),
             resource
                 .and_then(|r| scene.node_link(r))
-                .map(|link| format!(" URL={}; target=\"_blank\";", quote(&link)))
+                .map(|link| format!(" URL={};{}", quote(&link), scene.link_target()))
                 .unwrap_or_default(),
             title_on_top(scene)
         );
@@ -2161,6 +2209,9 @@ fn dot_frame(
         }
         if !label.tooltip.is_empty() {
             attrs.push(format!("tooltip={}", quote(&label.tooltip)));
+        }
+        if let Some(link) = &label.link {
+            attrs.push(format!("URL={}", quote(link)));
         }
         let _ = writeln!(out, "{indent}e{} [{}];", label.index, attrs.join(", "));
     }
@@ -2211,7 +2262,10 @@ fn dot_twins(scene: &Scene, index: usize, indent: &str, out: &mut String) {
                     }
                     let link = scene
                         .node_link(member)
-                        .map(|l| format!(" href=\"{}\" target=\"_blank\"", html(&l)))
+                        .map(|l| match scene.page_links {
+                            Some(_) => format!(" href=\"{}\"", html(&l)),
+                            None => format!(" href=\"{}\" target=\"_blank\"", html(&l)),
+                        })
                         .unwrap_or_default();
                     let _ = write!(table, "<td align=\"left\"{link}>{}</td>", html(&name));
                 }
@@ -2337,7 +2391,9 @@ fn dot_node_as(
     attrs.push(format!("tooltip={}", quote(&tooltip)));
     if let Some(link) = scene.node_link(node) {
         attrs.push(format!("URL={}", quote(&link)));
-        attrs.push("target=\"_blank\"".to_owned());
+        if scene.page_links.is_none() {
+            attrs.push("target=\"_blank\"".to_owned());
+        }
     }
     let _ = writeln!(out, "{indent}{id} [{}];", attrs.join(", "));
 }

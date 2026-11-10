@@ -1129,6 +1129,15 @@ pub enum Exchange {
 }
 
 impl Exchange {
+    /// As written: `push`, `pull`, `both`.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Push => "push",
+            Self::Pull => "pull",
+            Self::Both => "both",
+        }
+    }
+
     /// The same exchange seen from the other end.
     fn reversed(self) -> Self {
         match self {

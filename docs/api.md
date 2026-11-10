@@ -22,7 +22,7 @@ api/
   links.json                    every link, both ends named
   views/<name>.json             a view evaluated: nodes, frames, edges
   checks.json                   the checks and their results
-  search.json                   the index of the search of the site
+  search.json                   the index of the search of the site: resources, views, named links (`href`: their page)
 ```
 
 The site describes these files on its **API** page (`api.html`), with a live example of each.
@@ -64,7 +64,7 @@ The short record (what `resources.json` lists) then the detail:
 | `failures` | the resources whose failure alone makes it unavailable (impact analysis) |
 | `failure_pairs` | the pairs of resources whose failure together, and not of either alone, makes it unavailable: what its redundancy rests on (`[["dc.s1", "dc.s2"]]`) |
 | `questions` | its open questions |
-| `outgoing`, `incoming` | its links: `with`, `port`, `layers`, `carries`, `through`, `through_steps` (the way as steps, each with its variants: `[["sw-01", "sw-02"], ["fw"]]`), `through_deduced`, `attributes`, `declared` |
+| `outgoing`, `incoming` | its links: `with`, `id` (the identifier of the link: its name, otherwise its ends and port, `shop--db--tcp-5432`; its page is `links/<id>.html`), `name`, `port`, `layers`, `carries`, `through`, `through_steps` (the way as steps, each with its variants: `[["sw-01", "sw-02"], ["fw"]]`), `through_deduced`, `attributes`, `declared` |
 
 ## A view (`views/<name>.json`)
 
@@ -72,7 +72,7 @@ The short record (what `resources.json` lists) then the detail:
 
 - `nodes`: `id`, `kind`, `label`, `frame` (the id of its innermost frame);
 - `frames`: `id`, `title`, `resource` (the qualified name the frame stands for, or null for a zone or a value), `in` (the frame it is in);
-- `edges`: `source`, `target`, `relation` (null for a flow), `ports`, `layers`, `carries`, `through`, `through_steps` (the way as steps, each with its variants), `step`;
+- `edges`: `source`, `target`, `relation` (null for a flow), `ports`, `layers`, `carries`, `through`, `through_steps` (the way as steps, each with its variants), `step`, `links` (the `id` of each link the edge draws), `exchange` (`push`, `pull`, `both`, or null), `reversed` (drawn from its target to its source: a `pull` with `orientation: data`);
 - `diagnostics`: the warnings of the evaluation.
 
 A view is not evaluated while the project has errors: the file is then absent from the site, and `project.json` lists the errors.
