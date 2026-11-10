@@ -30,8 +30,9 @@ diagram changed. Open:
 The site, the playground and the VS Code preview zoom and move their diagrams (`render/zoom.js`).
 Open:
 
-- IntelliJ, which opens the SVG in its image editor: the preview in a browser panel with the same
-  script;
+- IntelliJ, which opens the SVG in its image editor: the preview in a browser panel (JCEF) with the
+  same script would bring the zoom, the bubbles telling where the data of an edge go, and, as in
+  VS Code, a click on an edge or a node to where it is written (`cadastre/source`);
 - the Mermaid diagrams of the site (sequences), drawn after the page is loaded;
 - a minimap of the whole drawing when zoomed in; the URL of the page keeping the zoom and the
   position (`#zoom=2,x,y`); the search of the site centering a node in the drawing.
