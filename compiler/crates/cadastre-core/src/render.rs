@@ -527,7 +527,12 @@ impl<'a> Scene<'a> {
     /// its `wrap` style, else of `node_labels_wrap`. The first line of [`Self::node_lines`] stays
     /// the name of the node for the other renderings.
     pub(crate) fn node_text(&self, id: ResourceId) -> Vec<String> {
-        wrap_lines(self.node_lines(id), self.node_style(id).wrap.or(self.graph.options.node_wrap))
+        self.node_wrapped(id, self.node_lines(id))
+    }
+
+    /// Lines of a node cut as [`Self::node_text`] cuts them.
+    fn node_wrapped(&self, id: ResourceId, lines: Vec<String>) -> Vec<String> {
+        wrap_lines(lines, self.node_style(id).wrap.or(self.graph.options.node_wrap))
     }
 
     /// The lines of a frame as a diagram draws them, as [`Self::node_text`].
@@ -2368,14 +2373,16 @@ fn dot_node_as(
     if style.fill.is_some() {
         styles.push("filled");
     }
-    let mut lines = scene.node_text(node);
+    let mut lines = scene.node_lines(node);
     if places > 1 {
-        // The reader knows the node is drawn elsewhere too.
+        // The reader knows the node is drawn elsewhere too: after its whole name, before the
+        // lines are cut.
         match lines.first_mut() {
             Some(first) => first.push_str(&format!(" ×{places}")),
             None => lines.push(format!("×{places}")),
         }
     }
+    let lines = scene.node_wrapped(node, lines);
     let mut attrs = match icon_class(scene, node) {
         Some(class) => vec![format!("label={}", svg::node_label(&lines)), format!("class=\"{class}\"")],
         None => vec![format!("label={}", quote(&lines.join("\n")))],

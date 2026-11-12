@@ -14,6 +14,9 @@ The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly mod
 
 ## Unreleased
 
+- **`node_labels_wrap`**: the text of the nodes and frames of a diagram cut between words at a width, in characters (`node_labels_wrap: 40`), whatever the key shown: a long `description` among the `node_labels` no longer stretches its box or its frame. In the SVG, Mermaid, ELK, draw.io and the view moved by hand; the text, the tables and the tooltips keep whole lines. `wrap` in a style rule does the same for what the rule designates (`kind system { wrap: 40 }`), and on edges as `edge_labels_wrap` (a number or `values`).
+- **Move by hand**: a node dragged close to another no longer loses an edge whose bend falls inside a node: the edge is drawn straight, or as a curve while the nodes overlap, and gets its segments back once the node is dropped.
+
 ## 0.4.0
 
 Nothing in a project needs to change: everything is added. Some drawings change: the levels of a `stack` in their order whatever the direction, the edges between the items of a level laid out straight, and an edge of `merge: pair` styled by both of its directions. Added: names for links (`as F-042`), computed keys, the history of each resource from git, a site that explains its links (a page per link, what each resource exchanges with, where the data go) and files its views in folders (`group`), tooltips saying where the data go, and a click from the VS Code preview to the source.

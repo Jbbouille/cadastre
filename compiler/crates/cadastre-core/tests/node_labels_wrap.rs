@@ -81,3 +81,26 @@ fn a_style_rule_wraps_the_label_of_an_edge() {
     let dot = dot_with(", edge_labels: [carries]", "edges where source.name = middleware.hub { wrap: values }");
     assert!(dot.contains(r"orders\ninvoices\npayments"), "{dot}");
 }
+
+#[test]
+fn a_node_drawn_in_several_places_says_so_after_its_whole_name() {
+    // A directory used by the apps of three systems, drawn in the frame of each: `×3` after its
+    // whole label, the lines cut after.
+    let registry = r#"
+saas directory { label: "Corporate directory" }
+system sales { app shop { -> directory : ldap/389 [auth] } }
+system stock { app wms { -> directory : ldap/389 [auth] } }
+system billing { app invoices { -> directory : ldap/389 [auth] } }
+"#;
+    let view = "view v {\n  select app, saas group-by system\n  edges [auth]\n  render dot { satellites: true, node_labels_wrap: 12 }\n}\n";
+    let c = compile(&[
+        SourceFile { path: "a.ca".into(), text: registry.into() },
+        SourceFile { path: "v.cav".into(), text: view.into() },
+    ]);
+    let errors: Vec<&str> =
+        c.diagnostics.iter().filter(|d| d.severity == Severity::Error).map(|d| d.message.as_str()).collect();
+    assert!(errors.is_empty(), "{errors:?}");
+    let dot = build_with(&c, Some("v"), None).0.remove(0).content;
+    assert_eq!(dot.matches("Corporate<br/>directory ×3").count(), 3, "{dot}");
+    assert!(!dot.contains("Corporate ×3"), "{dot}");
+}
