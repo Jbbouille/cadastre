@@ -179,8 +179,8 @@ view wan {
 
 | Target | Applies to | Properties |
 |---|---|---|
-| `kind <kind>`, `nodes where …` | nodes (and frames for `kind`) | `color`, `fill`, `shape`, `line`, `legend` |
-| `edges where …`, `layer <layer>` | edges | `color`, `line`, `layout`, `legend` |
+| `kind <kind>`, `nodes where …` | nodes (and frames for `kind`) | `color`, `fill`, `shape`, `line`, `wrap`, `legend` |
+| `edges where …`, `layer <layer>` | edges | `color`, `line`, `layout`, `wrap`, `legend` |
 
 - **Cascade**: default theme, then the project `style` block (a single one, at the root of a `.cav`), then the `style` of the view; for each property, the last matching rule wins.
 - **`legend: "…"`** puts the rule in the legend, only if its style shows in the view.
@@ -238,6 +238,6 @@ render svg {
 | A node at the top of its frame | `first: [<node>]` |
 | Edges that detour through their labels | `edge_labels_layout: free`, possibly `routing: polyline` |
 | Long labels | `edge_labels_wrap: 40` or `edge_labels_wrap: values` |
-| Long node texts (a `description` that stretches its box or frame) | `node_labels_wrap: 40` |
+| Long node texts (a `description` that stretches its box or frame) | `node_labels_wrap: 40`, or for some only `style { kind system { wrap: 40 } }` |
 | An inventory | `select server` + `render csv, markdown { columns: [name, label, ip, "ancestor(site)", hosts] }` |
 | A matrix of flows | `edges [flow]` + `render tsv { columns: [source, target, proto, port, exchange, carries] }` |

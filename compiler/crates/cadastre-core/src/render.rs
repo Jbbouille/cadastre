@@ -271,6 +271,8 @@ pub struct NodeStyle {
     pub fill: Option<String>,
     pub shape: String,
     pub line: Line,
+    /// `wrap`: the width of its lines, in characters, over `node_labels_wrap`.
+    pub wrap: Option<usize>,
 }
 
 #[derive(Clone, Debug)]
@@ -283,6 +285,8 @@ pub struct EdgeStyle {
     pub straight: bool,
     pub thin: bool,
     pub hollow_arrow: bool,
+    /// `wrap`: its label on several lines, over `edge_labels_wrap`.
+    pub wrap: Option<Wrap>,
 }
 
 #[derive(Clone, Debug)]
@@ -519,14 +523,16 @@ impl<'a> Scene<'a> {
         lines
     }
 
-    /// The lines of a node or a frame as a diagram draws them: each one cut between words at the
-    /// width of `node_labels_wrap`. The first line of [`Self::node_lines`] stays the name of the
-    /// node for the other renderings.
-    pub(crate) fn wrapped(&self, lines: Vec<String>) -> Vec<String> {
-        match self.graph.options.node_wrap {
-            Some(width) => lines.iter().flat_map(|line| wrap_words(line, width)).collect(),
-            None => lines,
-        }
+    /// The lines of a node as a diagram draws them: each one cut between words at the width of
+    /// its `wrap` style, else of `node_labels_wrap`. The first line of [`Self::node_lines`] stays
+    /// the name of the node for the other renderings.
+    pub(crate) fn node_text(&self, id: ResourceId) -> Vec<String> {
+        wrap_lines(self.node_lines(id), self.node_style(id).wrap.or(self.graph.options.node_wrap))
+    }
+
+    /// The lines of a frame as a diagram draws them, as [`Self::node_text`].
+    pub(crate) fn frame_text(&self, group: usize) -> Vec<String> {
+        wrap_lines(self.frame_lines(group), self.frame_style(group).wrap.or(self.graph.options.node_wrap))
     }
 
     /// The label of an edge in a diagram: none on a dense diagram, unless the view writes
@@ -646,7 +652,7 @@ impl<'a> Scene<'a> {
                 None => parts.push("?".to_owned()),
             }
         }
-        wrap(&parts, self.graph.options.wrap)
+        wrap(&parts, self.edge_style(edge).wrap.or(self.graph.options.wrap))
     }
 
     /// The label of an edge on a single line, for the text output and ASCII art.
@@ -803,6 +809,7 @@ impl<'a> Scene<'a> {
                 (Some("external"), _) | (_, Some("assumed")) => Line::Dashed,
                 _ => Line::Solid,
             },
+            wrap: None,
         };
         // Its life: to come, in blue; withdrawn, in grey.
         style.color = status_color(attr("status")).map(str::to_owned);
@@ -819,6 +826,7 @@ impl<'a> Scene<'a> {
                     "fill" => style.fill = Some(value),
                     "shape" => style.shape = value,
                     "line" => style.line = Line::parse(&value).unwrap_or(style.line),
+                    "wrap" => style.wrap = value.parse().ok().filter(|&w| w > 0).or(style.wrap),
                     _ => {}
                 }
             }
@@ -844,6 +852,7 @@ impl<'a> Scene<'a> {
             hollow_arrow: edge.layers.contains("trigger"),
             free: false,
             straight: false,
+            wrap: None,
         };
         for rule in self.rules.iter().filter(|rule| self.edge_rule_applies(rule, edge)) {
             for property in &rule.properties {
@@ -853,6 +862,8 @@ impl<'a> Scene<'a> {
                     "line" => style.line = Line::parse(&value).unwrap_or(style.line),
                     "layout" => style.free = value == "free",
                     "routing" => style.straight = value == "straight",
+                    "wrap" if value == "values" => style.wrap = Some(Wrap::Values),
+                    "wrap" => style.wrap = value.parse().ok().filter(|&w| w > 0).map(Wrap::Width).or(style.wrap),
                     _ => {}
                 }
             }
@@ -867,6 +878,7 @@ impl<'a> Scene<'a> {
                 style.color = style.color.or(part.color);
                 style.free |= part.free;
                 style.straight |= part.straight;
+                style.wrap = style.wrap.or(part.wrap);
             }
         }
         style
@@ -945,14 +957,16 @@ impl<'a> Scene<'a> {
         let group = &self.graph.groups[group];
         let Some(zone) = &group.zone else {
             // A frame of values: the default frame, rounded, its border grey.
-            let plain = NodeStyle { color: None, fill: None, shape: "rounded".to_owned(), line: Line::Solid };
+            let plain =
+                NodeStyle { color: None, fill: None, shape: "rounded".to_owned(), line: Line::Solid, wrap: None };
             return group.resource.map_or(plain, |r| self.node_style(r));
         };
         self.zone_style(&zone.properties)
     }
 
     fn zone_style(&self, properties: &[crate::registry::Attribute]) -> NodeStyle {
-        let mut style = NodeStyle { color: None, fill: None, shape: "rounded".to_owned(), line: Line::Dashed };
+        let mut style =
+            NodeStyle { color: None, fill: None, shape: "rounded".to_owned(), line: Line::Dashed, wrap: None };
         for property in properties {
             let value = crate::query::value_text(&property.value);
             match property.key.as_str() {
@@ -2163,7 +2177,7 @@ fn dot_frame(
         // A node drawn as a frame looks like the node: its text, a black outline by default,
         // square corners unless its shape is rounded.
         let node = resource.is_some_and(|r| scene.node_frame(r).is_some());
-        let lines = scene.wrapped(scene.frame_lines(group));
+        let lines = scene.frame_text(group);
         let (label, class) = match resource.and_then(|r| icon_class(scene, r)) {
             Some(class) => (svg::frame_label(&lines), format!(" class=\"{class}\";")),
             None => (quote(&lines.join("\n")), String::new()),
@@ -2354,7 +2368,7 @@ fn dot_node_as(
     if style.fill.is_some() {
         styles.push("filled");
     }
-    let mut lines = scene.wrapped(scene.node_lines(node));
+    let mut lines = scene.node_text(node);
     if places > 1 {
         // The reader knows the node is drawn elsewhere too.
         match lines.first_mut() {
@@ -2731,7 +2745,7 @@ fn mermaid_frame(scene: &Scene, frame: Option<usize>, depth: usize, out: &mut St
     let nodes: Vec<ResourceId> =
         order.iter().filter_map(|p| if let Placed::Node(n) = p { Some(*n) } else { None }).collect();
     for group in groups {
-        let label = scene.wrapped(scene.frame_lines(group)).join("<br/>").replace('"', "#quot;");
+        let label = scene.frame_text(group).join("<br/>").replace('"', "#quot;");
         let _ = writeln!(out, "{indent}subgraph g{group}[\"{label}\"]");
         mermaid_frame(scene, Some(group), depth + 1, out, styles);
         let _ = writeln!(out, "{indent}end");
@@ -2752,7 +2766,7 @@ fn mermaid_frame(scene: &Scene, frame: Option<usize>, depth: usize, out: &mut St
     }
     for node in nodes {
         let style = scene.node_style(node);
-        let text = scene.wrapped(scene.node_lines(node)).join("<br/>").replace('"', "#quot;");
+        let text = scene.node_text(node).join("<br/>").replace('"', "#quot;");
         let shaped = match style.shape.as_str() {
             "rounded" => format!("(\"{text}\")"),
             "ellipse" => format!("([\"{text}\"])"),
@@ -2783,6 +2797,14 @@ fn mermaid_frame(scene: &Scene, frame: Option<usize>, depth: usize, out: &mut St
         if !props.is_empty() {
             styles.push(format!("  style {} {}", node_id(node), props.join(",")));
         }
+    }
+}
+
+/// Lines of a node or a frame cut at a width, when there is one.
+fn wrap_lines(lines: Vec<String>, width: Option<usize>) -> Vec<String> {
+    match width {
+        Some(width) => lines.iter().flat_map(|line| wrap_words(line, width)).collect(),
+        None => lines,
     }
 }
 

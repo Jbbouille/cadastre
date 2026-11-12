@@ -325,6 +325,15 @@ pub static STYLE_PROPERTIES: &[(OptionDef, Styled)] = &[
         ),
         Styled::Edges,
     ),
+    (
+        option(
+            "wrap",
+            Values::Wrap,
+            "",
+            "text on several lines: the lines of a node or a frame cut between words at a number of characters; the label of an edge as `edge_labels_wrap`, a number or `values`",
+        ),
+        Styled::Both,
+    ),
     (option("legend", Values::Text, "", "entry of the rule in the legend"), Styled::Both),
 ];
 

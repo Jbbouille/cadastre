@@ -686,6 +686,7 @@ A zone is a frame of the view, at the top level, gathering the nodes and frames 
 | `shape` | `box \| rounded \| ellipse \| cylinder \| hexagon \| note` | nodes | `box` | shape of a node |
 | `layout` | `free` | edges |  | an edge drawn without placing nodes |
 | `routing` | `straight` | edges |  | an edge drawn as a straight line in SVG, from the border of a node to the other, whatever the routing of the view |
+| `wrap` | `<number> \| values` | nodes and edges |  | text on several lines: the lines of a node or a frame cut between words at a number of characters; the label of an edge as `edge_labels_wrap`, a number or `values` |
 | `legend` | `<string>` | nodes and edges |  | entry of the rule in the legend |
 
 ### Checks

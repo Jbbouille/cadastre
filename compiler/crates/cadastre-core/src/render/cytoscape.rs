@@ -35,7 +35,7 @@ pub fn cytoscape(scene: &Scene, layout: Option<&str>) -> String {
         let mut data = json!({
             "id": format!("f{group}"),
             "frame": true,
-            "label": scene.wrapped(scene.frame_lines(group)).join("\n"),
+            "label": scene.frame_text(group).join("\n"),
             "color": style.color.clone().unwrap_or_else(|| if resource.is_some_and(|r| scene.node_frame(r).is_some()) { "#000000" } else { "#999999" }.to_owned()),
             // A color Cytoscape reads even when the frame is not filled (`filled`).
             "fill": style.fill.clone().unwrap_or_else(|| "#ffffff".to_owned()),
@@ -69,7 +69,7 @@ pub fn cytoscape(scene: &Scene, layout: Option<&str>) -> String {
         let fill = style.fill.clone().unwrap_or_else(|| "#ffffff".to_owned());
         let mut data = json!({
             "id": node_id(scene, id),
-            "label": scene.wrapped(scene.node_lines(id)).join("\n"),
+            "label": scene.node_text(id).join("\n"),
             "name": scene.registry.qualified_name(id),
             "kind": kind,
             "tooltip": scene.node_tooltip(id),

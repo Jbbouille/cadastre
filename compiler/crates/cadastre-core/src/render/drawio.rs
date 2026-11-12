@@ -162,7 +162,7 @@ fn write(scene: &Scene, placement: &Placement) -> String {
             resource.map(|r| scene.registry.schema.base(&scene.registry.resource(r).kind)),
             scene.graph.options.frame_label_size,
         );
-        let mut data = vec![("label".to_owned(), html_lines(&scene.wrapped(scene.frame_lines(group))))];
+        let mut data = vec![("label".to_owned(), html_lines(&scene.frame_text(group)))];
         if let Some(r) = resource {
             data.extend(resource_data(scene, r));
         }
@@ -187,7 +187,7 @@ fn write(scene: &Scene, placement: &Placement) -> String {
         let frame = graph.node_group.get(&id).copied().filter(|g| placement.frames.contains_key(g));
         let (ox, oy) = origin(frame);
         let kind = scene.registry.schema.base(&scene.registry.resource(id).kind);
-        let mut data = vec![("label".to_owned(), html_lines(&scene.wrapped(scene.node_lines(id))))];
+        let mut data = vec![("label".to_owned(), html_lines(&scene.node_text(id)))];
         data.extend(resource_data(scene, id));
         cell(
             &mut out,
