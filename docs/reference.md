@@ -541,6 +541,7 @@ A group stands for its kinds wherever a kind is expected (`ref(transit)`, `selec
 | `direction` | `lr \| rl \| tb \| bt` | `lr` | direction of the edges: left to right, right to left, top to bottom, bottom to top |
 | `orientation` | `connection \| data` | `connection` | arrow from the initiator of the connection, or along the data (`exchange`) |
 | `node_labels` | `[<key>, …]` | `[label]` | attributes shown in nodes and frames |
+| `node_labels_wrap` | `<number>` |  | width of the text of nodes and frames, in characters: a longer line goes on to the next between words |
 | `edge_labels` | `[<label>, …]` | `[port]` | labels of the edges; unless written, a diagram of more than 20 edges leaves them to the tooltips |
 | `legend` | `true \| false` | `false` | legend of the style rules carrying a `legend` |
 | `icons` | `true \| false` | `true` | icon of its kind in each node and frame |

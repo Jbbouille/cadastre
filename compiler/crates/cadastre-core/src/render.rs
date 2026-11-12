@@ -519,6 +519,16 @@ impl<'a> Scene<'a> {
         lines
     }
 
+    /// The lines of a node or a frame as a diagram draws them: each one cut between words at the
+    /// width of `node_labels_wrap`. The first line of [`Self::node_lines`] stays the name of the
+    /// node for the other renderings.
+    pub(crate) fn wrapped(&self, lines: Vec<String>) -> Vec<String> {
+        match self.graph.options.node_wrap {
+            Some(width) => lines.iter().flat_map(|line| wrap_words(line, width)).collect(),
+            None => lines,
+        }
+    }
+
     /// The label of an edge in a diagram: none on a dense diagram, unless the view writes
     /// `edge_labels`; the text and table renderings keep every label.
     fn diagram_label(&self, edge: &GraphEdge) -> String {
@@ -2153,7 +2163,7 @@ fn dot_frame(
         // A node drawn as a frame looks like the node: its text, a black outline by default,
         // square corners unless its shape is rounded.
         let node = resource.is_some_and(|r| scene.node_frame(r).is_some());
-        let lines = scene.frame_lines(group);
+        let lines = scene.wrapped(scene.frame_lines(group));
         let (label, class) = match resource.and_then(|r| icon_class(scene, r)) {
             Some(class) => (svg::frame_label(&lines), format!(" class=\"{class}\";")),
             None => (quote(&lines.join("\n")), String::new()),
@@ -2344,7 +2354,7 @@ fn dot_node_as(
     if style.fill.is_some() {
         styles.push("filled");
     }
-    let mut lines = scene.node_lines(node);
+    let mut lines = scene.wrapped(scene.node_lines(node));
     if places > 1 {
         // The reader knows the node is drawn elsewhere too.
         match lines.first_mut() {
@@ -2721,7 +2731,7 @@ fn mermaid_frame(scene: &Scene, frame: Option<usize>, depth: usize, out: &mut St
     let nodes: Vec<ResourceId> =
         order.iter().filter_map(|p| if let Placed::Node(n) = p { Some(*n) } else { None }).collect();
     for group in groups {
-        let label = scene.frame_lines(group).join("<br/>").replace('"', "#quot;");
+        let label = scene.wrapped(scene.frame_lines(group)).join("<br/>").replace('"', "#quot;");
         let _ = writeln!(out, "{indent}subgraph g{group}[\"{label}\"]");
         mermaid_frame(scene, Some(group), depth + 1, out, styles);
         let _ = writeln!(out, "{indent}end");
@@ -2742,7 +2752,7 @@ fn mermaid_frame(scene: &Scene, frame: Option<usize>, depth: usize, out: &mut St
     }
     for node in nodes {
         let style = scene.node_style(node);
-        let text = scene.node_lines(node).join("<br/>").replace('"', "#quot;");
+        let text = scene.wrapped(scene.node_lines(node)).join("<br/>").replace('"', "#quot;");
         let shaped = match style.shape.as_str() {
             "rounded" => format!("(\"{text}\")"),
             "ellipse" => format!("([\"{text}\"])"),
@@ -2774,6 +2784,22 @@ fn mermaid_frame(scene: &Scene, frame: Option<usize>, depth: usize, out: &mut St
             styles.push(format!("  style {} {}", node_id(node), props.join(",")));
         }
     }
+}
+
+/// A line of a node or a frame on several lines of `width` characters at most (`node_labels_wrap`),
+/// broken between words; a word longer than the width stays whole on its line.
+fn wrap_words(line: &str, width: usize) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    for word in line.split_whitespace() {
+        match lines.last_mut() {
+            Some(last) if last.chars().count() + 1 + word.chars().count() <= width => {
+                last.push(' ');
+                last.push_str(word);
+            }
+            _ => lines.push(word.to_owned()),
+        }
+    }
+    if lines.is_empty() { vec![line.to_owned()] } else { lines }
 }
 
 /// The values of a label joined on one line, or on several lines (`edge_labels_wrap`): one value

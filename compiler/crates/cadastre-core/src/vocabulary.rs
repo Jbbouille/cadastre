@@ -176,6 +176,12 @@ pub static RENDER_OPTIONS: &[OptionDef] = &[
     ),
     option("node_labels", Values::Keys, "[label]", "attributes shown in nodes and frames"),
     option(
+        "node_labels_wrap",
+        Values::Number,
+        "",
+        "width of the text of nodes and frames, in characters: a longer line goes on to the next between words",
+    ),
+    option(
         "edge_labels",
         Values::EdgeLabels,
         "[port]",

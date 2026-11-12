@@ -238,5 +238,6 @@ render svg {
 | A node at the top of its frame | `first: [<node>]` |
 | Edges that detour through their labels | `edge_labels_layout: free`, possibly `routing: polyline` |
 | Long labels | `edge_labels_wrap: 40` or `edge_labels_wrap: values` |
+| Long node texts (a `description` that stretches its box or frame) | `node_labels_wrap: 40` |
 | An inventory | `select server` + `render csv, markdown { columns: [name, label, ip, "ancestor(site)", hosts] }` |
 | A matrix of flows | `edges [flow]` + `render tsv { columns: [source, target, proto, port, exchange, carries] }` |

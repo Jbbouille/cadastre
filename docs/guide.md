@@ -1677,6 +1677,7 @@ Graphviz places the nodes and routes the edges by itself, the ranks computed ove
 | `routing` | shape of the edges: `curved`, `polyline` (broken lines), `straight`, `orthogonal` (horizontal and vertical segments, labels less well placed) | `curved` |
 | `edge_labels_layout` | `nodes`: the labels are laid out as small nodes on the edges, which reserves room for them but makes edges detour through their labels when many leave the same node; `free`: centered on the edges after the layout (SVG), without moving anything, at the risk of overlaps | `nodes` |
 | `edge_labels_wrap` | labels on several lines: a number of characters, a line break between values once a line would exceed it (a value is never cut), or `values`, one value per line: `edge_labels_wrap: 40` | none: one line |
+| `node_labels_wrap` | width of the text of the nodes and frames, in characters: a longer line goes on to the next between words, whatever the key it shows (a long `description` among the `node_labels`), a word longer than the width staying whole; the text, the tables and the tooltips keep whole lines: `node_labels_wrap: 40` | none |
 | `spacing` | space between the nodes and between the ranks, as a factor of the defaults: `1.5` for both, `[1, 2]` for the nodes, then the ranks (the frames of a level of `stack`, the rows of a top-to-bottom view) | `1` |
 | `node_label_size`, `edge_label_size`, `frame_label_size` | size of the text of the nodes, of the labels of the edges, of the titles of the frames, in points | `10`, `9`, `11` |
 
@@ -1780,6 +1781,7 @@ view storage {
 | `routing` | ✔ | ✔ (`curve`) | ✘ | always orthogonal |
 | `edge_labels_layout` | ✔ | ✘ | ✘ | ✘ |
 | `edge_labels_wrap` | ✔ | ✔ (`<br/>`) | ✘ (one line) | ✘ (one line) |
+| `node_labels_wrap` | ✔ | ✔ (`<br/>`) | ✘ (one line) | ✔ (draw.io) |
 | `spacing` | ✔ | ✔ (`nodeSpacing`, `rankSpacing`) | ✘ | ✘ |
 | text sizes | ✔ | ✘ | ✘ | ✘ |
 | `routing: straight` on edges | ✔ (SVG) | ✘ | ✘ | ✘ |

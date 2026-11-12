@@ -104,6 +104,8 @@ pub struct RenderOptions {
     /// the others (`edge_labels_layout: free`).
     pub free_labels: bool,
     pub wrap: Option<Wrap>,
+    /// The width of the lines of the nodes and frames, in characters (`node_labels_wrap`).
+    pub node_wrap: Option<usize>,
     /// From how many merged links an edge is labeled with a summary (`merge_label`).
     pub summary_from: Option<usize>,
     /// The columns of a table view, as written; the rows, `nodes` or `edges`.
@@ -146,6 +148,7 @@ impl RenderOptions {
             routing: Routing::Curved,
             free_labels: false,
             wrap: None,
+            node_wrap: None,
             summary_from: None,
             columns: Vec::new(),
             rows: None,
@@ -197,6 +200,7 @@ impl RenderOptions {
                 ("merge_label", v) => options.summary_from = v.parse().ok().filter(|&n| n >= 2),
                 ("edge_labels_wrap", "values") => options.wrap = Some(Wrap::Values),
                 ("edge_labels_wrap", v) => options.wrap = v.parse().ok().filter(|&w| w > 0).map(Wrap::Width),
+                ("node_labels_wrap", v) => options.node_wrap = v.parse().ok().filter(|&w| w > 0),
                 ("orientation", "data") => options.orientation = Orientation::Data,
                 ("orientation", _) => options.orientation = Orientation::Connection,
                 ("node_labels", _) => options.node_labels = words,

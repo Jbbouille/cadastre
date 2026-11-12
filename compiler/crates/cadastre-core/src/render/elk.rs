@@ -67,7 +67,7 @@ pub fn svg(scene: &Scene) -> Result<String, String> {
     let mut items: HashMap<String, Item> = HashMap::new();
     for &(group, parent) in &frames {
         let resource = scene.graph.groups[group].resource;
-        let lines = scene.frame_lines(group);
+        let lines = scene.wrapped(scene.frame_lines(group));
         let kind = resource.and_then(|r| kind_of(scene, r));
         let (width, height) = text_size(&lines, frame_size);
         let width = width + kind.as_ref().map_or(0.0, |_| FRAME_ICON + FRAME_GAP);
@@ -90,7 +90,7 @@ pub fn svg(scene: &Scene) -> Result<String, String> {
         items.insert(id, item);
     }
     for &(id, parent) in &nodes {
-        let lines = scene.node_lines(id);
+        let lines = scene.wrapped(scene.node_lines(id));
         let kind = kind_of(scene, id);
         let style = scene.node_style(id);
         let (text_width, text_height) = text_size(&lines, node_size);
