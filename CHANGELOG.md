@@ -14,6 +14,10 @@ The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly mod
 
 ## Unreleased
 
+## 0.5.0
+
+Nothing in a project needs to change: two keys are added, and the drawings without them stay as they were. `node_labels_wrap` cuts the text of the nodes and frames of a diagram between words at a width, `wrap` in a style rule does it for what the rule designates; and moving a view by hand no longer loses an edge while a node is dragged.
+
 - **`node_labels_wrap`**: the text of the nodes and frames of a diagram cut between words at a width, in characters (`node_labels_wrap: 40`), whatever the key shown: a long `description` among the `node_labels` no longer stretches its box or its frame. In the SVG, Mermaid, ELK, draw.io and the view moved by hand; the text, the tables and the tooltips keep whole lines. `wrap` in a style rule does the same for what the rule designates (`kind system { wrap: 40 }`), and on edges as `edge_labels_wrap` (a number or `values`).
 - **Move by hand**: a node dragged close to another no longer loses an edge whose bend falls inside a node: the edge is drawn straight, or as a curve while the nodes overlap, and gets its segments back once the node is dropped.
 
