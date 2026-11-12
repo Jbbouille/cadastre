@@ -63,6 +63,27 @@
   const edgeKey = (edge) => `${edge.source().data("name") ?? edge.source().id()}>${edge.target().data("name") ?? edge.target().id()}|${edge.data("label")}`;
   const positions = (flat) => Array.from({ length: flat.length / 2 }, (_, i) => ({ x: flat[2 * i], y: flat[2 * i + 1] }));
 
+  // An edge Cytoscape cannot draw (a bend inside one of its ends: it finds no point where the
+  // line leaves the node) is skipped without a word: it is drawn straight instead, or, when it
+  // still is not (between a frame and a node it holds, which Cytoscape draws without bends
+  // only, or two nodes on top of each other), as a curve. Never lost. Returns how many were.
+  const unseen = (edges) => edges.filter((edge) => !edge.source().same(edge.target()) && !Number.isFinite(edge.sourceEndpoint().x));
+  function repair(cy, edges) {
+    const lost = unseen(edges);
+    if (lost.empty()) return 0;
+    for (const edge of lost) {
+      const [a, b] = [edge.source().position(), edge.target().position()];
+      edge.data("bendPointPositions", [{ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }]);
+    }
+    cy.edgeEditing("get").initAnchorPoints(lost);
+    lost.updateStyle();
+    for (const edge of unseen(lost)) {
+      edge.data("curved", true);
+      edge.style("curve-style", "bezier");
+    }
+    return lost.length;
+  }
+
   // Draws `elements` ({ nodes, edges }) in `box`; returns the Cytoscape instance.
   function show(box, elements, options = {}) {
     const words = WORDS[options.language] ?? WORDS.en;
@@ -97,22 +118,27 @@
     }
     cy.edgeEditing("get").initAnchorPoints(cy.edges());
     cy.style().update();
-    // An edge Cytoscape cannot draw (a bend inside one of its ends: it finds no point where the
-    // line leaves the node) is skipped without a word: it is drawn straight instead, or, when it
-    // still is not (between a frame and a node it holds, which Cytoscape draws without bends
-    // only), as a curve. Never lost.
-    const unseen = (edges) => edges.filter((edge) => !edge.source().same(edge.target()) && !Number.isFinite(edge.sourceEndpoint().x));
-    const lost = unseen(cy.edges());
-    if (lost.length) {
-      for (const edge of lost) {
-        const [a, b] = [edge.source().position(), edge.target().position()];
-        edge.data("bendPointPositions", [{ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }]);
+    const lost = repair(cy, cy.edges());
+    if (lost) console.warn(`cadastre: ${lost} edge(s) redrawn, their bends inside their ends`);
+    // The same while dragging: a node moved close to another can put a bend of an edge inside it.
+    let moved = cy.collection();
+    cy.on("position", "node", (event) => {
+      // Once per move of the pointer: the nodes of a frame move with it, each told apart.
+      if (moved.empty()) queueMicrotask(() => {
+        repair(cy, moved.union(moved.descendants()).connectedEdges());
+        moved = cy.collection();
+      });
+      moved = moved.union(event.target);
+    });
+    // Once dropped, an edge drawn as a curve gets its bends back where it can.
+    cy.on("free", "node", (event) => {
+      const edges = event.target.union(event.target.descendants()).connectedEdges().filter((e) => e.data("curved"));
+      for (const edge of edges) {
+        edge.removeData("curved");
+        edge.removeStyle("curve-style");
       }
-      cy.edgeEditing("get").initAnchorPoints(lost);
-      cy.style().update();
-      for (const edge of unseen(lost)) edge.style("curve-style", "bezier");
-      console.warn(`cadastre: ${lost.length} edge(s) redrawn, their bends inside their ends`);
-    }
+      repair(cy, edges);
+    });
     if (options.viewport) cy.viewport(options.viewport);
     else cy.fit(undefined, 20);
     return cy;
