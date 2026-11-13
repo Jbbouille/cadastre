@@ -38,7 +38,13 @@ pub fn outline(source: &str) -> Vec<Symbol> {
 
 fn symbols(parent: Node, source: &str) -> Vec<Symbol> {
     let mut cursor = parent.walk();
-    parent.named_children(&mut cursor).filter_map(|node| symbol(node, source)).collect()
+    // A name not typed yet (`pr`, `proxy `) is a missing node of the syntax tree, of no text:
+    // the element is left out, editors refusing a symbol without a name.
+    parent
+        .named_children(&mut cursor)
+        .filter_map(|node| symbol(node, source))
+        .filter(|symbol| !symbol.name.trim().is_empty())
+        .collect()
 }
 
 fn symbol(node: Node, source: &str) -> Option<Symbol> {
@@ -186,6 +192,47 @@ mod tests {
     fn outlines_plans() {
         let source = "style { layer flow { color: red } }\nview apps {\n  select app\n  style { nodes { shape: box } }\n}\ncheck owners { select app expect some }\n";
         assert_eq!(tree(&outline(source)), ["style ()", "apps (view)", "  style ()", "owners (check)"]);
+    }
+
+    #[test]
+    fn leaves_out_the_elements_without_a_name() {
+        for source in [
+            "proxy f5 {
+  vip ada {
+    vip {
+  }
+}
+",
+            "proxy f5 {
+  vip ada {
+    vip 
+  }
+}
+",
+            "proxy f5 { vip {
+",
+            "app a { }
+
+pr",
+            "forward_proxy ",
+            "proxy f5 {
+  vip ada { ip: 10.0.0.1 }
+  vi",
+            "app {
+",
+            "view { select app }
+",
+        ] {
+            fn names(symbols: &[Symbol], out: &mut Vec<String>) {
+                for s in symbols {
+                    out.push(s.name.clone());
+                    names(&s.children, out);
+                }
+            }
+            let mut all = Vec::new();
+            names(&outline(source), &mut all);
+            assert!(all.iter().all(|n| !n.trim().is_empty()), "{source:?}: {all:?}");
+        }
     }
 
     #[test]

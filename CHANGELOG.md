@@ -14,6 +14,8 @@ The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly mod
 
 ## Unreleased
 
+- **Outline**: a resource whose name is not typed yet (`pr`, `proxy `) is left out of the outline of the file; the language server sent it with an empty name, and VS Code refused the whole outline ("name must not be falsy").
+
 ## 0.5.0
 
 Nothing in a project needs to change: two keys are added, and the drawings without them stay as they were. `node_labels_wrap` cuts the text of the nodes and frames of a diagram between words at a width, `wrap` in a style rule does it for what the rule designates; and moving a view by hand no longer loses an edge while a node is dragged.
