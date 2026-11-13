@@ -7,6 +7,7 @@ pub mod anonymize;
 pub mod api;
 pub mod check;
 pub mod complete;
+pub mod compose;
 pub mod csv;
 pub mod declare;
 pub mod diagnostic;

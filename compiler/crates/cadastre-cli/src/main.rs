@@ -7,7 +7,7 @@
 //! cadastre export archimate | graphml | json [directory] [--out <file>]
 //! cadastre import terraform <state file or directory> [--out <directory>]
 //! cadastre import csv <inventory.csv> [--kind <kind>] [--map <columns>] [--kinds <kinds>] [--out <directory>]
-//! cadastre serve [directory] [--port <port>] [--host <address>] [--playground <directory>] [--title <name>] [--language <code>]
+//! cadastre serve [directory] [--port <port>] [--host <address>] [--playground <directory>] [--title <name>] [--language <code>] [--edit]
 //! cadastre site [directory] --out <directory> [--playground <directory>] [--title <name>] [--language <code>]
 //! cadastre init [directory] [--name <name>]
 //! cadastre lsp
@@ -33,7 +33,7 @@ const USAGE: &str = "usage:
   cadastre import terraform <state file or directory> [--out <directory>]
   cadastre import csv <inventory.csv> [--kind <kind>] [--map <columns>] [--kinds <kinds>] [--out <directory>]
   cadastre anonymize [directory] [--out <directory>]
-  cadastre serve [directory] [--port <port>] [--host <address>] [--playground <directory>] [--title <name>] [--language <code>]
+  cadastre serve [directory] [--port <port>] [--host <address>] [--playground <directory>] [--title <name>] [--language <code>] [--edit]
   cadastre site [directory] --out <directory> [--playground <directory>] [--title <name>] [--language <code>]
   cadastre lsp    (language server for editors, over stdin / stdout)
   cadastre mcp [directory]    (MCP server for AI agents, over stdin / stdout)";
@@ -70,6 +70,8 @@ struct Options {
     kinds: String,
     host: String,
     port: u16,
+    /// `serve --edit`: the composer of views writes its views into the files of the project.
+    edit: bool,
 }
 
 fn main() -> ExitCode {
@@ -205,6 +207,7 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Options, String> {
         kinds: String::new(),
         host: "127.0.0.1".to_owned(),
         port: 8080,
+        edit: false,
     };
     let mut command = None;
     let mut root = None;
@@ -214,6 +217,7 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Options, String> {
             "--incomplete" => options.incomplete = true,
             "--strict" => options.strict = true,
             "--check" => options.check = true,
+            "--edit" => options.edit = true,
             "--only" => options.only = Some(args.next().ok_or("--only expects a check name")?),
             "--view" => options.view = Some(args.next().ok_or("--view expects a view name")?),
             "--out" => options.out = Some(PathBuf::from(args.next().ok_or("--out expects a directory")?)),
@@ -281,7 +285,12 @@ fn publish(options: &Options) -> ExitCode {
     let language = options.language;
     if options.command == "serve" {
         let address = format!("{}:{}", options.host, options.port);
-        if let Err(error) = publish::serve(&options.root, &address, playground.as_deref(), &title, language) {
+        if options.edit && options.host != "127.0.0.1" && options.host != "localhost" {
+            eprintln!("warning: --edit with --host {}: whoever reaches the server can change the views", options.host);
+        }
+        if let Err(error) =
+            publish::serve(&options.root, &address, playground.as_deref(), &title, language, options.edit)
+        {
             eprintln!("cannot serve on {address}: {error}");
             return ExitCode::from(2);
         }

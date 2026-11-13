@@ -34,6 +34,12 @@
 //! `highlight_text(ptr, len)` follows the same steps with the text of one file instead of a
 //! request; it returns `[[start, end, "keyword"], …]`, with offsets in UTF-16 code units
 //! (JavaScript string indices).
+//!
+//! For the composer of views: `"facts": true` adds `facts` to the response (the kinds, layers,
+//! keys, resources and recipes of the project), `"insight": true` adds `insight` for the view
+//! asked (what it draws and the links it loses); `compose_parts(ptr, len)` takes the text of a
+//! `.cav` file and returns its views clause by clause, with their ranges in UTF-16 code units
+//! (see `cadastre_core::compose`).
 
 use std::cell::RefCell;
 
@@ -66,6 +72,12 @@ struct Request {
     /// The modules of the project, read only: their names and the range of their files.
     #[serde(default)]
     modules: Vec<RequestModule>,
+    /// What the project offers to compose a view, in `facts` of the response.
+    #[serde(default)]
+    facts: bool,
+    /// What the view asked draws and loses, in `insight` of the response.
+    #[serde(default)]
+    insight: bool,
 }
 
 #[derive(Deserialize)]
@@ -89,6 +101,10 @@ struct Response {
     /// The export asked for, when the project has no error.
     #[serde(skip_serializing_if = "Option::is_none")]
     export: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    facts: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    insight: Option<serde_json::Value>,
 }
 
 #[derive(Serialize)]
@@ -213,6 +229,11 @@ pub fn run(request: &str) -> String {
     diagnostics.sort_by_key(|d| (d.severity, d.spans[0].file, d.spans[0].start));
 
     let summary = Summary::of(&diagnostics);
+    let facts = request.facts.then(|| cadastre_core::compose::facts(&compilation));
+    let insight = match (request.insight, request.view.as_deref()) {
+        (true, Some(view)) => cadastre_core::compose::insight(&compilation, view),
+        _ => None,
+    };
     let response = Response {
         summary: ResponseSummary {
             errors: summary.errors,
@@ -247,6 +268,8 @@ pub fn run(request: &str) -> String {
             .collect(),
         outputs,
         export,
+        facts,
+        insight,
     };
     serde_json::to_string(&response).expect("the response is serializable")
 }
@@ -381,6 +404,18 @@ fn store(response: String) -> *const u8 {
     })
 }
 
+/// The views of the `.cav` text at `ptr..ptr+len`, clause by clause (`cadastre_core::compose::parts`).
+///
+/// # Safety
+///
+/// `ptr..ptr+len` must be readable: a buffer obtained from `alloc(len)` and filled by the host.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn compose_parts(ptr: *const u8, len: usize) -> *const u8 {
+    // SAFETY: the host wrote `len` bytes at `ptr`, obtained from `alloc`.
+    let bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
+    store(cadastre_core::compose::parts(&String::from_utf8_lossy(bytes)).to_string())
+}
+
 /// Imports a Terraform state: the UTF-8 request at `ptr..ptr+len`, as for `build`.
 ///
 /// # Safety
@@ -402,6 +437,25 @@ pub extern "C" fn result_len() -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tells_the_composer_what_a_view_draws() {
+        let request = serde_json::json!({
+            "files": [
+                { "path": "a.ca", "text": "team t\napp a { owner: t, -> b : https/443 [flow] }\ndatabase b { owner: t }" },
+                { "path": "v.cav", "text": "view flows { select app edges [flow] }" }
+            ],
+            "view": "flows", "formats": ["svg"], "facts": true, "insight": true
+        });
+        let response: serde_json::Value = serde_json::from_str(&run(&request.to_string())).unwrap();
+        assert!(response["facts"]["kinds"].as_array().unwrap().iter().any(|k| k["kind"] == "database"), "{response}");
+        // The flow to the database is lost: the database is not selected.
+        assert_eq!(response["insight"]["lost"][0]["kind"], "database", "{response}");
+        assert_eq!(response["insight"]["counts"]["nodes"], 1);
+        let parts: serde_json::Value =
+            serde_json::from_str(&cadastre_core::compose::parts("view flows { select app }").to_string()).unwrap();
+        assert_eq!(parts[0]["select"]["kinds"], serde_json::json!(["app"]));
+    }
 
     #[test]
     fn builds_a_project() {

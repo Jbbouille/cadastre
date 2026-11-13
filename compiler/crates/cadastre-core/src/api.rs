@@ -42,7 +42,7 @@ pub fn label(registry: &Registry, id: ResourceId) -> Option<String> {
 
 /// The site a resource is in: by containment, a site itself included; otherwise the site of
 /// what it runs on (`on`), as `group-by site` finds it, when its hosts agree.
-fn site_of(compilation: &Compilation, id: ResourceId) -> Option<ResourceId> {
+pub(crate) fn site_of(compilation: &Compilation, id: ResourceId) -> Option<ResourceId> {
     fn find(compilation: &Compilation, id: ResourceId, depth: usize) -> Option<ResourceId> {
         let registry = &compilation.registry;
         if let Some(site) =

@@ -81,6 +81,11 @@ fn the_pages_and_the_api() {
     assert!(home.contains("<img src=\"views/apps.svg\" alt=\"\" loading=\"lazy\">"), "{home}");
     assert!(site["views/apps.svg"].contains("viewBox=\"0 0 10 5\""));
     assert!(home.contains("href=\"playground/\""), "{home}");
+    // The composer of views: a new view from the home page, a view changed from its page, a view
+    // around a resource from its page.
+    assert!(home.contains("href=\"playground/compose.html#new\""), "{home}");
+    assert!(site["views/apps.html"].contains("href=\"../playground/compose.html#view=apps\""));
+    assert!(site["resources/sales.shop.html"].contains("href=\"../playground/compose.html#around=sales.shop\""));
     // The check of severity info that fails is to know, not failing.
     assert!(home.contains("2 checks · 1 to know</a>"), "{home}");
     let checks = &site["checks.html"];
@@ -286,6 +291,8 @@ view trail {
         flows.contains("<p class=\"crumbs\"><a href=\"../index.html#views\">Views</a> › <a href=\"../index.html#views-network\">network</a> › <a href=\"../index.html#views-network-flows\">flows</a> ›</p>"),
         "{flows}"
     );
+    // Without the playground, no composer.
+    assert!(!home.contains("compose.html"), "{home}");
     let trail: serde_json::Value = serde_json::from_str(&site["api/views/trail.json"]).unwrap();
     assert_eq!(trail["group"], "Processes/Invoicing");
 }

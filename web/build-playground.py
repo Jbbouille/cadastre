@@ -43,7 +43,7 @@ def main() -> int:
         shutil.rmtree(out)
     out.mkdir(parents=True)
 
-    for name in ("index.html", "cadastre.js", "movable.js", "zoom.js"):
+    for name in ("index.html", "compose.html", "compose.js", "cadastre.js", "movable.js", "zoom.js"):
         shutil.copy(WEB / name, out / name)
     shutil.copy(args.wasm, out / "cadastre_wasm.wasm")
 

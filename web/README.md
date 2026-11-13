@@ -36,7 +36,10 @@ import { load } from "./cadastre.js";
 const cadastre = await load("./cadastre_wasm.wasm");
 const { diagnostics, outputs } = cadastre.build({ files: [{ path: "infra.ca", text: "…" }], view: "network" });
 const ranges = cadastre.highlight("server web01"); // [[0, 6, "type"], [7, 12, "variable"]]
+const views = cadastre.parts("view flows { select app }"); // [{ name, select: { kinds: ["app"], range… }, … }]
 ```
+
+For the composer of views, `build` also answers `facts` (with `"facts": true`: the kinds, layers, keys and their values, resources and recipes of the project) and `insight` (with `"insight": true` and a `view`: its counts, what each node of its DOT stands for, the layers of each edge, the links it loses); `parts` gives the views of a `.cav` text clause by clause, each with its range in string indices, to rewrite one clause and leave the rest of the text as it is (`cadastre_core::compose`).
 
 ## Publishing a project
 
@@ -75,6 +78,10 @@ node web/build-demo.mjs --wasm web/cadastre_wasm.wasm --examples examples --out 
 ```
 
 Its code is colored at build time by the grammar of the language, as in the playground and the editors (`highlight`). Its examples are taken from `examples/`: `<pre class="code" data-file="tutorial/registry.ca">` gets a file, `<pre class="code" data-view="retail/landscape">` the block of a view with the comment above it, `<pre class="mermaid" data-sequence="reference/invoicing-process">` the sequence diagram of a view, drawn by the page with Mermaid. A view or a file that is not found fails the build. The pictures of the gallery are the diagrams of the sites of the examples, published beside it (`retail/views/landscape.svg`), as the Pages workflow does.
+
+## The composer of views
+
+[`compose.html`](compose.html) writes a view with a panel and on its diagram, its code kept in sight and rewritten clause by clause (see the guide, § The composer of views). It loads a project as the playground does: `project.json` beside it (published by `cadastre site` or `cadastre serve`), an example (`compose.html#example=retail`), or the files of the playground of the same tab (`#local`, a folder opened in it). Its address says what it opens: `#view=flows` a view of the project to change, `#around=billing` a view around a resource, `#new` the recipes, `#q=…` a view shared by its link. Under `cadastre serve --edit`, *Save* posts the view to `/__edit`, which writes it into its file.
 
 ## Self-hosting the playground
 

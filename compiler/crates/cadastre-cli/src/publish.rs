@@ -3,7 +3,7 @@
 //! it under `playground/` when one is found, for its authors.
 
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -14,8 +14,11 @@ use cadastre_core::{Language, Options as CompileOptions, site};
 /// from a CDN.
 const PAGE: &[&str] = &[
     "index.html",
+    "compose.html",
+    "compose.js",
     "cadastre.js",
     "movable.js",
+    "zoom.js",
     "cadastre_wasm.wasm",
     "viz-standalone.js",
     "NOTICE.txt",
@@ -71,9 +74,10 @@ pub fn title(root: &Path, given: Option<&str>) -> String {
 }
 
 /// `project.json` of the playground: `{ name, files: [{ path, text }], modules, site, language,
-/// satellites }`;
-/// `site` is where the site the playground is published in starts, relative to the page (`../`).
-fn project_json(project: &cadastre_project::Project, title: &str, language: Language) -> String {
+/// satellites, edit }`;
+/// `site` is where the site the playground is published in starts, relative to the page (`../`);
+/// `edit`, whether the composer of views may write its views into the files (`serve --edit`).
+fn project_json(project: &cadastre_project::Project, title: &str, language: Language, edit: bool) -> String {
     let files: Vec<_> = project.files.iter().map(|f| serde_json::json!({ "path": f.path, "text": f.text })).collect();
     let modules: Vec<_> = project
         .modules
@@ -88,6 +92,7 @@ fn project_json(project: &cadastre_project::Project, title: &str, language: Lang
         "language": language.code(),
         "satellites": project.satellites(),
         "compiler": cadastre_core::version(),
+        "edit": edit,
     })
     .to_string()
 }
@@ -102,7 +107,7 @@ pub fn generate(
     language: Option<Language>,
 ) -> std::io::Result<Vec<(String, Vec<u8>)>> {
     let project = cadastre_project::load(root).map_err(std::io::Error::other)?;
-    generate_with(&project, title, playground, language, &mut Drawings::default())
+    generate_with(&project, title, playground, language, false, &mut Drawings::default())
 }
 
 /// The drawings of the DOTs laid out by Graphviz, by DOT: kept by `serve` from one generation
@@ -142,6 +147,7 @@ fn generate_with(
     title: &str,
     playground: Option<&Path>,
     language: Option<Language>,
+    edit: bool,
     drawings: &mut Drawings,
 ) -> std::io::Result<Vec<(String, Vec<u8>)>> {
     let language = language.unwrap_or_else(|| project.language());
@@ -190,7 +196,7 @@ fn generate_with(
                 files.push((format!("playground/{name}"), bytes));
             }
         }
-        files.push(("playground/project.json".to_owned(), project_json(project, title, language).into_bytes()));
+        files.push(("playground/project.json".to_owned(), project_json(project, title, language, edit).into_bytes()));
     }
     Ok(files)
 }
@@ -246,19 +252,21 @@ struct Served {
 /// `cadastre serve`: the site, generated again from the files on disk when they change; the
 /// views whose DOT did not change keep their drawings. A change is generated in the background,
 /// the previous site served meanwhile; its pages reload themselves when the new one is there
-/// (they ask `/__version`).
+/// (they ask `/__version`). With `edit`, the composer of views writes its views into the files of
+/// the project (`POST /__edit`).
 pub fn serve(
     root: &Path,
     address: &str,
     playground: Option<&Path>,
     title: &str,
     language: Option<Language>,
+    edit: bool,
 ) -> std::io::Result<()> {
     let listener = TcpListener::bind(address)?;
     println!("{title}: http://{address}/ (Ctrl+C to stop)");
     let served: &'static Mutex<Served> = Box::leak(Box::new(Mutex::new(Served::default())));
     let (root, playground, title) = (root.to_owned(), playground.map(Path::to_owned), title.to_owned());
-    let settings: &'static Settings = Box::leak(Box::new((root, playground, title, language)));
+    let settings: &'static Settings = Box::leak(Box::new((root, playground, title, language, edit)));
     for stream in listener.incoming() {
         let Ok(stream) = stream else { continue };
         std::thread::spawn(move || {
@@ -270,12 +278,12 @@ pub fn serve(
     Ok(())
 }
 
-type Settings = (PathBuf, Option<PathBuf>, String, Option<Language>);
+type Settings = (PathBuf, Option<PathBuf>, String, Option<Language>, bool);
 
 /// The site to serve, generated first if there is none, generated again in the background when
 /// the sources changed.
 fn current(settings: &'static Settings, served: &'static Mutex<Served>) -> std::io::Result<()> {
-    let (root, playground, title, language) = settings;
+    let (root, playground, title, language, edit) = settings;
     let mut state = served.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     // The files read again at each request (a few milliseconds), the site generated again only
     // when they changed.
@@ -285,14 +293,14 @@ fn current(settings: &'static Settings, served: &'static Mutex<Served>) -> std::
     match cache {
         None => {
             let mut drawings = Drawings::default();
-            let files = generate_with(&project, title, playground.as_deref(), *language, &mut drawings)?;
+            let files = generate_with(&project, title, playground.as_deref(), *language, *edit, &mut drawings)?;
             *cache = Some(Cache { sources: fingerprint, files: files.into_iter().collect(), drawings });
         }
         Some(last) if last.sources != fingerprint && building.is_none() => {
             *building = Some(fingerprint);
             let mut drawings = std::mem::take(&mut last.drawings);
             std::thread::spawn(move || {
-                let generated = generate_with(&project, title, playground.as_deref(), *language, &mut drawings);
+                let generated = generate_with(&project, title, playground.as_deref(), *language, *edit, &mut drawings);
                 let mut state = served.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
                 state.building = None;
                 match generated {
@@ -312,15 +320,27 @@ fn respond(mut stream: TcpStream, settings: &'static Settings, served: &'static 
     let mut reader = BufReader::new(&stream);
     let mut request = String::new();
     reader.read_line(&mut request)?;
-    // The headers, unused.
+    let mut headers: HashMap<String, String> = HashMap::new();
     let mut line = String::new();
     while reader.read_line(&mut line)? > 2 {
+        if let Some((name, value)) = line.split_once(':') {
+            headers.insert(name.trim().to_ascii_lowercase(), value.trim().to_owned());
+        }
         line.clear();
     }
     let mut parts = request.split_whitespace();
     let (method, target) = (parts.next().unwrap_or_default(), parts.next().unwrap_or_default());
     let path = target.split(['?', '#']).next().unwrap_or_default();
-    let (status, kind, body) = if method != "GET" {
+    let (status, kind, body) = if method == "POST" && path == "/__edit" && settings.4 {
+        let length: usize = headers.get("content-length").and_then(|l| l.parse().ok()).unwrap_or(0);
+        let mut body = vec![0; length.min(1 << 20)];
+        reader.read_exact(&mut body)?;
+        let (status, answer) = match edit_request(&settings.0, &headers, &body) {
+            Ok(answer) => ("200 OK", answer),
+            Err((status, error)) => (status, serde_json::json!({ "error": error })),
+        };
+        (status, "application/json; charset=utf-8", answer.to_string().into_bytes())
+    } else if method != "GET" {
         ("405 Method Not Allowed", "text/plain", b"GET only".to_vec())
     } else {
         let mut name = path.trim_start_matches('/').to_owned();
@@ -346,6 +366,72 @@ fn respond(mut stream: TcpStream, settings: &'static Settings, served: &'static 
     )?;
     stream.write_all(&body)?;
     stream.flush()
+}
+
+/// `POST /__edit` (`serve --edit`): a view of the composer written into its file,
+/// `{ "path": "views.cav", "replaces": "flows", "text": "view flows { … }" }`, in place of the
+/// view `replaces`, or at the end of the file (a new one, or one renamed away). Answered for the
+/// pages of the server only: its JSON body and its `Origin`, that of the server, keep another
+/// site from writing through the browser of a reader. Answers the path and the text written.
+fn edit_request(
+    root: &Path,
+    headers: &HashMap<String, String>,
+    body: &[u8],
+) -> Result<serde_json::Value, (&'static str, String)> {
+    let origin = headers.get("origin").map(String::as_str).unwrap_or_default();
+    let host = headers.get("host").map(String::as_str).unwrap_or_default();
+    if host.is_empty() || origin != format!("http://{host}") {
+        return Err(("403 Forbidden", "only the pages of this server may write".to_owned()));
+    }
+    if !headers.get("content-type").is_some_and(|t| t.starts_with("application/json")) {
+        return Err(("415 Unsupported Media Type", "a JSON body is expected".to_owned()));
+    }
+    let request: serde_json::Value = serde_json::from_slice(body).map_err(|e| ("400 Bad Request", e.to_string()))?;
+    let (Some(path), Some(text)) = (request["path"].as_str(), request["text"].as_str()) else {
+        return Err(("400 Bad Request", "path and text are expected".to_owned()));
+    };
+    let written = write_view(root, path, request["replaces"].as_str(), text).map_err(|e| ("400 Bad Request", e))?;
+    Ok(serde_json::json!({ "path": path, "text": written }))
+}
+
+/// Writes the view `text` into the `.cav` file `path` of the project at `root`: in place of the
+/// view `replaces`, otherwise at its end. Returns the text of the file written.
+pub fn write_view(root: &Path, path: &str, replaces: Option<&str>, text: &str) -> Result<String, String> {
+    let relative = Path::new(path);
+    if path.is_empty()
+        || relative.extension().is_none_or(|e| e != "cav")
+        || !relative.components().all(|c| matches!(c, std::path::Component::Normal(_)))
+    {
+        return Err(format!("not a .cav file of the project: {path}"));
+    }
+    let views = cadastre_core::compose::view_ranges(text);
+    let [(name, range)] = views.as_slice() else {
+        return Err("one view is expected, and nothing else".to_owned());
+    };
+    if text[..range.start].trim() != "" || text[range.end..].trim() != "" {
+        return Err("one view is expected, and nothing else".to_owned());
+    }
+    let file = root.join(relative);
+    let current = match std::fs::read_to_string(&file) {
+        Ok(current) => current,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound && file.parent().is_some_and(Path::is_dir) => {
+            String::new()
+        }
+        Err(error) => return Err(format!("{path}: {error}")),
+    };
+    let block = &text[range.clone()];
+    let ranges = cadastre_core::compose::view_ranges(&current);
+    let replaced = replaces.and_then(|r| ranges.iter().find(|(n, _)| n == r));
+    if ranges.iter().any(|(n, _)| n == name && replaced.is_none_or(|(r, _)| r != name)) {
+        return Err(format!("{path} already has a view named {name}"));
+    }
+    let written = match replaced {
+        Some((_, at)) => format!("{}{block}{}", &current[..at.start], &current[at.end..]),
+        None if current.trim().is_empty() => format!("{block}\n"),
+        None => format!("{}\n\n{block}\n", current.trim_end()),
+    };
+    std::fs::write(&file, &written).map_err(|e| format!("{path}: {e}"))?;
+    Ok(written)
 }
 
 /// `%20` and the like in a path, decoded.
@@ -384,6 +470,30 @@ fn content_type(name: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_view_written_into_its_file() {
+        let root = std::env::temp_dir().join(format!("cadastre-edit-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let views = "// The views.\nview a {\n  select app\n}\n\nview b { select server }\n";
+        std::fs::write(root.join("views.cav"), views).unwrap();
+        // In place of the view it edits, the rest as it was.
+        let written = write_view(&root, "views.cav", Some("a"), "view a {\n  select app, database\n}\n").unwrap();
+        assert_eq!(written, "// The views.\nview a {\n  select app, database\n}\n\nview b { select server }\n");
+        // A new one at the end.
+        let written = write_view(&root, "views.cav", None, "view c { select site }").unwrap();
+        assert!(written.ends_with("view b { select server }\n\nview c { select site }\n"), "{written}");
+        // A new file of the project.
+        write_view(&root, "more.cav", None, "view d { select app }").unwrap();
+        assert_eq!(std::fs::read_to_string(root.join("more.cav")).unwrap(), "view d { select app }\n");
+        // A name taken, another file than a .cav of the project, anything but one view: refused.
+        assert!(write_view(&root, "views.cav", None, "view b { select app }").unwrap_err().contains("already has"));
+        assert!(write_view(&root, "../views.cav", None, "view e { select app }").is_err());
+        assert!(write_view(&root, "apps.ca", None, "view e { select app }").is_err());
+        assert!(write_view(&root, "views.cav", None, "view e { select app }\nserver x").is_err());
+        assert!(write_view(&root, "views.cav", None, "view e { select app }\nview f { select app }").is_err());
+        std::fs::remove_dir_all(&root).unwrap();
+    }
 
     #[test]
     fn titles() {

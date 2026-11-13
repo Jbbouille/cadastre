@@ -78,6 +78,9 @@ const FR: &[(&str, &str)] = &[
     ("hosting not stated", "hébergement non précisé"),
     ("Filter the resources: name, label, site…", "Filtrer les ressources : nom, libellé, site…"),
     ("Filter the resources", "Filtrer les ressources"),
+    ("+ New view", "+ Nouvelle vue"),
+    ("Change it in the composer", "La modifier dans l'éditeur"),
+    ("Compose a view around it", "Composer une vue autour"),
     // The default theme in the legends of the diagrams.
     ("Assumed link", "Lien supposé"),
     ("Doubtful link", "Lien douteux"),

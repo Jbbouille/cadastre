@@ -615,6 +615,12 @@ impl Site<'_> {
                 self.t("List")
             ));
         }
+        if self.options.playground {
+            body.push_str(&format!(
+                " <a class=\"new-view\" href=\"playground/compose.html#new\">{}</a>",
+                self.t("+ New view")
+            ));
+        }
         body.push_str("</h2>\n<div class=\"views\">\n");
         self.folder_cards(&mut body, tree, 0);
         body.push_str("</div>\n");
@@ -1045,6 +1051,11 @@ impl Site<'_> {
                 esc(&name),
                 self.t("Open in the playground")
             ));
+            actions.push(format!(
+                "<a href=\"{root}playground/compose.html#view={}\">{}</a>",
+                esc(&name),
+                self.t("Change it in the composer")
+            ));
         }
         body.push_str(&format!("<p class=\"actions\">{}</p>\n", actions.join(" · ")));
         // A view drawn as a sequence diagram, a traversal or racks: that drawing first, the graph
@@ -1370,6 +1381,13 @@ impl Site<'_> {
         if let Some(description) = record["description"].as_str() {
             body.push_str(&format!("<p class=\"lead\">{}</p>\n", esc(description)));
         }
+        if self.options.playground {
+            body.push_str(&format!(
+                "<p class=\"actions\"><a href=\"{root}playground/compose.html#around={}\">{}</a></p>\n",
+                esc(&id),
+                self.t("Compose a view around it")
+            ));
+        }
         if record["incomplete"] == true {
             let missing = strings(&record["missing"]);
             body.push_str(&format!("<p class=\"tag\">{}</p>\n", self.t("incomplete")));
@@ -1678,6 +1696,7 @@ h1 .kind { font-size: .9rem; font-weight: 400; color: var(--muted); margin-left:
 .thumb.crop img { flex: none; max-width: none; max-height: none; height: auto; }
 /* The views as a list: a line each. */
 h2 .shape { float: right; display: inline-flex; font-size: .8rem; font-weight: 400; }
+h2 .new-view { float: right; margin-right: .8rem; font-size: .85rem; font-weight: 400; }
 .shape button { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); padding: .05rem .6rem; cursor: pointer; }
 .shape button:first-child { border-radius: 4px 0 0 4px; } .shape button:last-child { border-radius: 0 4px 4px 0; border-left: 0; }
 .shape button[aria-pressed="true"] { background: var(--panel); color: var(--accent); font-weight: 600; }

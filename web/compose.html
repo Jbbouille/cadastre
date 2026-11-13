@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compose a view · Cadastre</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1f2328; --muted: #656d76; --line: #d6dfec; --panel: #f3f6fb;
+    --accent: #0969da; --error: #cf222e; --warning: #9a6700; --ok: #1a7f37; --mark: #fde68a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0d1117; --fg: #e6edf3; --muted: #8d96a0; --line: #30363d; --panel: #161b22;
+            --accent: #4493f8; --error: #f85149; --warning: #d29922; --ok: #3fb950; --mark: #5c4a12; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: var(--bg); color: var(--fg);
+         height: 100vh; display: flex; flex-direction: column; }
+  a { color: var(--accent); }
+  header { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 8px 16px;
+           border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; }
+  header h1 a { color: inherit; text-decoration: none; } header h1 a:hover { text-decoration: underline; }
+  header label { display: flex; gap: 6px; align-items: center; color: var(--muted); }
+  header .spacer { flex: 1; }
+  select, button, input, textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line);
+                   border-radius: 6px; padding: 3px 8px; }
+  button { cursor: pointer; } button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #status { color: var(--muted); }
+  #status.ok { color: var(--ok); } #status.ko { color: var(--error); }
+  main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 360px; min-height: 0; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; grid-template-rows: 55% 45%; } }
+  /* The preview: the view as it is drawn, its nodes and edges answering a click. */
+  .preview { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 2px; padding: 6px 8px 0; border-bottom: 1px solid var(--line); align-items: flex-end; }
+  .tabs button { border: none; border-radius: 6px 6px 0 0; background: transparent; color: var(--muted); }
+  .tabs button.active { background: var(--panel); color: var(--fg); font-weight: 600; }
+  .tabs .hint { margin-left: auto; padding: 0 4px 4px; color: var(--muted); font-size: 12px; }
+  #output { flex: 1; overflow: auto; padding: 12px; }
+  #output .zoom { height: calc(100% - 4px); min-height: 320px; background: #fff; border-radius: 6px; }
+  #output .zoom svg { width: 100%; height: 100%; max-width: none; }
+  #output svg g.node, #output svg g.edge { cursor: pointer; }
+  #output iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+  #output pre { margin: 0; font: 13px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; }
+  .empty { color: var(--muted); padding: 12px; }
+  /* The menu of a node or an edge clicked: what it can change in the view. */
+  #menu { position: absolute; z-index: 5; min-width: 240px; max-width: 340px; padding: 4px; border: 1px solid var(--line);
+          border-radius: 8px; background: var(--bg); box-shadow: 0 6px 24px rgba(0,0,0,.18); }
+  #menu .head { padding: 4px 8px 6px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+  #menu .head small { display: block; color: var(--muted); }
+  #menu button { display: block; width: 100%; text-align: left; border: none; background: transparent; padding: 5px 8px; }
+  #menu button:hover { background: var(--panel); }
+  #menu a { display: block; padding: 5px 8px; text-decoration: none; }
+  /* The panel: the view, clause by clause, in the order it is evaluated. */
+  #panel { overflow: auto; border-left: 1px solid var(--line); background: var(--panel); padding: 4px 12px 16px; }
+  @media (max-width: 900px) { #panel { border-left: none; border-top: 1px solid var(--line); } }
+  #panel section { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  #panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 6px; }
+  #panel h2 small { text-transform: none; letter-spacing: 0; font-weight: 400; }
+  #panel .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0; }
+  #panel .row > label { display: flex; gap: 6px; align-items: center; }
+  #panel input[type=text], #panel textarea { width: 100%; }
+  #panel textarea { resize: vertical; min-height: 2.6em; }
+  #panel .field { display: grid; grid-template-columns: 80px 1fr; gap: 4px 8px; align-items: center; margin: 4px 0; }
+  #panel .field > span { color: var(--muted); font-size: 13px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 4px 1px 8px; border: 1px solid var(--line);
+          border-radius: 999px; background: var(--bg); font-size: 13px; }
+  .chip button { border: none; background: transparent; padding: 0 4px; color: var(--muted); line-height: 1; }
+  .chip button:hover { color: var(--error); }
+  .chip .count, .muted { color: var(--muted); }
+  .chip.verbatim { font-family: ui-monospace, Consolas, monospace; font-size: 12px; border-radius: 6px; }
+  .level { display: flex; align-items: center; gap: 4px; }
+  .level button { padding: 0 6px; }
+  .note { font-size: 13px; padding: 6px 8px; border-radius: 6px; margin: 6px 0; background: var(--bg); border-left: 3px solid var(--warning); }
+  .note.info { border-left-color: var(--accent); }
+  .note .row { margin-top: 4px; }
+  .counts { font-size: 13px; color: var(--muted); }
+  .layers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 8px; }
+  /* The code of the view, the source of truth: the panel and the diagram write it, it can be edited. */
+  .code { height: 32vh; min-height: 160px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 38%);
+          border-top: 1px solid var(--line); }
+  @media (max-width: 900px) { .code { grid-template-columns: 1fr; height: 40vh; } }
+  .editor { position: relative; min-height: 0; min-width: 0; background: var(--bg); }
+  .editor textarea, .editor pre { position: absolute; inset: 0; margin: 0; padding: 10px 12px; border: none; border-radius: 0;
+             font: 13px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; tab-size: 2; white-space: pre; overflow-wrap: normal; }
+  .editor textarea { resize: none; outline: none; background: transparent; color: transparent; caret-color: var(--fg); overflow: auto; }
+  .editor textarea::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+  .editor pre { overflow: hidden; color: var(--fg); pointer-events: none; }
+  /* What the last change wrote, fading. */
+  .editor mark { background: var(--mark); color: inherit; border-radius: 2px; animation: fade 2.5s ease-in 1s forwards; }
+  @keyframes fade { to { background: transparent; } }
+  #diagnostics { overflow: auto; border-left: 1px solid var(--line); background: var(--panel);
+                 font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
+  #diagnostics div { padding: 4px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  #diagnostics .error b { color: var(--error); } #diagnostics .warning b { color: var(--warning); }
+  #diagnostics .help { color: var(--muted); }
+  #diagnostics .none { color: var(--muted); cursor: default; }
+  /* Capture names of grammar/queries/highlights.scm. */
+  :root { --hl-comment: #6e7781; --hl-keyword: #cf222e; --hl-type: #8250df; --hl-function: #8250df;
+          --hl-property: #0550ae; --hl-string: #0a3069; --hl-special: #116329; --hl-number: #0550ae;
+          --hl-constant: #0550ae; --hl-label: #953800; --hl-operator: #cf222e; --hl-punctuation: #57606a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --hl-comment: #8b949e; --hl-keyword: #ff7b72; --hl-type: #d2a8ff; --hl-function: #d2a8ff;
+            --hl-property: #79c0ff; --hl-string: #a5d6ff; --hl-special: #7ee787; --hl-number: #79c0ff;
+            --hl-constant: #79c0ff; --hl-label: #ffa657; --hl-operator: #ff7b72; --hl-punctuation: #8b949e; }
+  }
+  .hl-comment { color: var(--hl-comment); font-style: italic; } .hl-keyword { color: var(--hl-keyword); }
+  .hl-type { color: var(--hl-type); } .hl-function { color: var(--hl-function); font-weight: 600; }
+  .hl-property { color: var(--hl-property); } .hl-string { color: var(--hl-string); }
+  .hl-string-special { color: var(--hl-special); } .hl-number { color: var(--hl-number); }
+  .hl-constant { color: var(--hl-constant); } .hl-label { color: var(--hl-label); }
+  .hl-operator { color: var(--hl-operator); } .hl-punctuation { color: var(--hl-punctuation); }
+  /* The recipes: a view to start from, in the words of the project. */
+  dialog { width: min(760px, 94vw); max-height: 86vh; border: 1px solid var(--line); border-radius: 10px; padding: 0;
+           background: var(--bg); color: var(--fg); }
+  dialog::backdrop { background: rgba(0,0,0,.35); }
+  dialog header { position: sticky; top: 0; z-index: 1; }
+  dialog .recipes { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; padding: 14px 16px; }
+  dialog .recipe { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
+  dialog .recipe h3 { margin: 0; font-size: 14px; } dialog .recipe p { margin: 0; color: var(--muted); font-size: 13px; flex: 1; }
+  dialog .recipe input { width: 100%; }
+  dialog footer { padding: 0 16px 14px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Cadastre</h1>
+  <a id="site" hidden>Site</a>
+  <a id="playground" href="./index.html">Playground</a>
+  <label id="example-label"><span>Project</span> <select id="example"></select></label>
+  <button id="start">Start from a recipe…</button>
+  <span class="spacer"></span>
+  <span id="status"></span>
+  <button id="copy">Copy the code</button>
+  <button id="share">Copy the link</button>
+  <button id="save" class="primary" hidden>Save</button>
+</header>
+<main>
+  <section class="preview">
+    <nav class="tabs" id="formats"></nav>
+    <div id="output"></div>
+    <div id="menu" hidden></div>
+  </section>
+  <aside id="panel"></aside>
+</main>
+<section class="code">
+  <div class="editor">
+    <pre id="highlight" aria-hidden="true"></pre>
+    <textarea id="code" spellcheck="false" wrap="off" autocapitalize="off" aria-label="Code of the view"></textarea>
+  </div>
+  <div id="diagnostics"></div>
+</section>
+<dialog id="recipes">
+  <header><h1 id="recipes-title">Start from a recipe</h1><span class="spacer"></span><button id="recipes-close">✕</button></header>
+  <div class="recipes" id="recipe-list"></div>
+  <footer id="recipes-footer"></footer>
+</dialog>
+<script src="./zoom.js"></script>
+<script type="module" src="./compose.js"></script>
+</body>
+</html>

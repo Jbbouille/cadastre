@@ -47,6 +47,16 @@ export class Cadastre {
   }
 
   /**
+   * The views of a `.cav` text, clause by clause, with their ranges in string indices: what the
+   * composer of views rewrites (see `cadastre_core::compose::parts`).
+   * @param {string} text
+   * @returns {object[]}
+   */
+  parts(text) {
+    return JSON.parse(this.call("compose_parts", text));
+  }
+
+  /**
    * Highlights one file with the grammar's `highlights.scm`.
    * @param {string} text
    * @returns {[number, number, string][]} non-overlapping `[start, end, capture]` ranges, in

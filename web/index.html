@@ -140,6 +140,7 @@
     <option value="graphml">GraphML (yEd, Gephi)</option>
     <option value="json">JSON</option>
   </select>
+  <button id="compose" title="Write a view with a panel and on its diagram">Compose a view</button>
   <button id="share" title="Copy the link of this view, ad-hoc view included">Copy link</button>
   <span id="summary">loading…</span>
 </header>
@@ -233,6 +234,8 @@ const LANGUAGES = {
     "Export model…": "Exporter le modèle…",
     "Copy the link of this view, ad-hoc view included": "Copier le lien de cette vue, vue ad hoc comprise",
     "Copy link": "Copier le lien",
+    "Compose a view": "Composer une vue",
+    "Write a view with a panel and on its diagram": "Écrire une vue avec un panneau et sur son diagramme",
     "Copied": "Copié",
     "loading…": "chargement…",
     "Ad-hoc view": "Vue ad hoc",
@@ -269,7 +272,7 @@ const t = (text, values = {}) =>
 // Puts the static words of the page in the language chosen.
 function applyLanguage() {
   document.documentElement.lang = lang;
-  const texts = [["open", "Open folder…"], ["terraform", "Import Terraform state…"], ["inventory", "Import CSV inventory…"], ["clear-query", "Clear"], ["share", "Copy link"]];
+  const texts = [["open", "Open folder…"], ["terraform", "Import Terraform state…"], ["inventory", "Import CSV inventory…"], ["clear-query", "Clear"], ["share", "Copy link"], ["compose", "Compose a view"]];
   for (const [id, text] of texts) $(id).textContent = t(text);
   const titles = [
     ["site", "Back to the site of the project: its pages for readers"],
@@ -278,6 +281,7 @@ function applyLanguage() {
     ["inventory", "Imports an inventory in CSV (a resource per row: kind, name, parent, keys) into a .ca file to review: read in your browser, nothing is uploaded."],
     ["export", "The whole registry, for other tools: generated in the page, nothing is sent"],
     ["share", "Copy the link of this view, ad-hoc view included"],
+    ["compose", "Write a view with a panel and on its diagram"],
     ["clear-query", "Back to the views of the project"],
     ["shown", "Go to the definition of the view shown"],
   ];
@@ -907,6 +911,22 @@ $("share").addEventListener("click", async () => {
   }
 });
 window.addEventListener("hashchange", () => { if (location.hash !== linked) follow(); });
+// The composer of views, on the project shown: published, an example, or the files of this page
+// (an opened folder), handed over for this tab.
+$("compose").addEventListener("click", () => {
+  const params = new URLSearchParams();
+  if (state.view && !$("query").value.trim()) params.set("view", state.view);
+  if (!state.project && state.example && state.example !== "local") params.set("example", state.example);
+  if (!state.project && state.example === "local") {
+    try {
+      sessionStorage.setItem("cadastre-compose", JSON.stringify({ files: state.files, modules: state.modules ?? [] }));
+      params.set("local", "");
+    } catch {
+      // Too large for the storage of the tab: the composer opens the examples.
+    }
+  }
+  location.href = `compose.html#${params}`;
+});
 $("open").addEventListener("click", () => $("folder").click());
 $("folder").addEventListener("change", (e) => { openFolder(e.target.files); e.target.value = ""; });
 function showFormats() {
