@@ -236,6 +236,14 @@ pr",
     }
 
     #[test]
+    fn keeps_what_an_element_without_a_name_holds() {
+        // A name not typed yet before a body: the parser leaves the element out and keeps what
+        // it holds, one level up; only a word typed with nothing after it comes without a name.
+        let source = "proxy f5 {\n  vip {\n    vip inner { }\n  }\n}\n";
+        assert_eq!(tree(&outline(source)), ["f5 (proxy)", "  inner (vip)"]);
+    }
+
+    #[test]
     fn keeps_what_parses_around_errors() {
         let source = "app a { on: }\napp b { }\n";
         let names: Vec<String> = outline(source).into_iter().map(|s| s.name).collect();
