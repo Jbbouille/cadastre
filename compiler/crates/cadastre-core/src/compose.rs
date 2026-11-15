@@ -5,7 +5,9 @@
 //! - [`facts`]: what a project offers to choose from: its kinds, layers, keys and their values,
 //!   resources, and the recipes to start a view from;
 //! - [`insight`]: what a view draws, and the links it loses because one of their ends is not
-//!   selected, the surprise of most views.
+//!   selected, the surprise of most views;
+//! - [`variants`]: what views one word away from it would draw, each against it: the proposals
+//!   of the composer, kept when they are valid and change the drawing.
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
@@ -292,6 +294,18 @@ pub fn facts(compilation: &Compilation) -> Value {
         }
     }
     let references: BTreeSet<&str> = model.references.keys().map(|(_, key)| key.as_str()).collect();
+    // A kind within another resource only (an interface, a component) is a detail: not proposed.
+    let kinds: Vec<Value> = {
+        let mut items: Vec<(String, usize)> = kinds.into_iter().collect();
+        items.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+        items
+            .into_iter()
+            .map(|(kind, count)| {
+                let within = registry.schema.kind_def(&kind).is_some_and(|d| d.within);
+                json!({ "kind": kind, "count": count, "within": within })
+            })
+            .collect()
+    };
     let by_count = |map: BTreeMap<String, usize>, field: &str| {
         let mut items: Vec<(String, usize)> = map.into_iter().collect();
         items.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
@@ -303,7 +317,7 @@ pub fn facts(compilation: &Compilation) -> Value {
         .collect();
     let recipes: Vec<Value> = RECIPES.iter().map(|r| json!({ "id": r.id, "asks": r.asks, "body": r.body })).collect();
     json!({
-        "kinds": by_count(kinds, "kind"),
+        "kinds": kinds,
         "layers": by_count(layers, "layer"),
         "keys": keys,
         "references": references,
@@ -311,6 +325,72 @@ pub fn facts(compilation: &Compilation) -> Value {
         "resources": resources,
         "recipes": recipes,
     })
+}
+
+/// What the views written after the view `base`, in its file, would draw, each against it: the
+/// proposals of the composer, views one word away from the one composed, compiled with it.
+/// For each, by its name: `ok` (`false` for a view with an error, its own or of its evaluation),
+/// its `nodes`, `edges` and `frames`, and the nodes and edges it adds to the base and removes
+/// from it (`added_nodes`, `removed_nodes`, `added_edges`, `removed_edges`; an edge is its two
+/// ends). `None` when the base has an error, or the project one outside these views.
+pub fn variants(compilation: &Compilation, base: &str) -> Option<Value> {
+    use crate::diagnostic::Severity;
+    let registry = &compilation.registry;
+    let base = compilation.plans.views.iter().find(|v| v.name == base)?;
+    let file = base.span.file;
+    // The base and the views after it, in the order written: an error is that of the last one
+    // starting before it.
+    let mut views: Vec<&crate::plan::View> =
+        compilation.plans.views.iter().filter(|v| v.span.file == file && v.span.start >= base.span.start).collect();
+    views.sort_by_key(|v| v.span.start);
+    let mut broken: HashSet<&str> = HashSet::new();
+    for diagnostic in compilation.diagnostics.iter().filter(|d| d.severity == Severity::Error) {
+        let span = diagnostic.spans.first()?;
+        if span.file != file {
+            return None;
+        }
+        // The name of a view comes after its keyword: an error on the keyword of the next one
+        // cannot be, the views being parsed whole.
+        let owner = views.iter().rev().find(|v| v.span.start <= span.start)?;
+        broken.insert(owner.name.as_str());
+    }
+    if broken.contains(base.name.as_str()) {
+        return None;
+    }
+    let shape = |view: &crate::plan::View| {
+        let mut diagnostics = Vec::new();
+        let graph = crate::view::evaluate(view, registry, &compilation.model, &mut diagnostics);
+        let ok = !diagnostics.iter().any(|d| d.severity == Severity::Error);
+        let nodes: BTreeSet<ResourceId> = graph.nodes.iter().copied().collect();
+        let edges: BTreeSet<(ResourceId, ResourceId)> = graph.edges.iter().map(|e| (e.source, e.target)).collect();
+        (ok, nodes, edges, graph.groups.len())
+    };
+    let (_, base_nodes, base_edges, base_frames) = shape(base);
+    let mut out = serde_json::Map::new();
+    for view in views.iter().filter(|v| v.name != base.name) {
+        if broken.contains(view.name.as_str()) {
+            out.insert(view.name.clone(), json!({ "ok": false }));
+            continue;
+        }
+        let (ok, nodes, edges, frames) = shape(view);
+        out.insert(
+            view.name.clone(),
+            json!({
+                "ok": ok,
+                "nodes": nodes.len(),
+                "edges": edges.len(),
+                "frames": frames,
+                "added_nodes": nodes.difference(&base_nodes).count(),
+                "removed_nodes": base_nodes.difference(&nodes).count(),
+                "added_edges": edges.difference(&base_edges).count(),
+                "removed_edges": base_edges.difference(&edges).count(),
+            }),
+        );
+    }
+    Some(json!({
+        "base": { "nodes": base_nodes.len(), "edges": base_edges.len(), "frames": base_frames },
+        "variants": out,
+    }))
 }
 
 /// What the view `name` draws, for the composer: `counts` of its nodes, edges and frames;
@@ -481,6 +561,26 @@ mod tests {
 
     fn insight_of(c: &Compilation) -> Value {
         insight(c, "composed").unwrap()
+    }
+
+    #[test]
+    fn what_the_views_one_word_away_would_draw() {
+        let c = project(
+            "view composed {\n  select app\n  edges [flow]\n}\nview more { select app, database edges [flow] }\nview framed { select app group-by system edges [flow] }\nview wrong { select nothing edges [flow] }\nview same { select app edges [flow] render svg { legend: true } }\n",
+        );
+        let all = variants(&c, "composed").unwrap();
+        let v = &all["variants"];
+        // The databases, and the flows to them.
+        assert_eq!(v["more"]["ok"], true, "{all}");
+        assert!(v["more"]["added_nodes"].as_u64().unwrap() >= 2 && v["more"]["added_edges"].as_u64().unwrap() >= 2);
+        assert_eq!(v["more"]["removed_nodes"], 0);
+        // Frames, the same nodes.
+        assert!(v["framed"]["frames"].as_u64().unwrap() > all["base"]["frames"].as_u64().unwrap(), "{all}");
+        assert_eq!(v["framed"]["added_nodes"], 0);
+        // A view with an error of its own is not offered; the others still are.
+        assert_eq!(v["wrong"]["ok"], false, "{all}");
+        assert_eq!(v["same"]["added_nodes"], 0);
+        assert_eq!(v["same"]["nodes"], all["base"]["nodes"]);
     }
 
     #[test]

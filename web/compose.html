@@ -7,11 +7,11 @@
 <style>
   :root {
     --bg: #ffffff; --fg: #1f2328; --muted: #656d76; --line: #d6dfec; --panel: #f3f6fb;
-    --accent: #0969da; --error: #cf222e; --warning: #9a6700; --ok: #1a7f37; --mark: #fde68a;
+    --accent: #0969da; --error: #cf222e; --warning: #9a6700; --ok: #1a7f37; --mark: #fde68a; --added: #1a7f37;
   }
   @media (prefers-color-scheme: dark) {
     :root { --bg: #0d1117; --fg: #e6edf3; --muted: #8d96a0; --line: #30363d; --panel: #161b22;
-            --accent: #4493f8; --error: #f85149; --warning: #d29922; --ok: #3fb950; --mark: #5c4a12; }
+            --accent: #4493f8; --error: #f85149; --warning: #d29922; --ok: #3fb950; --mark: #5c4a12; --added: #3fb950; }
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -23,74 +23,70 @@
   header h1 { font-size: 16px; margin: 0 8px 0 0; }
   header h1 a { color: inherit; text-decoration: none; } header h1 a:hover { text-decoration: underline; }
   header label { display: flex; gap: 6px; align-items: center; color: var(--muted); }
-  header .spacer { flex: 1; }
+  .spacer { flex: 1; }
   select, button, input, textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line);
                    border-radius: 6px; padding: 3px 8px; }
   button { cursor: pointer; } button:hover { border-color: var(--accent); }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.on { background: var(--panel); color: var(--accent); font-weight: 600; }
   #status { color: var(--muted); }
-  #status.ok { color: var(--ok); } #status.ko { color: var(--error); }
-  main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 360px; min-height: 0; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; grid-template-rows: 55% 45%; } }
-  /* The preview: the view as it is drawn, its nodes and edges answering a click. */
-  .preview { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
-  .tabs { display: flex; flex-wrap: wrap; gap: 2px; padding: 6px 8px 0; border-bottom: 1px solid var(--line); align-items: flex-end; }
-  .tabs button { border: none; border-radius: 6px 6px 0 0; background: transparent; color: var(--muted); }
-  .tabs button.active { background: var(--panel); color: var(--fg); font-weight: 600; }
-  .tabs .hint { margin-left: auto; padding: 0 4px 4px; color: var(--muted); font-size: 12px; }
-  #output { flex: 1; overflow: auto; padding: 12px; }
-  #output .zoom { height: calc(100% - 4px); min-height: 320px; background: #fff; border-radius: 6px; }
+  #status.ok { color: var(--ok); } #status.ko { color: var(--error); cursor: pointer; }
+  /* The view as a sentence: the words of its code, each taken out with its ×. */
+  #sentence { padding: 8px 16px; border-bottom: 1px solid var(--line); font: 13px/1.9 ui-monospace, SFMono-Regular, Consolas, monospace; }
+  #sentence .line { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+  #sentence .keyword { color: var(--hl-keyword); min-width: 5.2em; }
+  #sentence .plain { color: var(--muted); }
+  .word { display: inline-flex; align-items: center; gap: 2px; padding: 0 4px 0 8px; border: 1px solid var(--line);
+          border-radius: 999px; background: var(--panel); line-height: 1.6; white-space: nowrap; max-width: 100%; }
+  .word > span { overflow: hidden; text-overflow: ellipsis; }
+  .word.fixed { padding-right: 8px; }
+  .word button { border: none; background: transparent; padding: 0 3px; color: var(--muted); line-height: 1; font-size: 14px; }
+  .word button:hover { color: var(--error); }
+  #sentence .swap { border: none; background: transparent; padding: 0 2px; color: var(--muted); }
+  #sentence .swap:hover { color: var(--accent); }
+  /* The diagram. */
+  #stage { position: relative; flex: 1; min-height: 0; display: flex; }
+  #output { flex: 1; overflow: auto; padding: 10px 12px; min-width: 0; }
+  #output .zoom { height: calc(100% - 4px); min-height: 240px; background: #fff; border-radius: 6px; }
   #output .zoom svg { width: 100%; height: 100%; max-width: none; }
   #output svg g.node, #output svg g.edge { cursor: pointer; }
   #output iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
   #output pre { margin: 0; font: 13px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; }
   .empty { color: var(--muted); padding: 12px; }
-  /* The menu of a node or an edge clicked: what it can change in the view. */
-  #menu { position: absolute; z-index: 5; min-width: 240px; max-width: 340px; padding: 4px; border: 1px solid var(--line);
+  /* A proposal looked at: its drawing, what it adds outlined, until it is taken or left. */
+  #stage.previewing #output .zoom { outline: 2px dashed var(--added); outline-offset: -2px; }
+  #stage.previewing svg g.node.added :is(polygon, path, ellipse) { stroke: var(--added); stroke-width: 3; }
+  #previewing { position: absolute; z-index: 4; bottom: 18px; left: 50%; transform: translateX(-50%); max-width: 90%;
+                padding: 4px 12px; border-radius: 999px; background: var(--added); color: #fff; font-size: 13px;
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+  /* The menu of a node or an edge clicked. */
+  #menu { position: absolute; z-index: 5; min-width: 230px; max-width: 340px; padding: 4px; border: 1px solid var(--line);
           border-radius: 8px; background: var(--bg); box-shadow: 0 6px 24px rgba(0,0,0,.18); }
   #menu .head { padding: 4px 8px 6px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
   #menu .head small { display: block; color: var(--muted); }
   #menu button { display: block; width: 100%; text-align: left; border: none; background: transparent; padding: 5px 8px; }
   #menu button:hover { background: var(--panel); }
   #menu a { display: block; padding: 5px 8px; text-decoration: none; }
-  /* The panel: the view, clause by clause, in the order it is evaluated. */
-  #panel { overflow: auto; border-left: 1px solid var(--line); background: var(--panel); padding: 4px 12px 16px; }
-  @media (max-width: 900px) { #panel { border-left: none; border-top: 1px solid var(--line); } }
-  #panel section { padding: 10px 0; border-bottom: 1px solid var(--line); }
-  #panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 6px; }
-  #panel h2 small { text-transform: none; letter-spacing: 0; font-weight: 400; }
-  #panel .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0; }
-  #panel .row > label { display: flex; gap: 6px; align-items: center; }
-  #panel input[type=text], #panel textarea { width: 100%; }
-  #panel textarea { resize: vertical; min-height: 2.6em; }
-  #panel .field { display: grid; grid-template-columns: 80px 1fr; gap: 4px 8px; align-items: center; margin: 4px 0; }
-  #panel .field > span { color: var(--muted); font-size: 13px; }
-  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 4px 1px 8px; border: 1px solid var(--line);
-          border-radius: 999px; background: var(--bg); font-size: 13px; }
-  .chip button { border: none; background: transparent; padding: 0 4px; color: var(--muted); line-height: 1; }
-  .chip button:hover { color: var(--error); }
-  .chip .count, .muted { color: var(--muted); }
-  .chip.verbatim { font-family: ui-monospace, Consolas, monospace; font-size: 12px; border-radius: 6px; }
-  .level { display: flex; align-items: center; gap: 4px; }
-  .level button { padding: 0 6px; }
-  .note { font-size: 13px; padding: 6px 8px; border-radius: 6px; margin: 6px 0; background: var(--bg); border-left: 3px solid var(--warning); }
-  .note.info { border-left-color: var(--accent); }
-  .note .row { margin-top: 4px; }
-  .counts { font-size: 13px; color: var(--muted); }
-  .layers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 8px; }
-  /* The code of the view, the source of truth: the panel and the diagram write it, it can be edited. */
-  .code { height: 32vh; min-height: 160px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 38%);
-          border-top: 1px solid var(--line); }
-  @media (max-width: 900px) { .code { grid-template-columns: 1fr; height: 40vh; } }
+  /* The proposals: words one step away, each showing what it changes before it is taken. */
+  #proposals { border-top: 1px solid var(--line); background: var(--panel); padding: 6px 16px 10px; max-height: 34vh; overflow: auto; }
+  #proposals .hint { color: var(--muted); font-size: 12px; margin: 2px 0 4px; }
+  #proposals .group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 5px 0; }
+  #proposals .group > b { min-width: 7.5em; font-weight: 600; font-size: 13px; }
+  .proposal { display: inline-flex; align-items: baseline; gap: 6px; border-radius: 999px; padding: 2px 10px; background: var(--bg); }
+  .proposal small { color: var(--muted); }
+  .proposal:hover, .proposal:focus-visible { border-color: var(--added); outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--added) 30%, transparent); }
+  .proposal.more { color: var(--muted); border-style: dashed; }
+  /* The code, for what the words do not say: folded until asked. */
+  #codebox { height: 30vh; min-height: 150px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 38%);
+             border-bottom: 1px solid var(--line); }
+  @media (max-width: 900px) { #codebox { grid-template-columns: 1fr; } }
   .editor { position: relative; min-height: 0; min-width: 0; background: var(--bg); }
-  .editor textarea, .editor pre { position: absolute; inset: 0; margin: 0; padding: 10px 12px; border: none; border-radius: 0;
+  .editor textarea, .editor pre { position: absolute; inset: 0; margin: 0; padding: 10px 16px; border: none; border-radius: 0;
              font: 13px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; tab-size: 2; white-space: pre; overflow-wrap: normal; }
   .editor textarea { resize: none; outline: none; background: transparent; color: transparent; caret-color: var(--fg); overflow: auto; }
   .editor textarea::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
   .editor pre { overflow: hidden; color: var(--fg); pointer-events: none; }
-  /* What the last change wrote, fading. */
-  .editor mark { background: var(--mark); color: inherit; border-radius: 2px; animation: fade 2.5s ease-in 1s forwards; }
-  @keyframes fade { to { background: transparent; } }
+  .editor mark, pre.code mark { background: var(--mark); color: inherit; border-radius: 2px; }
   #diagnostics { overflow: auto; border-left: 1px solid var(--line); background: var(--panel);
                  font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
   #diagnostics div { padding: 4px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
@@ -112,16 +108,21 @@
   .hl-string-special { color: var(--hl-special); } .hl-number { color: var(--hl-number); }
   .hl-constant { color: var(--hl-constant); } .hl-label { color: var(--hl-label); }
   .hl-operator { color: var(--hl-operator); } .hl-punctuation { color: var(--hl-punctuation); }
-  /* The recipes: a view to start from, in the words of the project. */
-  dialog { width: min(760px, 94vw); max-height: 86vh; border: 1px solid var(--line); border-radius: 10px; padding: 0;
+  /* The recipes, and the end: naming the view and keeping it. */
+  dialog { width: min(760px, 94vw); max-height: 88vh; border: 1px solid var(--line); border-radius: 10px; padding: 0;
            background: var(--bg); color: var(--fg); }
   dialog::backdrop { background: rgba(0,0,0,.35); }
   dialog header { position: sticky; top: 0; z-index: 1; }
-  dialog .recipes { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; padding: 14px 16px; }
-  dialog .recipe { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
-  dialog .recipe h3 { margin: 0; font-size: 14px; } dialog .recipe p { margin: 0; color: var(--muted); font-size: 13px; flex: 1; }
-  dialog .recipe input { width: 100%; }
-  dialog footer { padding: 0 16px 14px; color: var(--muted); }
+  .recipes { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; padding: 14px 16px 6px; }
+  .recipe { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
+  .recipe h3 { margin: 0; font-size: 14px; } .recipe p { margin: 0; color: var(--muted); font-size: 13px; flex: 1; }
+  .recipe input { width: 100%; }
+  dialog footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 16px 14px; color: var(--muted); }
+  .form { display: grid; grid-template-columns: 110px 1fr; gap: 8px 10px; align-items: center; padding: 14px 16px 4px; }
+  .form > span { color: var(--muted); }
+  .form input, .form textarea { width: 100%; }
+  pre.code { margin: 10px 16px 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; overflow: auto; max-height: 30vh;
+             font: 13px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
 </style>
 </head>
 <body>
@@ -130,32 +131,41 @@
   <a id="site" hidden>Site</a>
   <a id="playground" href="./index.html">Playground</a>
   <label id="example-label"><span>Project</span> <select id="example"></select></label>
-  <button id="start">Start from a recipe…</button>
+  <button id="start">Recipes…</button>
   <span class="spacer"></span>
   <span id="status"></span>
-  <button id="copy">Copy the code</button>
-  <button id="share">Copy the link</button>
-  <button id="save" class="primary" hidden>Save</button>
+  <button id="toggle-code">Code</button>
+  <button id="finish" class="primary">Finish…</button>
 </header>
-<main>
-  <section class="preview">
-    <nav class="tabs" id="formats"></nav>
-    <div id="output"></div>
-    <div id="menu" hidden></div>
-  </section>
-  <aside id="panel"></aside>
-</main>
-<section class="code">
+<section id="sentence" aria-label="The view"></section>
+<section id="codebox" hidden>
   <div class="editor">
     <pre id="highlight" aria-hidden="true"></pre>
     <textarea id="code" spellcheck="false" wrap="off" autocapitalize="off" aria-label="Code of the view"></textarea>
   </div>
   <div id="diagnostics"></div>
 </section>
+<section id="stage">
+  <div id="output"></div>
+  <div id="previewing" hidden></div>
+  <div id="menu" hidden></div>
+</section>
+<section id="proposals" aria-label="Proposals"></section>
 <dialog id="recipes">
   <header><h1 id="recipes-title">Start from a recipe</h1><span class="spacer"></span><button id="recipes-close">✕</button></header>
   <div class="recipes" id="recipe-list"></div>
   <footer id="recipes-footer"></footer>
+</dialog>
+<dialog id="end">
+  <header><h1 id="end-title">Keep the view</h1><span class="spacer"></span><button id="end-close">✕</button></header>
+  <div class="form" id="end-form"></div>
+  <pre class="code" id="end-code"></pre>
+  <footer>
+    <button id="save" class="primary" hidden>Save</button>
+    <button id="copy">Copy the code</button>
+    <button id="share">Copy the link</button>
+    <span id="end-status"></span>
+  </footer>
 </dialog>
 <script src="./zoom.js"></script>
 <script type="module" src="./compose.js"></script>

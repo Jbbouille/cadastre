@@ -37,7 +37,8 @@
 //!
 //! For the composer of views: `"facts": true` adds `facts` to the response (the kinds, layers,
 //! keys, resources and recipes of the project), `"insight": true` adds `insight` for the view
-//! asked (what it draws and the links it loses); `compose_parts(ptr, len)` takes the text of a
+//! asked (what it draws and the links it loses), `"variants": "<view>"` adds `variants`, what the
+//! views written after that one in its file would draw against it; `compose_parts(ptr, len)` takes the text of a
 //! `.cav` file and returns its views clause by clause, with their ranges in UTF-16 code units
 //! (see `cadastre_core::compose`).
 
@@ -78,6 +79,10 @@ struct Request {
     /// What the view asked draws and loses, in `insight` of the response.
     #[serde(default)]
     insight: bool,
+    /// What the views written after this one, in its file, would draw against it, in `variants`
+    /// of the response: the proposals of the composer.
+    #[serde(default)]
+    variants: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -105,6 +110,8 @@ struct Response {
     facts: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     insight: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    variants: Option<serde_json::Value>,
 }
 
 #[derive(Serialize)]
@@ -234,6 +241,7 @@ pub fn run(request: &str) -> String {
         (true, Some(view)) => cadastre_core::compose::insight(&compilation, view),
         _ => None,
     };
+    let variants = request.variants.as_deref().and_then(|base| cadastre_core::compose::variants(&compilation, base));
     let response = Response {
         summary: ResponseSummary {
             errors: summary.errors,
@@ -270,6 +278,7 @@ pub fn run(request: &str) -> String {
         export,
         facts,
         insight,
+        variants,
     };
     serde_json::to_string(&response).expect("the response is serializable")
 }
@@ -452,6 +461,17 @@ mod tests {
         // The flow to the database is lost: the database is not selected.
         assert_eq!(response["insight"]["lost"][0]["kind"], "database", "{response}");
         assert_eq!(response["insight"]["counts"]["nodes"], 1);
+        // The views one word away, written after it: what each would draw against it.
+        let request = serde_json::json!({
+            "files": [
+                { "path": "a.ca", "text": "team t\napp a { owner: t, -> b : https/443 [flow] }\ndatabase b { owner: t }" },
+                { "path": "v.cav", "text": "view flows { select app edges [flow] }\nview more { select app, database edges [flow] }\nview wrong { select nothing }" }
+            ],
+            "view": "flows", "formats": [], "variants": "flows"
+        });
+        let response: serde_json::Value = serde_json::from_str(&run(&request.to_string())).unwrap();
+        assert_eq!(response["variants"]["variants"]["more"]["added_edges"], 1, "{response}");
+        assert_eq!(response["variants"]["variants"]["wrong"]["ok"], false, "{response}");
         let parts: serde_json::Value =
             serde_json::from_str(&cadastre_core::compose::parts("view flows { select app }").to_string()).unwrap();
         assert_eq!(parts[0]["select"]["kinds"], serde_json::json!(["app"]));
