@@ -184,6 +184,8 @@ pub fn view_ranges(text: &str) -> Vec<(String, std::ops::Range<usize>)> {
 pub struct Recipe {
     pub id: &'static str,
     pub asks: Option<&'static str>,
+    /// A second resource asked, `{y}`: the other end of a path.
+    pub asks_to: Option<&'static str>,
     pub body: &'static str,
 }
 
@@ -192,59 +194,90 @@ pub static RECIPES: &[Recipe] = &[
     Recipe {
         id: "around",
         asks: Some("any"),
+        asks_to: None,
         body: "select {kind} where name = {x} with ends\nedges  [flow]\nrender svg { orientation: data }",
     },
     Recipe {
         id: "system-flows",
         asks: Some("system"),
+        asks_to: None,
         body: "select app, job, database, saas where ancestor(system) = {x} with ends group-by system\nedges  [flow]\nrender svg { orientation: data }",
     },
     Recipe {
         id: "landscape",
         asks: None,
+        asks_to: None,
         body: "select system, saas\nedges  lift([flow], via: ancestor(system))\nrender svg { orientation: data }",
     },
     Recipe {
         id: "site-network",
         asks: Some("site"),
+        asks_to: None,
         body: "select server, saas without isolated group-by site > subnet\nedges  lift([flow], via: on) where source.ancestor(site) = {x} or target.ancestor(site) = {x}\nrender svg",
     },
     Recipe {
         id: "personal-data",
         asks: None,
+        asks_to: None,
         body: "select app, job, database, saas without isolated\nedges  [flow] where carries.classification = personal\nrender svg { orientation: data, edge_labels: [port, carries] }",
     },
     Recipe {
         id: "data-trail",
         asks: Some("data"),
+        asks_to: None,
         body: "select app, job, database, saas without isolated\nedges  follow({x})\nrender svg { orientation: data, edge_labels: [step, port] }",
     },
     Recipe {
         id: "failure",
         asks: Some("any"),
+        asks_to: None,
         body: "failing: [{x}]\nselect app, job, database, saas\nedges  [flow]\nrender svg { legend: true }",
     },
     Recipe {
         id: "firewall",
         asks: Some("firewall"),
+        asks_to: None,
         body: "select server, saas\nedges  lift([flow] where through has {x}, via: on, merge: port)\nrender svg",
     },
     Recipe {
         id: "ownership",
         asks: None,
+        asks_to: None,
         body: "select app, database, saas group-by owner\nrender svg { node_labels: [label, operator] }",
     },
     Recipe {
         id: "inventory",
         asks: None,
+        asks_to: None,
         body: "select app, database\nrender html { columns: [\"name as Name\", \"label as Label\", \"ancestor(system) as System\", \"on as Server\", \"on.ancestor(site) as Site\"] }",
+    },
+    // The drawings of their own: the racks, a process as a sequence and through the network,
+    // the path between two resources.
+    Recipe { id: "racks", asks: None, asks_to: None, body: "select rack\nrender racks" },
+    Recipe {
+        id: "process-sequence",
+        asks: Some("process"),
+        asks_to: None,
+        body: "select app, job, database, saas\nedges  process({x})\nrender sequence",
+    },
+    Recipe {
+        id: "process-network",
+        asks: Some("process"),
+        asks_to: None,
+        body: "select app, job, database, saas\nedges  process({x})\nrender traversal",
+    },
+    Recipe {
+        id: "network-path",
+        asks: Some("any"),
+        asks_to: Some("any"),
+        body: "select server, switch, firewall, router\nedges  path({x}, {y})\nrender traversal",
     },
 ];
 
-/// The body of a recipe, filled with a resource (its qualified name and kind).
-pub fn recipe_body(recipe: &Recipe, resource: Option<(&str, &str)>) -> String {
+/// The body of a recipe, filled with a resource (its qualified name and kind), and a second one.
+pub fn recipe_body(recipe: &Recipe, resource: Option<(&str, &str)>, to: Option<&str>) -> String {
     let (x, kind) = resource.unwrap_or_default();
-    recipe.body.replace("{x}", x).replace("{kind}", kind)
+    recipe.body.replace("{x}", x).replace("{kind}", kind).replace("{y}", to.unwrap_or_default())
 }
 
 /// What a project offers to choose from, for the composer: `kinds` and `layers` with their
@@ -315,7 +348,8 @@ pub fn facts(compilation: &Compilation) -> Value {
         .into_iter()
         .map(|(key, (values, kinds))| json!({ "key": key, "values": values, "kinds": kinds }))
         .collect();
-    let recipes: Vec<Value> = RECIPES.iter().map(|r| json!({ "id": r.id, "asks": r.asks, "body": r.body })).collect();
+    let recipes: Vec<Value> =
+        RECIPES.iter().map(|r| json!({ "id": r.id, "asks": r.asks, "asks_to": r.asks_to, "body": r.body })).collect();
     json!({
         "kinds": kinds,
         "layers": by_count(layers, "layer"),
@@ -398,6 +432,7 @@ pub fn variants(compilation: &Compilation, base: &str) -> Option<Value> {
 /// label, site and system; `edges`, the layers of each edge, in the order of the DOT ids
 /// (`graph-edge-3`); `lost`, the links of the layers the view selects, written without a filter,
 /// that it does not draw because one of their ends is not selected, by the kind of that end;
+/// `draws`, the drawings of their own it has something for (`racks`, `traversal`, `sequence`);
 /// `None` when the project has errors or no such view.
 pub fn insight(compilation: &Compilation, name: &str) -> Option<Value> {
     if compilation.diagnostics.iter().any(|d| d.severity == crate::diagnostic::Severity::Error) {
@@ -461,11 +496,29 @@ pub fn insight(compilation: &Compilation, name: &str) -> Option<Value> {
             json!({ "kind": kind, "layer": layer, "count": count, "examples": examples })
         })
         .collect();
+    // The drawings of their own it has something for: racks (a rack, or a device placed in one),
+    // a traversal (a process or a path), a sequence diagram (a process).
+    let rack_kinds = registry.schema.expand("rack");
+    let racked = graph.nodes.iter().any(|&id| {
+        rack_kinds.contains(&registry.resource(id).kind.as_str())
+            || !compilation.model.reference(crate::check::Holder::Resource(id), "rack").is_empty()
+    });
+    let mut draws = Vec::new();
+    if racked {
+        draws.push("racks");
+    }
+    if !graph.processes.is_empty() || !graph.paths.is_empty() {
+        draws.push("traversal");
+    }
+    if !graph.processes.is_empty() {
+        draws.push("sequence");
+    }
     Some(json!({
         "counts": { "nodes": graph.nodes.len(), "edges": graph.edges.len(), "frames": graph.groups.len() },
         "nodes": nodes,
         "edges": edges,
         "lost": lost,
+        "draws": draws,
     }))
 }
 
@@ -532,7 +585,12 @@ mod tests {
                     .unwrap_or_else(|| panic!("no {kind} in the reference example"));
                 (r["id"].as_str().unwrap().to_owned(), r["kind"].as_str().unwrap().to_owned())
             });
-            let body = recipe_body(recipe, resource.as_ref().map(|(x, k)| (x.as_str(), k.as_str())));
+            // The other end of a path: another resource, the last server.
+            let to = recipe.asks_to.map(|_| {
+                let r = resources.iter().rev().find(|r| r["kind"] == "server").expect("a server");
+                r["id"].as_str().unwrap().to_owned()
+            });
+            let body = recipe_body(recipe, resource.as_ref().map(|(x, k)| (x.as_str(), k.as_str())), to.as_deref());
             let c = project(&format!("view composed {{\n{body}\n}}\n"));
             let errors: Vec<&str> = c
                 .diagnostics
@@ -543,6 +601,15 @@ mod tests {
             assert!(errors.is_empty(), "{}: {errors:?}\n{body}", recipe.id);
             let insight = insight(&c, "composed").unwrap();
             assert!(insight["counts"]["nodes"].as_u64().unwrap() > 0, "{}: nothing drawn\n{body}", recipe.id);
+            // A recipe of a drawing of its own has something for it.
+            let draws = |format: &str| insight["draws"].as_array().unwrap().iter().any(|d| d == format);
+            match recipe.id {
+                "racks" => assert!(draws("racks"), "{insight}"),
+                "process-sequence" => assert!(draws("sequence") && draws("traversal"), "{insight}"),
+                "process-network" | "network-path" => assert!(draws("traversal"), "{insight}"),
+                "landscape" => assert!(!draws("racks") && !draws("sequence"), "{insight}"),
+                _ => {}
+            }
         }
     }
 

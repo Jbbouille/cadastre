@@ -72,6 +72,16 @@ const LANGUAGES = {
     "overview by {kind}": "vue d'ensemble par {kind}",
     "in the direction of the data": "dans le sens des données",
     "legend": "légende",
+    "Only": "Seulement",
+    "system {name}": "système {name}",
+    "site {name}": "site {name}",
+    "Process": "Processus",
+    "process {name}": "processus {name}",
+    "as racks": "en baies",
+    "as a network traversal": "en traversée réseau",
+    "as a sequence": "en séquence",
+    "as a diagram": "en diagramme",
+    "drawing…": "dessin…",
     "{n} more": "{n} de plus",
     "Preview: {label}": "Aperçu : {label}",
     "link": "lien", "links": "liens", "frame": "cadre", "frames": "cadres",
@@ -88,6 +98,15 @@ const LANGUAGES = {
     "Network/Security": "Réseau/Sécurité",
     // The recipes.
     "Pick a resource…": "Choisir une ressource…",
+    "To…": "Vers…",
+    "Racks": "Les baies",
+    "The devices in their racks, at their height.": "Les équipements dans leurs baies, à leur hauteur.",
+    "{x}, as a sequence": "{x}, en séquence",
+    "The steps of a process, its calls and replies, as a sequence diagram.": "Les étapes d'un processus, ses appels et réponses, en diagramme de séquence.",
+    "{x}, through the network": "{x}, à travers le réseau",
+    "The devices each step of a process goes through.": "Les équipements que traverse chaque étape d'un processus.",
+    "The path from {x} to {y}": "Le chemin de {x} à {y}",
+    "The devices between two resources, deduced from the cabling, or why there is no path.": "Les équipements entre deux ressources, déduits du câblage, ou pourquoi il n'y a pas de chemin.",
     "Create": "Créer",
     "More recipes": "Plus de recettes",
     "Or start from nothing:": "Ou partir de rien :",
@@ -119,20 +138,25 @@ const t = (text, values = {}) =>
   Object.entries(values).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), LANGUAGES[lang]?.[text] ?? text);
 
 // The recipes, in the words of the page: their body comes from the compiler (`facts.recipes`).
-// The first six are shown; the others behind *More recipes*.
+// The first nine are shown; the others behind *More recipes*.
 const RECIPES = {
   around: ["What {x} exchanges with", "The resource and the ends of its flows, in the direction of the data."],
   "system-flows": ["The flows of {x}", "Its apps, jobs, databases and SaaS, the flows between them and with the rest."],
   landscape: ["Landscape", "The flows between the systems and the SaaS, lifted from those of their apps."],
   "site-network": ["The network of {x}", "Its servers by subnet and those they exchange with, the application flows lifted onto them."],
-  "personal-data": ["Personal data", "The flows carrying personal data, with what they carry."],
+  "process-sequence": ["{x}, as a sequence", "The steps of a process, its calls and replies, as a sequence diagram."],
+  "process-network": ["{x}, through the network", "The devices each step of a process goes through."],
+  racks: ["Racks", "The devices in their racks, at their height."],
+  "network-path": ["The path from {x} to {y}", "The devices between two resources, deduced from the cabling, or why there is no path."],
   failure: ["If {x} fails", "What becomes unavailable with it, in red."],
+  "personal-data": ["Personal data", "The flows carrying personal data, with what they carry."],
   "data-trail": ["The trail of {x}", "Where the data goes, link after link, from where it lives."],
   firewall: ["What crosses {x}", "The flows through it, merged by port: its rule table."],
   ownership: ["Ownership", "The apps, databases and SaaS by owner team, with their operator."],
   inventory: ["Inventory", "Each app with its servers and their site, as a table."],
 };
-const FIRST_RECIPES = 6;
+const FIRST_RECIPES = 9;
+const MERMAID_CDN = "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
 
 // The preview of a view: that of the first of its formats.
 const PREVIEW_OF = { svg: "svg", dot: "svg", drawio: "svg", png: "svg", html: "html", xlsx: "html", csv: "html", tsv: "html", markdown: "html", text: "text", ascii: "text", mermaid: "mermaid", sequence: "sequence", traversal: "traversal", racks: "racks" };
@@ -141,7 +165,12 @@ const ORDER = ["select", "zones", "edges", "style", "render"];
 // What `lift` lifts the ends of the edges onto (`via`), with the words proposing it.
 const LIFTS = [["on", "links lifted onto their server"], ["ancestor(system)", "links lifted onto their system"], ["ancestor(site)", "links lifted onto their site"], ["ancestor(subnet)", "links lifted onto their subnet"]];
 // The groups of the proposals, in their order, and how many of each are shown at first.
-const GROUPS = [["show", "Show also"], ["link", "Link by"], ["frame", "Frame by"], ["simplify", "Simplify"], ["draw", "Drawing"]];
+const GROUPS = [["show", "Show also"], ["link", "Link by"], ["frame", "Frame by"], ["only", "Only"], ["simplify", "Simplify"], ["process", "Process"], ["draw", "Drawing"]];
+// Those that change a drawing of its own: racks are drawn whole, or those of a site; a sequence
+// and a traversal draw the processes and the paths of the view only.
+const GROUPS_OF = { racks: ["only", "draw"], traversal: ["process", "draw"], sequence: ["process", "draw"] };
+// The drawings: a view is previewed as the first of them among its formats.
+const DRAWINGS = [["svg", "as a diagram"], ["racks", "as racks"], ["traversal", "as a network traversal"], ["sequence", "as a sequence"]];
 const SHOWN = 6;
 
 const $ = (id) => document.getElementById(id);
@@ -393,6 +422,15 @@ function show(drawing, keep, added = null) {
     box.append(element);
     target.append(box);
     zoom = globalThis.cadastreZoom?.attach(box, { wheel: true, height: "calc(100% - 4px)", state: keep ? zoomState : undefined, language: lang }) ?? null;
+  } else if (format === "sequence" || format === "mermaid") {
+    // Drawn by Mermaid, loaded when first needed; its text meanwhile, and if it cannot be.
+    const sheet = h("div", { className: "sheet", textContent: t("drawing…") });
+    target.append(sheet);
+    drawing.mermaid ??= mermaidSvg(output.content);
+    drawing.mermaid.then(
+      (drawn) => { if (shownIs === drawing) sheet.innerHTML = drawn; },
+      () => { if (shownIs === drawing) sheet.replaceChildren(h("pre", { textContent: output.content })); },
+    );
   } else if (format === "html") {
     target.append(Object.assign(document.createElement("iframe"), { srcdoc: output.content, sandbox: "", title: parts.name }));
   } else {
@@ -400,6 +438,16 @@ function show(drawing, keep, added = null) {
   }
 }
 let shownIs = null;
+
+let mermaid = null;
+let drawings = 0;
+async function mermaidSvg(text) {
+  if (!mermaid) {
+    mermaid = (await import(MERMAID_CDN)).default;
+    mermaid.initialize({ startOnLoad: false, securityLevel: "strict" });
+  }
+  return (await mermaid.render(`compose-mermaid-${++drawings}`, text)).svg;
+}
 
 function diagnostics(list) {
   // Those of the view composed, and the errors of the project, which keep it from being drawn.
@@ -520,7 +568,10 @@ function candidates(parts) {
   const edges = edgesOf(parts);
   const render = renderOf(parts);
   const list = [];
-  const add = (group, label, text, test) => { if (text !== state.text) list.push({ group, label, text, test }); };
+  // The groups that change the drawing shown.
+  const groups = GROUPS_OF[current.format];
+  const add = (group, label, text, test) => { if (text !== state.text && (!groups || groups.includes(group))) list.push({ group, label, text, test }); };
+  const short = (id) => id.split(".").pop();
   const setSelect = (s, text) => withClause("select", selectText(s), text);
   const setEdges = (e, text) => withClause("edges", edgesText(e), text);
   const setRender = (r) => withClause("render", renderText(r, parts.indent));
@@ -532,11 +583,29 @@ function candidates(parts) {
     if (!edges.main.layers.includes(layer)) add("link", layer, setEdges({ ...edges, main: { ...edges.main, layers: [...edges.main.layers, layer] } }), "edges");
   }
   if (!select.with_ends && select.kinds.length) add("link", t("their neighbours"), setSelect({ ...select, with_ends: true }), "nodes");
+  // The processes: the links of one more, or another one in place of the one drawn.
+  const processes = facts.resources.filter((r) => r.kind === "process");
+  const drawn = edges.others.findIndex((s) => /^process\(\s*[^)]+\)$/.test(s));
+  for (const process of processes) {
+    const selector = `process(${process.id})`;
+    // The one drawn, written by its name or its qualified name.
+    if (edges.others.some((s) => { const name = s.match(/^process\(\s*([^)\s]+)\s*\)$/)?.[1]; return name && (name === process.id || process.id.endsWith(`.${name}`)); })) continue;
+    if (drawn < 0) add("link", t("process {name}", { name: process.label ?? short(process.id) }), setEdges({ ...edges, others: [...edges.others, selector] }), "edges");
+    else add("process", process.label ?? short(process.id), setEdges({ ...edges, others: edges.others.map((s, i) => (i === drawn ? selector : s)) }), "process");
+  }
   // The levels of frames: the systems and the sites first, the usual ones.
   const levels = [...new Set(["system", "site", ...facts.containers, ...facts.references])]
     .filter((l) => (facts.containers.includes(l) || facts.references.includes(l)) && !select.group_by.includes(l) && !select.kinds.includes(l));
   for (const level of levels) {
     if (select.kinds.length) add("frame", level, setSelect({ ...select, group_by: [...select.group_by, level] }), "frames");
+  }
+  // Only a part of what is drawn: one of its systems, one of its sites.
+  const nodes = Object.values(state.insight?.nodes ?? {});
+  for (const [axis, label] of [["system", "system {name}"], ["site", "site {name}"]]) {
+    const counts = new Map();
+    for (const node of nodes) if (node[axis] && node.kind !== axis) counts.set(node[axis], (counts.get(node[axis]) ?? 0) + 1);
+    const parts_ = [...counts].filter(([, n]) => n < nodes.length).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    for (const [id] of parts_) add("only", t(label, { name: short(id) }), setSelect(withCondition(select, `ancestor(${axis}) = ${id}`)), "only");
   }
   if (!select.without_isolated && select.kinds.length) add("simplify", t("without the isolated ones"), setSelect({ ...select, without_isolated: true }), "fewer");
   if (edges.main.layers.length) {
@@ -552,8 +621,16 @@ function candidates(parts) {
     const layers = edges.main.layers.length ? edges.main.layers : ["flow"];
     add("simplify", t("overview by {kind}", { kind }), setEdges({ main: { layers, lift: `via: ancestor(${kind})` }, others: [], options: edges.options }, above), "overview");
   }
-  if (option(render, "orientation") !== "data") add("draw", t("in the direction of the data"), setRender(withOption(render, "orientation", "data")), "draw");
-  if (option(render, "legend") !== "true") add("draw", t("legend"), setRender(withOption(render, "legend", "true")), "draw");
+  // Another drawing of the same view: those it has something for.
+  const others = render.formats.filter((f) => !DRAWINGS.some(([format]) => format === f));
+  for (const [format, label] of DRAWINGS) {
+    const can = format === "svg" || (state.insight?.draws ?? []).includes(format);
+    if (can && format !== current.format) add("draw", t(label), setRender({ ...render, formats: [format, ...others] }), "always");
+  }
+  if (current.format === "svg") {
+    if (option(render, "orientation") !== "data") add("draw", t("in the direction of the data"), setRender(withOption(render, "orientation", "data")), "draw");
+    if (option(render, "legend") !== "true") add("draw", t("legend"), setRender(withOption(render, "legend", "true")), "draw");
+  }
   return list;
 }
 
@@ -600,9 +677,13 @@ function propose() {
       fewer: v.removed_nodes > 0 && v.nodes > 0,
       lifted: v.edges > 0 && v.added_edges + v.removed_edges > 0,
       overview: v.nodes > 1 && v.edges > 0,
+      only: v.removed_nodes > 0 && v.nodes > 0,
+      process: v.nodes > 0,
       draw: base.edges > 0,
+      always: true,
     }[candidate.test];
-    if (worth) kept.push({ ...candidate, effect: candidate.test === "draw" ? "" : effectOf(v, base), weight: v.added_edges * 1000 + v.added_nodes });
+    const effect = { draw: "", always: "", process: "", only: String(v.nodes) }[candidate.test] ?? effectOf(v, base);
+    if (worth) kept.push({ ...candidate, effect, weight: v.added_edges * 1000 + v.added_nodes });
   });
   // What brings links first: the neighbours of what is drawn before what stands apart.
   for (const group of ["show", "link"]) {
@@ -806,14 +887,20 @@ function recipes(all = false) {
     const input = recipe.asks ? h("input", { type: "text", placeholder: t("Pick a resource…") }) : null;
     input?.setAttribute("list", `recipe-${recipe.id}`);
     const options = recipe.asks ? h("datalist", { id: `recipe-${recipe.id}` }, among.slice(0, 2000).map((r) => h("option", { value: r.id, label: r.label ?? r.kind }))) : null;
+    // The other end of a path: any resource, from the same list.
+    const to = recipe.asks_to ? h("input", { type: "text", placeholder: t("To…") }) : null;
+    to?.setAttribute("list", `recipe-${recipe.id}`);
     const create = () => {
       const resource = recipe.asks ? among.find((r) => r.id === input.value.trim()) : null;
       if (recipe.asks && !resource) return input.focus();
+      const other = recipe.asks_to ? among.find((r) => r.id === to.value.trim()) : null;
+      if (recipe.asks_to && !other) return to.focus();
       $("recipes").close();
-      fromRecipe(recipe, resource);
+      fromRecipe(recipe, resource, other);
     };
-    if (input) input.onkeydown = (e) => { if (e.key === "Enter") create(); };
-    return h("div", { className: "recipe" }, h("h3", { textContent: t(title, { x: recipe.asks ? "…" : "" }) }), h("p", { textContent: t(text) }), input, options,
+    for (const field of [input, to]) if (field) field.onkeydown = (e) => { if (e.key === "Enter") create(); };
+    return h("div", { className: "recipe" }, h("h3", { textContent: t(title, { x: recipe.asks ? "…" : "", y: "…" }) }), h("p", { textContent: t(text) }),
+      h("div", { className: "ends" }, input, to), options,
       h("button", { className: "primary", textContent: t("Create"), onclick: create }));
   }));
   $("recipes-footer").replaceChildren(
@@ -823,11 +910,11 @@ function recipes(all = false) {
   if (!$("recipes").open) $("recipes").showModal();
 }
 
-function fromRecipe(recipe, resource) {
-  const body = recipe.body.replaceAll("{x}", resource?.id ?? "").replaceAll("{kind}", resource?.kind ?? "");
-  const short = resource ? resource.id.split(".").pop() : "";
-  const title = t(RECIPES[recipe.id]?.[0] ?? recipe.id, { x: resource ? resource.label ?? short : "" });
-  fromBody(`${recipe.id}${short ? `-${short}` : ""}`, title, body);
+function fromRecipe(recipe, resource, to = null) {
+  const body = recipe.body.replaceAll("{x}", resource?.id ?? "").replaceAll("{kind}", resource?.kind ?? "").replaceAll("{y}", to?.id ?? "");
+  const short = (r) => (r ? r.id.split(".").pop() : "");
+  const title = t(RECIPES[recipe.id]?.[0] ?? recipe.id, { x: resource ? resource.label ?? short(resource) : "", y: to ? to.label ?? short(to) : "" });
+  fromBody([recipe.id, short(resource), short(to)].filter(Boolean).join("-"), title, body);
 }
 
 function fromBody(base, title, body) {

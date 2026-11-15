@@ -51,6 +51,9 @@
   #output .zoom svg { width: 100%; height: 100%; max-width: none; }
   #output svg g.node, #output svg g.edge { cursor: pointer; }
   #output iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+  /* A drawing of Mermaid: a sequence diagram, a flowchart. */
+  #output .sheet { height: calc(100% - 4px); min-height: 240px; overflow: auto; padding: 12px; background: #fff; color: #1f2328; border-radius: 6px; text-align: center; }
+  #output .sheet svg { max-width: 100%; height: auto; }
   #output pre { margin: 0; font: 13px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; }
   .empty { color: var(--muted); padding: 12px; }
   /* A proposal looked at: its drawing, what it adds outlined, until it is taken or left. */
@@ -117,6 +120,7 @@
   .recipe { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
   .recipe h3 { margin: 0; font-size: 14px; } .recipe p { margin: 0; color: var(--muted); font-size: 13px; flex: 1; }
   .recipe input { width: 100%; }
+  .recipe .ends { display: grid; gap: 4px; }
   dialog footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 16px 14px; color: var(--muted); }
   .form { display: grid; grid-template-columns: 110px 1fr; gap: 8px 10px; align-items: center; padding: 14px 16px 4px; }
   .form > span { color: var(--muted); }
