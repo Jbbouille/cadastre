@@ -1575,7 +1575,30 @@ impl EdgeView for GraphEdge {
                     .any(|id| ctx.model.incomplete.contains(id));
                 vec![plain(incomplete.to_string())]
             }
-            _ => Vec::new(),
+            // Any other key written on its links (`routed_host`, `catalog_flows`), read as a
+            // filter reads it on the edge of one link: a reference first, the written value
+            // otherwise; the values of its merged links in their order, without repeats, and the
+            // default of the key when none of them writes it.
+            key => {
+                let mut items: Vec<Item> = Vec::new();
+                for &i in &self.links {
+                    let references = ctx.model.reference(Holder::Link(i), key);
+                    let found: Vec<Item> = if references.is_empty() {
+                        ctx.registry.links[i].attribute(key).map(|a| query::value_items(&a.value)).unwrap_or_default()
+                    } else {
+                        references.iter().copied().map(Item::Resource).collect()
+                    };
+                    for item in found {
+                        if !items.contains(&item) {
+                            items.push(item);
+                        }
+                    }
+                }
+                if items.is_empty() && !self.links.is_empty() {
+                    items.extend(query::default_value(key).map(|v| plain(v.to_owned())));
+                }
+                items
+            }
         })
     }
 }
