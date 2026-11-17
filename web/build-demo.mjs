@@ -11,7 +11,12 @@
 // - otherwise, the code written in it.
 // A `<pre class="mermaid" data-sequence="reference/invoicing-process">` gets the sequence diagram
 // of that view as Mermaid text, drawn by the page. A view or a file not found fails the build.
+// A `<div class="composer" data-composer="reference">` gets the composer of views in small: a
+// view of that example and three words to take or leave, each of the eight views they make drawn
+// here by Graphviz (`dot`, as the sites of the examples), so that the page shows what a word
+// changes without loading the compiler.
 
+import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -129,7 +134,61 @@ function sequenceOf(designation) {
   return output.content;
 }
 
+// A `svg` output drawn as the playground draws it: Graphviz lays out each variant of its DOT,
+// the drawing that reads best is kept, with its icons.
+function drawingOf(dot) {
+  const variants = JSON.parse(call("dot_variants", dot));
+  const drawings = variants.map((variant) => execFileSync("dot", ["-Tsvg"], { input: variant, encoding: "utf8", maxBuffer: 64 << 20 }));
+  return call("with_icons", drawings.length > 1 ? call("best_drawing", drawings.join("\n")) : drawings[0]);
+}
+
+// The words of the composer of the page, each taken or left: a kind to show, a level of frames.
+const COMPOSER_WORDS = [
+  { word: "database", group: "show" },
+  { word: "saas", group: "show" },
+  { word: "system", group: "frame" },
+];
+
+// The composer in small: the apps of an example and their flows, and the view each set of words
+// makes of them, drawn, with what it counts.
+function composerOf(example) {
+  const states = [];
+  for (let mask = 0; mask < 1 << COMPOSER_WORDS.length; mask++) {
+    const taken = COMPOSER_WORDS.filter((_, bit) => mask & (1 << bit));
+    const kinds = ["app", ...taken.filter((w) => w.group === "show").map((w) => w.word)];
+    const frames = taken.filter((w) => w.group === "frame").map((w) => w.word);
+    const view = `view composed {\n  select ${kinds.join(", ")}${frames.length ? ` group-by ${frames.join(" > ")}` : ""}\n  edges  [flow]\n  render svg\n}\n`;
+    const result = JSON.parse(call("build", JSON.stringify({
+      files: [...filesOf(example), { path: "composed.cav", text: view }], view: "composed", formats: ["svg"], insight: true,
+    })));
+    const output = (result.outputs ?? []).find((o) => o.view === "composed");
+    if (!output || !result.insight) throw new Error(`demo.html: the composer cannot draw\n${view}${result.error ?? JSON.stringify(result.diagnostics ?? [])}`);
+    // The drawing alone, sized by the page, its ids its own among the eight of the page; the
+    // style of a dark page left out: it is shown on a white sheet.
+    const drawn = drawingOf(output.content);
+    const svg = drawn.slice(drawn.indexOf("<svg"))
+      .replace(/<svg width="[^"]*" height="[^"]*"/, "<svg")
+      .replace(/<style>[\s\S]*?<\/style>/g, "")
+      .replace(/\bid="([^"]+)"/g, `id="c${mask}-$1"`)
+      .replace(/href="#([^"]+)"/g, `href="#c${mask}-$1"`)
+      .replace(/url\(#([^)]+)\)/g, `url(#c${mask}-$1)`);
+    const { nodes, edges, frames: framed } = result.insight.counts;
+    states.push(`<div class="state" data-mask="${mask}" data-nodes="${nodes}" data-edges="${edges}" data-frames="${framed}">${svg}</div>`);
+  }
+  return states.join("\n");
+}
+
 let page = readFileSync(input, "utf8");
+page = page.replace(/<div ([^>]*\bdata-composer="([^"]+)"[^>]*)><\/div>/g, (_, attributes, example) => {
+  const words = escape(JSON.stringify(COMPOSER_WORDS)).replace(/"/g, "&quot;");
+  return `<div ${attributes} data-words="${words}">
+<div class="sentence"></div>
+<div class="stage"><div class="banner" hidden></div>
+${composerOf(example)}
+</div>
+<div class="proposals"></div>
+</div>`;
+});
 page = page.replace(/<pre ([^>]*\bclass="code"[^>]*)>([\s\S]*?)<\/pre>/g, (_, attributes, content) => {
   const file = /\bdata-file="([^"]+)"/.exec(attributes);
   const view = /\bdata-view="([^"]+)"/.exec(attributes);

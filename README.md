@@ -6,7 +6,7 @@ Cadastre is a language and a compiler to describe an information system (sites, 
 
 The idea is that of a land registry (*cadastre* in French): a **single registry** of resources and their relations, from which you draw as many **plans** as you want, without ever rewriting anything.
 
-**Try it in your browser**, nothing to install: [the playground](https://cadastre-lang.org/playground/), and [the sites of the examples](https://cadastre-lang.org/) as `cadastre site` publishes them for their readers.
+**Try it in your browser**, nothing to install: [compose a view](https://cadastre-lang.org/playground/compose.html#example=reference&view=flows) by picking words, each showing what it changes in the diagram before you take it; [the playground](https://cadastre-lang.org/playground/), to edit the files of an example; and [the sites of the examples](https://cadastre-lang.org/) as `cadastre site` publishes them for their readers.
 
 > Status: 0.x. The language, the compiler, a language server, a VS Code extension and an IntelliJ plugin work on real projects. Until 1.0 the syntax may still change between minor versions, with the old form reported by the compiler; see [Stability](#stability).
 
@@ -120,7 +120,7 @@ check every-app-has-an-owner {
 
 One compiled model, three ways in:
 
-- **Those who write it** use the [playground](https://cadastre-lang.org/playground/), the VS Code extension or the IntelliJ plugin (live previews, through the language server), the `cadastre` command line, or an AI agent through the MCP server.
+- **Those who write it** use the [playground](https://cadastre-lang.org/playground/) and the [composer of views](https://cadastre-lang.org/playground/compose.html#example=reference&view=flows) (a view written by picking the words proposed), the VS Code extension or the IntelliJ plugin (live previews, through the language server, and the composer in a panel), the `cadastre` command line, or an AI agent through the MCP server.
 - **Those who consult it** read the site published by `cadastre site`: a page per view and per resource, search, the results of the checks; static files for any intranet, no `.ca` file to open.
 - **Those who integrate it** read the static JSON API beside the site (`api/`, described in [docs/api.md](docs/api.md)): a record per resource and per view, the links, the checks; to feed an intranet page, a form, a security assessment tool or a dashboard, without a server.
 

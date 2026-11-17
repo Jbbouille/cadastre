@@ -55,6 +55,36 @@ h2 { font-size: 1.6rem; margin: 0 0 .5rem; letter-spacing: -.01em; }
 .card .ext { font: 12px ui-monospace, Consolas, monospace; color: var(--accent); border: 1px solid var(--line); border-radius: 4px;
   padding: 0 .35rem; margin-left: .35rem; background: var(--bg); }
 
+/* The composer in small: the view as its words, its drawing, the words proposed. */
+.composer { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--bg); }
+.composer .sentence { padding: .7rem 1rem; border-bottom: 1px solid var(--line); font: 13.5px/2 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.composer .line { display: flex; flex-wrap: wrap; gap: .25rem .45rem; align-items: center; }
+.composer .keyword { color: var(--hl-keyword); min-width: 5.4em; }
+.composer .word { display: inline-flex; align-items: center; gap: .15rem; padding: 0 .55rem; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); line-height: 1.7; }
+.composer .word button { font: inherit; border: 0; background: none; color: var(--muted); cursor: pointer; padding: 0 0 0 .2rem; font-size: 15px; line-height: 1; }
+.composer .word button:hover { color: #cf222e; }
+.composer .stage { position: relative; height: 22rem; background: #fff; }
+/* Room under the drawing for the word of the preview. */
+.composer .state { position: absolute; inset: .75rem .75rem 2.5rem; opacity: 0; pointer-events: none; transition: opacity .18s; }
+.composer .state.shown { opacity: 1; }
+.composer .state svg { width: 100%; height: 100%; }
+.composer.previewing .stage { box-shadow: inset 0 0 0 2px #1a7f37; }
+.composer.previewing .state.shown g.node.added :is(polygon, path, ellipse) { stroke: #1a7f37; stroke-width: 3; }
+.composer .banner { position: absolute; z-index: 1; left: 50%; bottom: .7rem; transform: translateX(-50%); padding: .15rem .8rem; border-radius: 999px;
+  background: #1a7f37; color: #fff; font-size: .85rem; white-space: nowrap; }
+.composer .proposals { padding: .5rem 1rem .8rem; border-top: 1px solid var(--line); background: var(--panel); font-size: .95rem; }
+.composer .hint { color: var(--muted); font-size: .8rem; margin: .1rem 0 .3rem; }
+.composer .group { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin: .3rem 0; }
+.composer .group b { min-width: 6.5em; font-size: .9rem; }
+.composer .proposal { font: inherit; display: inline-flex; gap: .4rem; align-items: baseline; padding: .1rem .7rem; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--bg); color: var(--fg); cursor: pointer; }
+.composer .proposal small { color: var(--muted); }
+.composer .proposal:hover, .composer .proposal:focus-visible { border-color: #1a7f37; outline: none; box-shadow: 0 0 0 2px rgba(26, 127, 55, .3); }
+.compose .after { display: flex; flex-wrap: wrap; gap: .75rem 1rem; align-items: center; margin: 1.25rem 0 0; color: var(--muted); font-size: .95rem; }
+.compose .after span { flex: 1 1 24rem; }
+.compose .go { display: inline-block; padding: .6rem 1.1rem; border-radius: 6px; font-weight: 600; background: var(--accent); color: #fff; white-space: nowrap; }
+.compose .go:hover { text-decoration: none; filter: brightness(1.08); }
+
 /* The example: its files beside the diagram drawn from them. */
 .example { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
 .tabs { display: flex; gap: .25rem; border-bottom: 1px solid var(--line); }
@@ -119,6 +149,7 @@ if (/[#&?](example|view|q)=/.test(location.hash)) location.replace("playground/"
   <div class="wrap">
     <nav>
       <a class="brand" href="./">Cadastre</a>
+      <a href="playground/compose.html#example=reference&amp;view=flows">Composer</a>
       <a href="playground/">Playground</a>
       <a href="https://github.com/Jbbouille/cadastre/blob/master/docs/guide.md">Guide</a>
       <a href="https://github.com/Jbbouille/cadastre/blob/master/docs/reference.md">Reference</a>
@@ -129,7 +160,8 @@ if (/[#&?](example|view|q)=/.test(location.hash)) location.replace("playground/"
       <h1>Your IT landscape, as code.</h1>
       <p>Describe sites, networks, servers, applications, flows, data and teams in plain text, versioned in Git. Cadastre compiles it: it draws every diagram from that one registry, derives what you did not write, and tests it against your rules.</p>
       <div class="buttons">
-        <a class="button primary" href="playground/#example=tutorial">Try it in the browser</a>
+        <a class="button primary" href="playground/compose.html#example=reference&amp;view=flows">Compose a view in the browser</a>
+        <a class="button" href="playground/#example=tutorial">Open the playground</a>
         <a class="button" href="https://github.com/Jbbouille/cadastre#getting-started">Get started</a>
         <a class="button" href="https://github.com/Jbbouille/cadastre/releases">Download 0.5.0</a>
       </div>
@@ -138,6 +170,15 @@ if (/[#&?](example|view|q)=/.test(location.hash)) location.replace("playground/"
 </header>
 
 <main>
+<section class="compose">
+  <div class="wrap">
+    <h2>Compose a view, one word at a time</h2>
+    <p class="sub">The facts are written once; a view picks what to draw of them. The composer proposes the words that change the drawing, and shows what each would do before you take it. Try it here, on the apps of an example: point at a word, click to take it.</p>
+    <div class="composer" data-composer="reference"></div>
+    <p class="after"><a class="go" href="playground/compose.html#example=reference&amp;view=flows">Go on in the composer</a><span>with every kind, layer and level of the example, recipes to start from (the flows of a system, the network of a site, a process as a sequence, the racks), and the code of the view it writes. On your own project: <code>cadastre serve --edit</code>, or the <em>Compose</em> lens above a view in VS Code and the JetBrains IDEs.</span></p>
+  </div>
+</section>
+
 <section>
   <div class="wrap">
     <h2>One registry, as many plans as you need</h2>
@@ -155,7 +196,7 @@ if (/[#&?](example|view|q)=/.test(location.hash)) location.replace("playground/"
     <h2>One model, three audiences</h2>
     <p class="sub">The same compiled model, for the people who write it, the people who read it, and the tools that need it.</p>
     <div class="grid3">
-      <div class="card"><h3>Those who write it</h3><p>The <a href="playground/">playground</a> in the browser, the VS Code extension (<a href="https://marketplace.visualstudio.com/items?itemName=cadastre.cadastre">Marketplace</a>, <a href="https://open-vsx.org/extension/cadastre/cadastre">Open VSX</a>) and the <a href="https://github.com/Jbbouille/cadastre/tree/master/editors/intellij">IntelliJ plugin</a> with live previews, the language server behind them, the <code>cadastre</code> command line, and an MCP server for AI agents. Diagnostics, completion, navigation, renaming, formatting.</p></div>
+      <div class="card"><h3>Those who write it</h3><p>The <a href="playground/">playground</a> and the <a href="playground/compose.html#example=reference&amp;view=flows">composer of views</a> in the browser, the VS Code extension (<a href="https://marketplace.visualstudio.com/items?itemName=cadastre.cadastre">Marketplace</a>, <a href="https://open-vsx.org/extension/cadastre/cadastre">Open VSX</a>) and the <a href="https://github.com/Jbbouille/cadastre/tree/master/editors/intellij">IntelliJ plugin</a> with live previews, the language server behind them, the <code>cadastre</code> command line, and an MCP server for AI agents. Diagnostics, completion, navigation, renaming, formatting.</p></div>
       <div class="card"><h3>Those who consult it</h3><p>The site published by <code>cadastre site</code>, for readers who will never open a <code>.ca</code> file: a page per view and per resource, diagrams leading to the resources, search, the results of the checks. Static, for any intranet. <a href="retail/">The site of the Retail example</a>.</p></div>
       <div class="card"><h3>Those who integrate it</h3><p>A static JSON API beside the site, <code>api/</code>: a record per resource and per view, the links, the checks. Feed an intranet page, a form, a security assessment tool or a dashboard, without a server. <a href="retail/api/project.json">An example</a>, <a href="https://github.com/Jbbouille/cadastre/blob/master/docs/api.md">the JSON model</a>.</p></div>
     </div>
@@ -394,6 +435,91 @@ cadastre check my-system/src</pre>
 </footer>
 
 <script>
+// The composer in small: the words of a view, taken or left; each of the views they make was
+// drawn when the page was built. Pointing at a word shows the view with it, what it adds
+// outlined; a click takes it. The × of a word taken shows the view without it.
+const composer = document.querySelector(".composer");
+if (composer) {
+  const words = JSON.parse(composer.dataset.words);
+  const states = new Map([...composer.querySelectorAll(".state")].map((state) => [Number(state.dataset.mask), state]));
+  // The name of each node in its drawing, in place of the tooltip Graphviz gives it.
+  for (const item of composer.querySelectorAll("g.node, g.edge")) {
+    const title = item.querySelector("title");
+    if (title) {
+      item.dataset.n = title.textContent;
+      title.remove();
+    }
+  }
+  const [sentence, banner, proposals] = [".sentence", ".banner", ".proposals"].map((selector) => composer.querySelector(selector));
+  let taken = 0;
+  let looking = null;
+  const el = (tag, props, ...children) => {
+    const element = Object.assign(document.createElement(tag), props);
+    element.append(...children.filter(Boolean));
+    return element;
+  };
+  const count = (mask, key) => Number(states.get(mask).dataset[key]);
+  const plural = (n, word) => `${n} ${word}${n > 1 ? "s" : ""}`;
+  // What a word changes: `+2 · +2 links`, `2 frames`.
+  const effect = (from, to) => {
+    const signs = [];
+    const [nodes, edges, frames] = ["nodes", "edges", "frames"].map((key) => count(to, key) - count(from, key));
+    if (nodes) signs.push(`${nodes > 0 ? "+" : "−"}${Math.abs(nodes)}`);
+    if (edges) signs.push(`${edges > 0 ? "+" : "−"}${plural(Math.abs(edges), "link")}`);
+    if (frames) signs.push(frames > 0 ? plural(count(to, "frames"), "frame") : "no frame");
+    return signs.join(" · ");
+  };
+  function draw() {
+    const shown = looking ? looking.mask : taken;
+    const before = new Set([...states.get(taken).querySelectorAll("g.node")].map((node) => node.dataset.n));
+    for (const [mask, state] of states) {
+      state.classList.toggle("shown", mask === shown);
+      for (const node of state.querySelectorAll("g.node")) {
+        node.classList.toggle("added", Boolean(looking) && mask === shown && /^n\d/.test(node.dataset.n ?? "") && !before.has(node.dataset.n));
+      }
+    }
+    composer.classList.toggle("previewing", Boolean(looking));
+    banner.hidden = !looking;
+    banner.textContent = looking ? `Preview: ${looking.label}${effect(taken, looking.mask) ? ` (${effect(taken, looking.mask)})` : ""}` : "";
+  }
+  // Makes an element offer a view: pointed at or focused, it is drawn; clicked, taken.
+  const offer = (element, mask, label) => {
+    const look = () => { looking = { mask, label }; draw(); };
+    const leave = () => { looking = null; draw(); };
+    element.addEventListener("pointerenter", (event) => { if (event.pointerType !== "touch") look(); });
+    element.addEventListener("focus", look);
+    element.addEventListener("pointerleave", leave);
+    element.addEventListener("blur", leave);
+    element.addEventListener("click", () => { taken = mask; looking = null; render(); });
+    return element;
+  };
+  function render() {
+    const has = (bit) => Boolean(taken & (1 << bit));
+    const word = (label, bit) => el("span", { className: "word" }, label,
+      bit === undefined ? null : offer(el("button", { textContent: "×", title: `Take out ${label}` }), taken & ~(1 << bit), `− ${label}`));
+    const line = (keyword, ...items) => el("div", { className: "line" }, el("span", { className: "keyword", textContent: keyword }), ...items);
+    const of = (group) => words.map((w, bit) => ({ ...w, bit })).filter((w) => w.group === group);
+    const frames = of("frame").filter((w) => has(w.bit));
+    sentence.replaceChildren(
+      line("select", word("app"), ...of("show").filter((w) => has(w.bit)).map((w) => word(w.word, w.bit))),
+      line("edges", word("flow")),
+      ...(frames.length ? [line("group-by", ...frames.map((w) => word(w.word, w.bit)))] : []),
+    );
+    const group = (title, list) => {
+      const left = list.filter((w) => !has(w.bit));
+      return left.length ? el("div", { className: "group" }, el("b", { textContent: title }), ...left.map((w) => {
+        const mask = taken | (1 << w.bit);
+        return offer(el("button", { className: "proposal" }, w.word, el("small", { textContent: effect(taken, mask) })), mask, w.word);
+      })) : null;
+    };
+    const groups = [group("Show also", of("show")), group("Frame by", of("frame"))].filter(Boolean);
+    proposals.replaceChildren(
+      el("div", { className: "hint", textContent: groups.length ? "Point at a word to see what it changes, click to take it." : "Every word of this small example is taken: the × of a word takes it out, and the composer goes on with the rest." }),
+      ...groups);
+    draw();
+  }
+  render();
+}
 // The tabs of the example.
 for (const tab of document.querySelectorAll(".tabs button")) {
   tab.addEventListener("click", () => {
