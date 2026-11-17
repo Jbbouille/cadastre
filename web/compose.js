@@ -1216,7 +1216,8 @@ if (project) {
   } else {
     $("title").textContent = project.name;
   }
-  await open(project.files);
+  // Edited in the playground of this tab: those files, not the published ones.
+  await open(handed && new URLSearchParams(location.hash.slice(1)).has("local") ? handed.files : project.files);
 } else if (handed && new URLSearchParams(location.hash.slice(1)).has("local")) {
   // A folder opened in the playground of this tab.
   $("example-label").hidden = true;

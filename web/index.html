@@ -89,13 +89,6 @@
   .hl-label { color: var(--hl-label); }
   .hl-operator { color: var(--hl-operator); }
   .hl-punctuation { color: var(--hl-punctuation); }
-  #adhoc { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border-bottom: 1px solid var(--line);
-           background: var(--panel); }
-  #adhoc label { color: var(--muted); padding-top: 4px; white-space: nowrap; }
-  #adhoc .editor { height: 4.6em; border: 1px solid var(--line); border-radius: 6px; }
-  #adhoc .editor textarea, #adhoc .editor pre { padding: 4px 8px; }
-  #adhoc .editor textarea::placeholder { color: var(--muted); }
-  #adhoc button { padding-top: 2px; }
   /* The formats, and the name of the view shown. */
   .output-bar { display: flex; align-items: flex-end; border-bottom: 1px solid var(--line); }
   .output-bar .tabs { flex: 1; border-bottom: none; }
@@ -111,13 +104,28 @@
   #output pre { margin: 0; font: 13px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; }
   /* Box drawing: tight lines so that vertical strokes join, no wrapping, fonts with full box-drawing glyphs. */
   #output pre.ascii { font: 13px/1.15 "Cascadia Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace; white-space: pre; }
-  #diagnostics { max-height: 32%; overflow: auto; border-top: 1px solid var(--line); background: var(--panel);
-                 font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
-  #diagnostics div { padding: 4px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
-  #diagnostics .error b { color: var(--error); }
-  #diagnostics .warning b { color: var(--warning); }
-  #diagnostics .incomplete b { color: var(--incomplete); }
-  #diagnostics .help { color: var(--muted); }
+  /* The problems of the project: a page of their own, beside the formats. */
+  .problems { font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
+  .problems div.item { padding: 5px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .problems div.item:hover { background: var(--panel); }
+  .problems .error b { color: var(--error); }
+  .problems .warning b { color: var(--warning); }
+  .problems .incomplete b { color: var(--incomplete); }
+  .problems .help { color: var(--muted); }
+  .tabs button.problems-tab { margin-left: auto; }
+  .tabs button.problems-tab.errors { color: var(--error); font-weight: 600; }
+  #local { color: var(--warning); }
+  #local button { margin-left: 6px; }
+  .spacer { flex: 1; }
+  /* Import, export, options: apart from the bar. */
+  dialog { width: min(620px, 94vw); max-height: 88vh; border: 1px solid var(--line); border-radius: 10px; padding: 0;
+           background: var(--bg); color: var(--fg); }
+  dialog::backdrop { background: rgba(0,0,0,.35); }
+  dialog section { padding: 10px 16px 14px; border-top: 1px solid var(--line); }
+  dialog section:first-of-type { border-top: none; }
+  dialog h2 { font-size: 14px; margin: 0 0 4px; }
+  dialog p { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+  dialog .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .empty { color: var(--muted); padding: 12px; }
 </style>
 </head>
@@ -129,19 +137,10 @@
   <label id="example-label">Project <select id="example"></select></label>
   <button id="open" title="Your files are read by this page and stay in your browser: nothing is uploaded.">Open folder…</button>
   <input type="file" id="folder" webkitdirectory multiple hidden>
-  <label><input type="checkbox" id="strict"> strict</label>
-  <button id="terraform" title="Imports a Terraform state (terraform show -json, or a .tfstate) into .ca files to review: read in your browser, nothing is uploaded.">Import Terraform state…</button>
-  <input type="file" id="tfstate" accept=".tfstate,.json" hidden>
-  <button id="inventory" title="Imports an inventory in CSV (a resource per row: kind, name, parent, keys) into a .ca file to review: read in your browser, nothing is uploaded.">Import CSV inventory…</button>
-  <input type="file" id="inventory-file" accept=".csv" hidden>
-  <select id="export" title="The whole registry, for other tools: generated in the page, nothing is sent">
-    <option value="">Export model…</option>
-    <option value="archimate">ArchiMate (Archi, Sparx EA)</option>
-    <option value="graphml">GraphML (yEd, Gephi)</option>
-    <option value="json">JSON</option>
-  </select>
-  <button id="compose" title="Write a view with a panel and on its diagram">Compose a view</button>
-  <button id="share" title="Copy the link of this view, ad-hoc view included">Copy link</button>
+  <button id="compose" title="Write a view by taking words among those proposed, each showing what it changes in the diagram">Compose a view</button>
+  <button id="share" title="Copy the link of this view">Copy link</button>
+  <button id="tools-open" title="Import a Terraform state or an inventory, export the registry, options">Import, export…</button>
+  <span id="local" hidden><span id="local-text">Changed here, not saved</span><button id="local-reset">Reset</button></span>
   <span id="summary">loading…</span>
 </header>
 <main>
@@ -156,23 +155,39 @@
     </div>
   </section>
   <section class="pane">
-    <div id="adhoc">
-      <label for="query" title="A view written on the fly, rendered instead of the selected view. Clear it to go back.">Ad-hoc view</label>
-      <div class="editor">
-        <pre id="query-highlight" aria-hidden="true"></pre>
-        <textarea id="query" spellcheck="false" wrap="off" autocapitalize="off"
-                  placeholder="select server group-by site edges lift([flow], via: on)"></textarea>
-      </div>
-      <button id="clear-query" title="Back to the views of the project">Clear</button>
-    </div>
     <div class="output-bar">
       <nav class="tabs" id="formats"></nav>
       <button id="shown" title="Go to the definition of the view shown"></button>
     </div>
     <div id="output"></div>
-    <div id="diagnostics"></div>
   </section>
 </main>
+<dialog id="tools">
+  <header><h1 id="tools-title">Import, export, options</h1><span class="spacer"></span><button id="tools-close">✕</button></header>
+  <section id="tools-import">
+    <h2 id="import-title">Import</h2>
+    <p id="import-text">Into .ca files to review, added to the project under imported/. Read in your browser: nothing is uploaded.</p>
+    <div class="row">
+      <button id="terraform" title="terraform show -json, or a .tfstate">A Terraform state…</button>
+      <input type="file" id="tfstate" accept=".tfstate,.json" hidden>
+      <button id="inventory" title="A resource per row: kind, name, parent, keys">An inventory in CSV…</button>
+      <input type="file" id="inventory-file" accept=".csv" hidden>
+    </div>
+  </section>
+  <section>
+    <h2 id="export-title">Export</h2>
+    <p id="export-text">The whole registry, for other tools. Generated in the page: nothing is sent.</p>
+    <div class="row">
+      <button data-export="archimate">ArchiMate (Archi, Sparx EA)</button>
+      <button data-export="graphml">GraphML (yEd, Gephi)</button>
+      <button data-export="json">JSON</button>
+    </div>
+  </section>
+  <section>
+    <h2 id="options-title">Options</h2>
+    <div class="row"><label><input type="checkbox" id="strict"> <span id="strict-text">strict: what is incomplete is an error</span></label></div>
+  </section>
+</dialog>
 <script src="./zoom.js"></script>
 <script type="module">
 import { load } from "./cadastre.js";
@@ -222,31 +237,41 @@ const LANGUAGES = {
     "Project": "Projet",
     "Open folder…": "Ouvrir un dossier…",
     "Your files are read by this page and stay in your browser: nothing is uploaded.": "Vos fichiers sont lus par cette page et restent dans votre navigateur : rien n'est envoyé.",
-    "Import Terraform state…": "Importer un état Terraform…",
-    "Import CSV inventory…": "Importer un inventaire CSV…",
-    "Imports an inventory in CSV (a resource per row: kind, name, parent, keys) into a .ca file to review: read in your browser, nothing is uploaded.": "Importe un inventaire CSV (une ressource par ligne : kind, name, parent, clés) en un fichier .ca à relire : lu dans votre navigateur, rien n'est envoyé.",
+    "Import, export…": "Importer, exporter…",
+    "Import a Terraform state or an inventory, export the registry, options": "Importer un état Terraform ou un inventaire, exporter le registre, options",
+    "Import, export, options": "Importer, exporter, options",
+    "Import": "Importer",
+    "Into .ca files to review, added to the project under imported/. Read in your browser: nothing is uploaded.": "En fichiers .ca à relire, ajoutés au projet sous imported/. Lus dans votre navigateur : rien n'est envoyé.",
+    "A Terraform state…": "Un état Terraform…",
+    "terraform show -json, or a .tfstate": "terraform show -json, ou un .tfstate",
+    "An inventory in CSV…": "Un inventaire CSV…",
+    "A resource per row: kind, name, parent, keys": "Une ressource par ligne : kind, name, parent, clés",
+    "Export": "Exporter",
+    "The whole registry, for other tools. Generated in the page: nothing is sent.": "Tout le registre, pour d'autres outils. Généré dans la page : rien n'est envoyé.",
+    "Options": "Options",
+    "strict: what is incomplete is an error": "strict : ce qui est incomplet est une erreur",
+    "Problems {count}": "Problèmes {count}",
+    "The errors, warnings and notes of the project": "Les erreurs, avertissements et remarques du projet",
+    "No problem.": "Aucun problème.",
+    "Changed here, not saved": "Modifié ici, non enregistré",
+    "Reset": "Rétablir",
+    "The files as published: your changes stay in this page": "Les fichiers tels que publiés : vos changements restent dans cette page",
+    "Copy the link of this view": "Copier le lien de cette vue",
+    "{resources} resources · {links} links": "{resources} ressources · {links} liens",
     "Another version than the compiler": "Une autre version que le compilateur",
     "This page is {page}, the site was published by {compiler}: its diagnostics may differ from those of cadastre check. Rebuild the playground (web/README.md).": "Cette page est en {page}, le site a été publié par {compiler} : ses diagnostics peuvent différer de ceux de cadastre check. Reconstruisez le playground (web/README.md).",
     "The file has no kind column: the kind of every row?": "Le fichier n'a pas de colonne kind : la sorte de toutes les lignes ?",
     "The file has no name column: its columns in the words of Cadastre?": "Le fichier n'a pas de colonne name : ses colonnes dans les mots de Cadastre ?",
-    "Imports a Terraform state (terraform show -json, or a .tfstate) into .ca files to review: read in your browser, nothing is uploaded.": "Importe un état Terraform (terraform show -json, ou un .tfstate) en fichiers .ca à relire : lu dans votre navigateur, rien n'est envoyé.",
-    "The whole registry, for other tools: generated in the page, nothing is sent": "Tout le registre, pour d'autres outils : généré dans la page, rien n'est envoyé",
-    "Export model…": "Exporter le modèle…",
-    "Copy the link of this view, ad-hoc view included": "Copier le lien de cette vue, vue ad hoc comprise",
     "Copy link": "Copier le lien",
     "Compose a view": "Composer une vue",
-    "Write a view with a panel and on its diagram": "Écrire une vue avec un panneau et sur son diagramme",
+    "Write a view by taking words among those proposed, each showing what it changes in the diagram": "Écrire une vue en prenant des mots parmi ceux proposés, chacun montrant ce qu'il change dans le diagramme",
     "Copied": "Copié",
     "loading…": "chargement…",
-    "Ad-hoc view": "Vue ad hoc",
-    "A view written on the fly, rendered instead of the selected view. Clear it to go back.": "Une vue écrite à la volée, rendue à la place de la vue sélectionnée. Effacez-la pour revenir.",
-    "Clear": "Effacer",
-    "Back to the views of the project": "Retour aux vues du projet",
     "Go to the definition of the view shown": "Aller à la définition de la vue affichée",
     "Diagram": "Diagramme",
     "Movable": "Déplaçable",
     "Fit": "Ajuster",
-    "Reset": "Réinitialiser",
+    "Lay out again": "Réinitialiser",
     "Drag the nodes and the frames; right click on an edge to add or remove a bend.": "Glissez les nœuds et les cadres ; clic droit sur une flèche pour ajouter ou retirer un coude.",
     "Table": "Tableau",
     "Text": "Texte",
@@ -259,10 +284,8 @@ const LANGUAGES = {
     "Download {file}": "Télécharger {file}",
     "Table of {view}": "Tableau de {view}",
     "help:": "aide :",
-    "ad-hoc view": "vue ad hoc",
     "Fix the errors to render the views.": "Corrigez les erreurs pour rendre les vues.",
     "No view to render.": "Aucune vue à rendre.",
-    "{resources} resources · {links} links · {errors} errors · {warnings} warnings · {incomplete} incomplete": "{resources} ressources · {links} liens · {errors} erreurs · {warnings} avertissements · {incomplete} incomplets",
   },
 };
 let lang = "en";
@@ -272,25 +295,26 @@ const t = (text, values = {}) =>
 // Puts the static words of the page in the language chosen.
 function applyLanguage() {
   document.documentElement.lang = lang;
-  const texts = [["open", "Open folder…"], ["terraform", "Import Terraform state…"], ["inventory", "Import CSV inventory…"], ["clear-query", "Clear"], ["share", "Copy link"], ["compose", "Compose a view"]];
+  const texts = [["open", "Open folder…"], ["share", "Copy link"], ["compose", "Compose a view"], ["tools-open", "Import, export…"],
+    ["tools-title", "Import, export, options"], ["import-title", "Import"], ["export-title", "Export"], ["options-title", "Options"],
+    ["import-text", "Into .ca files to review, added to the project under imported/. Read in your browser: nothing is uploaded."],
+    ["export-text", "The whole registry, for other tools. Generated in the page: nothing is sent."],
+    ["terraform", "A Terraform state…"], ["inventory", "An inventory in CSV…"], ["strict-text", "strict: what is incomplete is an error"],
+    ["local-text", "Changed here, not saved"], ["local-reset", "Reset"]];
   for (const [id, text] of texts) $(id).textContent = t(text);
   const titles = [
     ["site", "Back to the site of the project: its pages for readers"],
     ["open", "Your files are read by this page and stay in your browser: nothing is uploaded."],
-    ["terraform", "Imports a Terraform state (terraform show -json, or a .tfstate) into .ca files to review: read in your browser, nothing is uploaded."],
-    ["inventory", "Imports an inventory in CSV (a resource per row: kind, name, parent, keys) into a .ca file to review: read in your browser, nothing is uploaded."],
-    ["export", "The whole registry, for other tools: generated in the page, nothing is sent"],
-    ["share", "Copy the link of this view, ad-hoc view included"],
-    ["compose", "Write a view with a panel and on its diagram"],
-    ["clear-query", "Back to the views of the project"],
+    ["terraform", "terraform show -json, or a .tfstate"],
+    ["inventory", "A resource per row: kind, name, parent, keys"],
+    ["share", "Copy the link of this view"],
+    ["compose", "Write a view by taking words among those proposed, each showing what it changes in the diagram"],
+    ["tools-open", "Import a Terraform state or an inventory, export the registry, options"],
+    ["local", "The files as published: your changes stay in this page"],
     ["shown", "Go to the definition of the view shown"],
   ];
   for (const [id, text] of titles) $(id).title = t(text);
   $("example-label").firstChild.textContent = t("Project") + " ";
-  $("export").options[0].textContent = t("Export model…");
-  const adhoc = document.querySelector("label[for=query]");
-  adhoc.textContent = t("Ad-hoc view");
-  adhoc.title = t("A view written on the fly, rendered instead of the selected view. Clear it to go back.");
   if ($("summary").textContent === "loading…") $("summary").textContent = t("loading…");
   showFormats();
 }
@@ -301,7 +325,9 @@ const $ = (id) => document.getElementById(id);
 // `project`: the name of a project published with the compiler (`cadastre serve`, `cadastre site`),
 // shown read-only, without the examples; `example`: the example shown otherwise, or `local`.
 // `folded`: the folders folded in the tree of the files.
-const state = { files: [], current: 0, view: null, format: "svg", project: null, example: null, folded: new Set() };
+// `problems`: the diagnostics of the last build, shown on a page of their own (the format
+// `problems`); `changed`: files of a published project edited in this page.
+const state = { files: [], current: 0, view: null, format: "svg", project: null, example: null, folded: new Set(), problems: [], changed: false };
 let cadastre, viz, timer;
 
 function tabs(container, items, active, onClick) {
@@ -354,14 +380,6 @@ function showFiles() {
   paint();
 }
 
-// The ad-hoc view: the body of a view, compiled as an extra plan file.
-const QUERY_VIEW = "ad-hoc";
-// A plan file, by its extension; the parentheses keep it apart from the project paths.
-const QUERY_PATH = "(ad-hoc view).cav";
-// Titled, as a view of the project would be: no information about a missing title.
-const QUERY_PREFIX = `view ${QUERY_VIEW} {\n  title: "Ad-hoc view"\n`;
-const QUERY_LINES = 2;
-
 function paint() {
   colorize($("editor"), $("highlight"));
   gutter();
@@ -381,7 +399,6 @@ function gutter() {
   const style = getComputedStyle(editor);
   const height = parseFloat(style.lineHeight);
   const top = parseFloat(style.paddingTop) - editor.scrollTop;
-  const query = $("query").value.trim();
   $("gutter").style.lineHeight = style.lineHeight;
   $("gutter").replaceChildren(...viewsOf(editor.value).map(({ name, line }) => {
     const button = Object.assign(document.createElement("button"), {
@@ -389,7 +406,7 @@ function gutter() {
       innerHTML: '<svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>',
       ariaLabel: t("Show the view {name}", { name }),
       title: t("Show the view {name} (Ctrl+Enter in it)", { name }),
-      className: !query && name === state.view ? "current" : "",
+      className: name === state.view ? "current" : "",
       onclick: () => showView(name),
     });
     button.style.top = `${top + line * height}px`;
@@ -397,16 +414,13 @@ function gutter() {
   }));
 }
 
-// Shows a view of the project, instead of the ad-hoc view.
+// Shows a view of the project.
 function showView(name) {
-  $("query").value = "";
-  paintQuery();
   state.view = name;
+  // From the page of the problems: back to the drawing.
+  if (state.format === "problems") state.format = state.drawn ?? "svg";
+  showFormats();
   run();
-}
-
-function paintQuery() {
-  colorize($("query"), $("query-highlight"), QUERY_PREFIX, "\n}\n");
 }
 
 // Colors the copy of an editor's text with the module's highlighter; `prefix` and `suffix`
@@ -480,7 +494,7 @@ async function published() {
 }
 
 // The link of what is shown, in the hash (never sent to the server):
-// `#example=retail&view=landscape&format=svg`, or `&q=…` for an ad-hoc view, compressed.
+// `#example=retail&view=landscape&format=svg`.
 let linked = "";
 let linking = 0;
 
@@ -488,10 +502,9 @@ async function remember() {
   const turn = ++linking;
   const params = new URLSearchParams();
   if (!state.project && state.example && state.example !== "local") params.set("example", state.example);
-  const query = $("query").value.trim() ? $("query").value : "";
-  if (query) params.set("q", await pack(query));
-  else if (state.view) params.set("view", state.view);
-  params.set("format", state.format);
+  if (state.view) params.set("view", state.view);
+  // The page of the problems is not a format of the view: the one shown before it.
+  params.set("format", state.format === "problems" ? state.drawn ?? "svg" : state.format);
   const hash = `#${params}`;
   if (turn === linking && hash !== location.hash) {
     linked = hash;
@@ -503,29 +516,32 @@ async function remember() {
 // The link back to the site the page is published in: the page of the view shown, or its home.
 function backToSite() {
   if (!project?.site) return;
-  const view = !$("query").value.trim() && state.view;
+  const view = state.view;
   const page = view ? `views/${view.replace(/[^A-Za-z0-9._-]/g, "_")}.html` : "";
   $("site").href = project.site + page;
   $("site").textContent = t(view ? "This view on the site" : "Site");
 }
 
-// Shows what a link designates: example, view, format, ad-hoc view.
+// Shows what a link designates: example, view, format.
 async function follow() {
   const params = new URLSearchParams(location.hash.slice(1));
+  // A link to an ad-hoc view, of the playground before the composer: the composer shows it.
+  if (params.get("q")) {
+    try {
+      const body = await unpack(params.get("q"));
+      const forward = new URLSearchParams();
+      if (params.get("example")) forward.set("example", params.get("example"));
+      forward.set("q", await pack(`view ad-hoc {\n${body.split("\n").map((line) => `  ${line}`).join("\n")}\n}`));
+      location.replace(`compose.html#${forward}`);
+      return;
+    } catch {
+      // A truncated link: the view of the project.
+    }
+  }
   if (FORMATS.some(([format]) => format === params.get("format"))) {
     state.format = params.get("format");
     showFormats();
   }
-  let query = "";
-  if (params.get("q")) {
-    try {
-      query = await unpack(params.get("q"));
-    } catch {
-      // A truncated link: no ad-hoc view.
-    }
-  }
-  $("query").value = query;
-  paintQuery();
   const view = params.get("view");
   const example = params.get("example") ?? state.example ?? "reference";
   if (!state.project && example in EXAMPLES && example !== state.example) return loadExample(example, view);
@@ -533,13 +549,13 @@ async function follow() {
   run();
   // The file defining the view of the link.
   const index = state.files.findIndex((f) => viewsOf(f.text).some((v) => v.name === state.view));
-  if (!query && index >= 0 && index !== state.current) {
+  if (index >= 0 && index !== state.current) {
     state.current = index;
     showFiles();
   }
 }
 
-// Text ⇄ deflate, base64url: a short link for a long ad-hoc view.
+// Text ⇄ deflate, base64url: a view in a link (the composer's).
 async function pack(text) {
   const stream = new Blob([text]).stream().pipeThrough(new CompressionStream("deflate-raw"));
   const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
@@ -632,7 +648,7 @@ async function movable(target, files, view, dot) {
   const button = (label, onclick) => Object.assign(document.createElement("button"), { textContent: label, onclick });
   bar.append(
     button(t("Fit"), () => cy.fit(undefined, 20)),
-    button(t("Reset"), () => run()),
+    button(t("Lay out again"), () => run()),
     button(t("Download {file}", { file: `${view}.png` }), () => {
       Object.assign(document.createElement("a"), { href: cadastreMovable.png(cy), download: `${view}.png` }).click();
     }),
@@ -692,17 +708,17 @@ function save(name, blob) {
 
 function run() {
   if (!cadastre) return;
-  const query = $("query").value.trim() ? $("query").value : null;
-  const files = query ? [...state.files, { path: QUERY_PATH, text: `${QUERY_PREFIX}${query}\n}\n` }] : state.files;
+  const files = state.files;
   let result;
   try {
     result = cadastre.build({
       modules: state.modules ?? [], language: lang, satellites: state.satellites,
       files,
-      view: (query ? QUERY_VIEW : state.view) ?? undefined,
+      view: state.view ?? undefined,
       strict: $("strict").checked,
-      // draw.io: the diagram is shown, the file laid out by Graphviz when downloaded.
-      formats: [state.format === "drawio" ? "svg" : state.format === "move" ? "cytoscape" : state.format],
+      // draw.io: the diagram is shown, the file laid out by Graphviz when downloaded; the page
+      // of the problems draws nothing.
+      formats: state.format === "problems" ? [] : [state.format === "drawio" ? "svg" : state.format === "move" ? "cytoscape" : state.format],
     });
   } catch (error) {
     $("output").innerHTML = "";
@@ -711,25 +727,32 @@ function run() {
   }
 
   // Views: keep the selection if it still exists, render a single view at a time.
-  const views = result.views.filter((v) => !query || v !== QUERY_VIEW);
-  if (!query && (!state.view || !views.includes(state.view))) {
+  const views = result.views;
+  if (!state.view || !views.includes(state.view)) {
     state.view = views[0] ?? null;
     if (state.view && views.length > 1) return run();
   }
-  $("shown").textContent = query ? t("ad-hoc view") : (state.view ?? "");
+  $("shown").textContent = state.view ?? "";
 
   const s = result.summary;
-  $("summary").textContent =
-    t("{resources} resources · {links} links · {errors} errors · {warnings} warnings · {incomplete} incomplete", s);
+  $("summary").textContent = t("{resources} resources · {links} links", s);
+  // The problems: counted on their tab, listed on their page; nothing of them under a drawing.
+  state.problems = result.diagnostics;
+  if (state.format === "problems" && !state.problems.length) state.format = state.drawn ?? "svg";
+  showFormats();
 
-  const output = result.outputs.find((o) => o.view === (query ? QUERY_VIEW : state.view));
+  const output = result.outputs.find((o) => o.view === state.view);
   const target = $("output");
   target.replaceChildren();
-  if (!output) {
+  if (state.format === "problems") {
+    target.append(problems(state.problems));
+  } else if (!output) {
     target.append(Object.assign(document.createElement("div"), {
       className: "empty",
       textContent: t(s.errors ? "Fix the errors to render the views." : "No view to render."),
     }));
+    // The errors keep the view from being drawn: they are shown in its place.
+    if (s.errors) target.append(problems(state.problems.filter((d) => d.severity === "error")));
   } else if (["svg", "traversal", "racks"].includes(state.format) && output.content.trimStart().startsWith("<svg")) {
     // `layout: elk`, `render traversal` and `render racks`: already drawn by the compiler.
     zoomed(target, output.content, output.view);
@@ -761,13 +784,17 @@ function run() {
     target.append(Object.assign(document.createElement("pre"), { textContent: output.content, className: state.format }));
   }
 
-  $("diagnostics").replaceChildren(...result.diagnostics.map((d) => {
-    const item = document.createElement("div");
-    item.className = d.severity;
-    let where = d.locations[0];
-    // Positions in the ad-hoc view are given in its text, without the `view … {` line.
-    if (where?.path === QUERY_PATH) where = { ...where, line: where.line - QUERY_LINES };
-    item.innerHTML = "";
+  gutter();
+  void remember();
+}
+
+// A list of diagnostics, each leading to where it is written.
+function problems(list) {
+  const box = Object.assign(document.createElement("div"), { className: "problems" });
+  if (!list.length) box.append(Object.assign(document.createElement("div"), { className: "empty", textContent: t("No problem.") }));
+  box.append(...list.map((d) => {
+    const item = Object.assign(document.createElement("div"), { className: `item ${d.severity}` });
+    const where = d.locations[0];
     item.append(
       Object.assign(document.createElement("b"), { textContent: t(d.severity) }),
       `: ${d.message}${where ? `  (${where.path}:${where.line}:${where.column})` : ""}`,
@@ -776,13 +803,11 @@ function run() {
     if (where) item.onclick = () => goTo(where);
     return item;
   }));
-  gutter();
-  void remember();
+  return box;
 }
 
-// The definition of the view shown: the ad-hoc view, or `view <name>` in the files.
+// The definition of the view shown: `view <name>` in the files.
 function goToView() {
-  if ($("query").value.trim()) return goTo({ path: QUERY_PATH, line: 1, column: 1 });
   for (const file of state.files) {
     const view = viewsOf(file.text).find((v) => v.name === state.view);
     if (view) return goTo({ path: file.path, line: view.line + 1, column: 1 });
@@ -790,12 +815,6 @@ function goToView() {
 }
 
 function goTo({ path, line, column }) {
-  if (path === QUERY_PATH) {
-    const offset = Math.max(0, $("query").value.split("\n").slice(0, line - 1).reduce((n, l) => n + l.length + 1, 0) + column - 1);
-    $("query").focus();
-    $("query").setSelectionRange(offset, offset);
-    return;
-  }
   const index = state.files.findIndex((f) => f.path === path);
   if (index < 0) return;
   if (index !== state.current) {
@@ -811,6 +830,11 @@ function goTo({ path, line, column }) {
 $("editor").addEventListener("input", () => {
   if (!state.files.length) return;
   state.files[state.current].text = $("editor").value;
+  // A published project edited here: said, with a way back.
+  if (state.project && !state.changed) {
+    state.changed = true;
+    $("local").hidden = false;
+  }
   paint();
   clearTimeout(timer);
   timer = setTimeout(run, 250);
@@ -867,14 +891,15 @@ $("inventory-file").addEventListener("change", async (e) => {
     alert(String(error));
   }
 });
-$("export").addEventListener("change", (e) => { if (e.target.value) exportModel(e.target.value); e.target.value = ""; });
+for (const button of document.querySelectorAll("[data-export]")) button.addEventListener("click", () => exportModel(button.dataset.export));
+$("tools-open").addEventListener("click", () => $("tools").showModal());
+$("tools-close").addEventListener("click", () => $("tools").close());
 $("example").replaceChildren(...Object.keys(EXAMPLES).map((name) => new Option(name, name)));
 $("example").addEventListener("change", (e) => { if (e.target.value !== "local") loadExample(e.target.value); });
 $("editor").addEventListener("scroll", () => {
   syncScroll($("editor"), $("highlight"));
   gutter();
 });
-$("query").addEventListener("scroll", () => syncScroll($("query"), $("query-highlight")));
 // Tab inserts two spaces instead of leaving the editor.
 $("editor").addEventListener("keydown", (e) => {
   // Ctrl+Enter: shows the view the cursor is in (the last one starting above it).
@@ -888,16 +913,6 @@ $("editor").addEventListener("keydown", (e) => {
   if (e.key !== "Tab" || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
   e.preventDefault();
   document.execCommand("insertText", false, "  ");
-});
-$("query").addEventListener("input", () => {
-  paintQuery();
-  clearTimeout(timer);
-  timer = setTimeout(run, 250);
-});
-$("clear-query").addEventListener("click", () => {
-  $("query").value = "";
-  paintQuery();
-  run();
 });
 $("share").addEventListener("click", async () => {
   await remember();
@@ -915,9 +930,10 @@ window.addEventListener("hashchange", () => { if (location.hash !== linked) foll
 // (an opened folder), handed over for this tab.
 $("compose").addEventListener("click", () => {
   const params = new URLSearchParams();
-  if (state.view && !$("query").value.trim()) params.set("view", state.view);
+  if (state.view) params.set("view", state.view);
   if (!state.project && state.example && state.example !== "local") params.set("example", state.example);
-  if (!state.project && state.example === "local") {
+  // The files of this page, when they are not those the composer would load by itself.
+  if (state.changed || (!state.project && state.example === "local")) {
     try {
       sessionStorage.setItem("cadastre-compose", JSON.stringify({ files: state.files, modules: state.modules ?? [] }));
       params.set("local", "");
@@ -931,7 +947,21 @@ $("open").addEventListener("click", () => $("folder").click());
 $("folder").addEventListener("change", (e) => { openFolder(e.target.files); e.target.value = ""; });
 function showFormats() {
   const formats = FORMATS.map(([format, label]) => [format, t(label)]);
-  tabs($("formats"), formats, state.format, (format) => { state.format = format; showFormats(); run(); });
+  // The problems of the project, when there are some: a page of their own, last.
+  const count = state.problems.length;
+  if (count) formats.push(["problems", t("Problems {count}", { count })]);
+  tabs($("formats"), formats, state.format, (format) => {
+    if (format === "problems" && state.format !== "problems") state.drawn = state.format;
+    state.format = format;
+    showFormats();
+    run();
+  });
+  const tab = count ? $("formats").lastElementChild : null;
+  if (tab) {
+    tab.classList.add("problems-tab");
+    tab.classList.toggle("errors", state.problems.some((d) => d.severity === "error"));
+    tab.title = t("The errors, warnings and notes of the project");
+  }
 }
 showFormats();
 
@@ -943,7 +973,8 @@ const wanted = project?.language ?? navigator.language ?? "en";
 lang = Object.keys(LANGUAGES).find((code) => wanted.toLowerCase().startsWith(code)) ?? "en";
 applyLanguage();
 if (project) {
-  // A published project: its files only, read-only; the views are explored, not edited.
+  // A published project: its files only; edited in this page, nothing saved (the composer
+  // saves a view under `cadastre serve --edit`).
   state.project = project.name;
   document.title = `${project.name} · Cadastre`;
   // Published in a site: the name leads to its home page.
@@ -956,8 +987,15 @@ if (project) {
   }
   $("example-label").hidden = true;
   // Nothing to open nor import: the files are those published.
-  for (const id of ["open", "terraform", "inventory"]) $(id).hidden = true;
-  $("editor").readOnly = true;
+  for (const id of ["open", "tools-import"]) $(id).hidden = true;
+  const published = JSON.stringify(project.files);
+  $("local-reset").addEventListener("click", () => {
+    state.files = JSON.parse(published);
+    state.changed = false;
+    $("local").hidden = true;
+    showFiles();
+    run();
+  });
   // Published by a compiler of another build: its diagnostics may not be those of this page.
   const page = cadastre.version() ?? "older";
   if (project.compiler && project.compiler !== page) {

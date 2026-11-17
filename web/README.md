@@ -43,7 +43,7 @@ For the composer of views, `build` also answers `facts` (with `"facts": true`: t
 
 ## Publishing a project
 
-The compiler shows a project in the playground, read-only and without the examples: its views, its files, and the ad-hoc views written in the page.
+The compiler shows a project in the playground, without the examples: its views and its files, edited in the page to try something (nothing is saved: the page says so, and gives the files back as published).
 
 ```bash
 cadastre serve src                        # http://127.0.0.1:8080/: the site of the project, with the playground under /playground/
@@ -67,7 +67,7 @@ cadastre site src --out public            # the same site, as a folder for a sta
 
 ## Links
 
-The address of the page names what it shows, in its hash (never sent to the server): `#view=flux-pricing&format=svg`, `#example=retail&view=landscape` in the demo. An ad-hoc view is in it too, compressed: `#q=K07NSU0u…&format=svg`. **Copy link** copies it; opening the link shows the same view, the same format, the same ad-hoc view.
+The address of the page names what it shows, in its hash (never sent to the server): `#view=flux-pricing&format=svg`, `#example=retail&view=landscape` in the demo. **Copy link** copies it; opening the link shows the same view, the same format. A link to an ad-hoc view of the playground before the composer (`#q=K07NSU0u…`) opens the composer on that view.
 
 ## The home page
 
@@ -103,13 +103,15 @@ The script downloads Graphviz for the browser once, from the CDN the page uses (
 
 - edit the files of an example project, or open a folder of your own: its `.ca`, `.cav` and `.cac` files are read by the page and stay in your browser;
 - browse the files in a tree, folders folding;
-- show a view with the play icon in the margin before it, or with `Ctrl+Enter` in it; or write one on the fly (an ad-hoc view, such as `select server group-by site edges lift([flow], via: on)`), rendered instead; the name of the view shown, beside the formats, leads to its definition;
-- see the diagram, the table, ASCII art, text, Mermaid or DOT output and the diagnostics as you type, and download a view as a draw.io file, laid out like the diagram, or its table as an Excel workbook or a CSV file, generated in the page;
+- show a view with the play icon in the margin before it, or with `Ctrl+Enter` in it; the name of the view shown, beside the formats, leads to its definition; to try a view, edit one in its file, or compose it (*Compose a view*, § The composer of views);
+- see the diagram, the table, ASCII art, text, Mermaid or DOT output as you type, and download a view as a draw.io file, laid out like the diagram, or its table as an Excel workbook or a CSV file, generated in the page;
+- the problems of the project (errors, warnings, what is incomplete) are on a page of their own, the tab *Problems* with their count, each leading to where it is written; nothing of them under a drawing, except the errors that keep a view from being drawn, shown in its place;
+- *Import, export…* holds what is not for every day: importing a Terraform state or an inventory in CSV, exporting the whole registry (ArchiMate, GraphML, JSON), and `strict`;
 - zoom around the cursor with the wheel and move a diagram by dragging (or with the buttons of its corner: zoom in, out, fit, 1:1), the zoom of each view kept while it is drawn again;
 - move a view by hand (*Movable*): the diagram laid out by Graphviz like the SVG, drawn by Cytoscape.js loaded from a CDN, its nodes and frames dragged (a frame with its content), its edges bent (drag an edge, a straight one by its middle, or right click to add or remove a bend), and saved as a PNG; nothing goes back to the files, the positions live in the page;
 - share a view by its link (see Links).
 
-With `project.json` beside it (`cadastre serve`, `cadastre site`), the page shows that project only, read-only; its `compiler` field is the build of the compiler that published it, compared with the module's; its `site` field (`../`) is where the site of the project starts, and the header links back to it: to the page of the view shown, or to the home. Its `language` field (`en`, `fr`) is the language of the page and of the words of the diagrams; without it, the page follows the language of the browser.
+With `project.json` beside it (`cadastre serve`, `cadastre site`), the page shows that project only; its `compiler` field is the build of the compiler that published it, compared with the module's; its `site` field (`../`) is where the site of the project starts, and the header links back to it: to the page of the view shown, or to the home. Its `language` field (`en`, `fr`) is the language of the page and of the words of the diagrams; without it, the page follows the language of the browser.
 
 The editor is highlighted by the module itself, from the grammar's [`highlights.scm`](../grammar/queries/highlights.scm), like the language server. SVG is rendered in the page by a WebAssembly build of Graphviz ([`@viz-js/viz`](https://github.com/mdaines/viz-js)). Serve the repository root and open `/web/`:
 
