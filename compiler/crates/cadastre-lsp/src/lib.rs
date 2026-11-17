@@ -801,6 +801,7 @@ impl Server<'_> {
                     vec![
                         lens(range, "$(open-preview) Preview".into(), "cadastre.previewView", &arguments),
                         lens(range, "$(run) Build".into(), "cadastre.buildView", &arguments),
+                        lens(range, "$(edit) Compose".into(), "cadastre.composeView", &arguments),
                     ]
                 }
             })

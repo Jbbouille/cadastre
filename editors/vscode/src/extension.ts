@@ -7,6 +7,7 @@ import * as vscode from "vscode";
 import { LanguageClient, LanguageClientOptions, ServerOptions } from "vscode-languageclient/node";
 
 import { build } from "./build";
+import { compose, stopComposers } from "./compose";
 import { Preview, projectOf } from "./preview";
 
 let client: LanguageClient | undefined;
@@ -28,6 +29,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       if (target) {
         Preview.show(context, () => client, target.uri, target.view, () => build(serverCommand(), projectOf(target.uri), target.view, client));
       }
+    }),
+    // The composer of views, on the view of a code lens, or on a new one.
+    vscode.commands.registerCommand("cadastre.composeView", async (uri?: string, view?: string) => {
+      uri ??= currentUri();
+      if (uri) await compose(context, serverCommand(), projectOf(uri), view);
+      else void vscode.window.showWarningMessage("Cadastre: open a .ca, .cav or .cac file, or a folder.");
     }),
     // The result of a check, as text in the output panel.
     vscode.commands.registerCommand("cadastre.showCheck", async (uri: string, check: string) => {
@@ -89,6 +96,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 }
 
 export async function deactivate(): Promise<void> {
+  stopComposers();
   await stop();
 }
 

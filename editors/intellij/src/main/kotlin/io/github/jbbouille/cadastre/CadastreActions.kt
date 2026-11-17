@@ -16,8 +16,8 @@ import com.intellij.ui.SimpleListCellRenderer
 import java.nio.file.Files
 
 // The commands of the code lenses (`cadastre.previewView`, `cadastre.buildView`,
-// `cadastre.showCheck`), run by LSP4IJ as the actions of the same id, and the commands of the
-// Tools > Cadastre menu, as in VS Code.
+// `cadastre.composeView`, `cadastre.showCheck`), run by LSP4IJ as the actions of the same id, and
+// the commands of the Tools > Cadastre menu, as in VS Code.
 
 /** Base of the actions: shown in a project, on the event dispatch thread. */
 abstract class CadastreAction : AnAction(), DumbAware {
@@ -33,6 +33,19 @@ class PreviewViewAction : CadastreAction() {
     override fun actionPerformed(event: AnActionEvent) {
         val project = event.project ?: return
         Cadastre.withView(event) { uri, view -> CadastrePreview.get(project).show(uri, view) }
+    }
+}
+
+/** The composer of views, on the view of a code lens, or on a new one of the current project. */
+class ComposeViewAction : CadastreAction() {
+    override fun actionPerformed(event: AnActionEvent) {
+        val project = event.project ?: return
+        val lens = Cadastre.lensArguments(event)
+        val file = lens?.let { Cadastre.file(it.first) }
+            ?: Cadastre.currentFile(event)
+            ?: project.guessProjectDir()
+            ?: return Cadastre.warn(project, "open a .ca, .cav or .cac file of the project.")
+        CadastreComposer.get(project).show(Cadastre.root(project, file), lens?.second)
     }
 }
 

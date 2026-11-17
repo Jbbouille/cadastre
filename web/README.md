@@ -51,7 +51,7 @@ cadastre serve src --host 0.0.0.0 --port 8080 --title "Our IS"
 cadastre site src --out public            # the same site, as a folder for a static web server
 ```
 
-- `cadastre serve` serves the site of the project (see the guide, § The site) and, under `playground/`, this page with `project.json`, the files of the project read again as they change: always up to date, nothing to rebuild. It listens on `127.0.0.1` unless given `--host`.
+- `cadastre serve` serves the site of the project (see the guide, § The site) and, under `playground/`, this page with `project.json`, the files of the project read again as they change: always up to date, nothing to rebuild. It listens on `127.0.0.1` unless given `--host`; `--port 0` takes any free port, said on the first line of its output. The pages of the playground and `project.json` are served without waiting for the site to be generated.
 - `cadastre site` writes the site of the project and, under `playground/`, this page, the module, Graphviz for the browser and `project.json`, to publish from the continuous integration:
 
   ```yaml

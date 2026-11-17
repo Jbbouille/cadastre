@@ -6,8 +6,9 @@
     Support of the <a href="https://github.com/Jbbouille/cadastre">Cadastre</a> language, an information system as code
     (<code>.ca</code> registry, <code>.cav</code> plans and <code>.cac</code> checks): highlighting, diagnostics, completion, go to definition,
     find references, renaming, hover, outline and formatting, from the Cadastre language server (<code>cadastre lsp</code>);
-    code lenses above the views (Preview, Build) and the checks (their result), a live preview of the views in the
-    editors of the IDE, building the views and exporting the registry (Tools &gt; Cadastre).
+    code lenses above the views (Preview, Build, Compose) and the checks (their result), a live preview of the views in the
+    editors of the IDE, the composer of views (a view written by taking words among those proposed, each showing what
+    it changes in the diagram), building the views and exporting the registry (Tools &gt; Cadastre).
   ]]></description>
 
   <depends>com.intellij.modules.platform</depends>
@@ -40,6 +41,9 @@
               description="Render a view in the editors of the IDE, kept up to date as you type" icon="AllIcons.Actions.Preview"/>
       <action id="cadastre.buildView" class="io.github.jbbouille.cadastre.BuildViewAction" text="Build View…"
               description="Write the renderings of a view to out/ (cadastre build --view)" icon="AllIcons.Actions.Execute"/>
+      <action id="cadastre.composeView" class="io.github.jbbouille.cadastre.ComposeViewAction" text="Compose a View…"
+              description="Write a view by taking words among those proposed, in an editor of the IDE (cadastre serve --edit)"
+              icon="AllIcons.Actions.Edit"/>
       <action id="cadastre.buildViews" class="io.github.jbbouille.cadastre.BuildViewsAction" text="Build All Views"
               description="Write the renderings of every view to out/ (cadastre build)">
         <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>

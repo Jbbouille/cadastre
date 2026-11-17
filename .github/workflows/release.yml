@@ -72,6 +72,8 @@ jobs:
           cp README.md LICENSE-MIT LICENSE-APACHE THIRD-PARTY-NOTICES.md "dist/$name/"
           # The extension ships the notices of what it contains.
           cp THIRD-PARTY-NOTICES.md editors/vscode/
+          # And the playground, for the composer of views it shows in a panel.
+          cp -r playground editors/vscode/playground
           # The page `cadastre serve` and `cadastre site` publish a project with.
           cp -r playground "dist/$name/playground"
           cd dist

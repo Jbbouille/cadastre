@@ -263,6 +263,9 @@ pub fn serve(
     edit: bool,
 ) -> std::io::Result<()> {
     let listener = TcpListener::bind(address)?;
+    // The port the system chose when asked for any (`--port 0`): an editor starting a server of
+    // its own reads it here.
+    let address = listener.local_addr().map_or_else(|_| address.to_owned(), |local| local.to_string());
     println!("{title}: http://{address}/ (Ctrl+C to stop)");
     let served: &'static Mutex<Served> = Box::leak(Box::new(Mutex::new(Served::default())));
     let (root, playground, title) = (root.to_owned(), playground.map(Path::to_owned), title.to_owned());
@@ -348,15 +351,19 @@ fn respond(mut stream: TcpStream, settings: &'static Settings, served: &'static 
             name.push_str("index.html");
         }
         let name = percent_decode(&name);
-        current(settings, served)?;
-        let state = served.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        match (name.as_str(), &state.cache) {
-            // The version of the site served: a page reloads itself when it changes.
-            ("__version", Some(cache)) => ("200 OK", "text/plain", cache.sources.to_string().into_bytes()),
-            (_, cache) => match cache.as_ref().and_then(|c| c.files.get(&name)) {
-                Some(body) => ("200 OK", content_type(&name), body.clone()),
-                None => ("404 Not Found", "text/plain", b"not found".to_vec()),
-            },
+        if let Some(body) = playground_file(settings, &name) {
+            ("200 OK", content_type(&name), body)
+        } else {
+            current(settings, served)?;
+            let state = served.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            match (name.as_str(), &state.cache) {
+                // The version of the site served: a page reloads itself when it changes.
+                ("__version", Some(cache)) => ("200 OK", "text/plain", cache.sources.to_string().into_bytes()),
+                (_, cache) => match cache.as_ref().and_then(|c| c.files.get(&name)) {
+                    Some(body) => ("200 OK", content_type(&name), body.clone()),
+                    None => ("404 Not Found", "text/plain", b"not found".to_vec()),
+                },
+            }
         }
     };
     write!(
@@ -366,6 +373,24 @@ fn respond(mut stream: TcpStream, settings: &'static Settings, served: &'static 
     )?;
     stream.write_all(&body)?;
     stream.flush()
+}
+
+/// A file of the playground, or its `project.json` with the project as it is on disk, served
+/// without generating the site: the playground and the composer of views open at once, on a
+/// large project too, and from an editor that shows nothing else.
+fn playground_file(settings: &Settings, name: &str) -> Option<Vec<u8>> {
+    let (root, playground, title, language, edit) = settings;
+    let dir = playground.as_deref()?;
+    let file = name.strip_prefix("playground/")?;
+    if file == "project.json" {
+        let project = cadastre_project::load(root).ok()?;
+        let language = language.unwrap_or_else(|| project.language());
+        return Some(project_json(&project, title, language, *edit).into_bytes());
+    }
+    if !PAGE.contains(&file) {
+        return None;
+    }
+    std::fs::read(dir.join(file)).ok()
 }
 
 /// `POST /__edit` (`serve --edit`): a view of the composer written into its file,
@@ -470,6 +495,28 @@ fn content_type(name: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_playground_is_served_without_the_site() {
+        let base = std::env::temp_dir().join(format!("cadastre-playground-{}", std::process::id()));
+        let (root, playground) = (base.join("project"), base.join("playground"));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::create_dir_all(&playground).unwrap();
+        std::fs::write(root.join("a.ca"), "app shop\n").unwrap();
+        std::fs::write(playground.join("compose.html"), "<!doctype html>").unwrap();
+        std::fs::write(playground.join("secret.txt"), "no").unwrap();
+        let settings: Settings = (root, Some(playground), "Acme".to_owned(), None, true);
+        assert_eq!(playground_file(&settings, "playground/compose.html").unwrap(), b"<!doctype html>");
+        let project: serde_json::Value =
+            serde_json::from_slice(&playground_file(&settings, "playground/project.json").unwrap()).unwrap();
+        assert_eq!(project["name"], "Acme");
+        assert_eq!(project["edit"], true);
+        assert_eq!(project["files"][0]["path"], "a.ca");
+        // Only the files of the page, and nothing of the site.
+        assert!(playground_file(&settings, "playground/secret.txt").is_none());
+        assert!(playground_file(&settings, "index.html").is_none());
+        std::fs::remove_dir_all(&base).unwrap();
+    }
 
     #[test]
     fn a_view_written_into_its_file() {

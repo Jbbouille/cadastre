@@ -106,6 +106,12 @@
         "icon": "$(run)"
       },
       {
+        "command": "cadastre.composeView",
+        "title": "Compose a view",
+        "category": "Cadastre",
+        "icon": "$(edit)"
+      },
+      {
         "command": "cadastre.buildViews",
         "title": "Build all views",
         "category": "Cadastre",
@@ -126,6 +132,11 @@
       "editor/title": [
         {
           "command": "cadastre.previewView",
+          "when": "editorLangId == cadastre",
+          "group": "navigation"
+        },
+        {
+          "command": "cadastre.composeView",
           "when": "editorLangId == cadastre",
           "group": "navigation"
         }

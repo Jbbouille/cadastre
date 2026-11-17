@@ -40,7 +40,8 @@ const LANGUAGES = {
     "Save in {file}": "Enregistrer dans {file}",
     "Saved in {file}": "Enregistré dans {file}",
     "Cannot save: {error}": "Enregistrement impossible : {error}",
-    "The file to write the view in:": "Le fichier où écrire la vue :",
+    "File": "Fichier",
+    "The .cav file to write the view in": "Le fichier .cav où écrire la vue",
     "Site": "Site",
     "This view on the site": "Cette vue sur le site",
     "Code of the view": "Code de la vue",
@@ -957,11 +958,22 @@ function finish() {
   };
   const description = h("textarea", { value: attribute("description"), rows: 2 });
   description.onchange = () => { apply(withAttribute("description", description.value.trim())); finish(); };
+  // A new view saved: the file it is written in, one of the project or a new one.
+  const target = () => {
+    if (!project?.edit || state.origin) return [];
+    const files = state.files.filter((f) => f.path.endsWith(".cav")).map((f) => f.path);
+    state.target ??= files[0] ?? "views.cav";
+    const file = h("input", { type: "text", value: state.target, title: t("The .cav file to write the view in") });
+    file.setAttribute("list", "end-files");
+    file.oninput = () => { state.target = file.value.trim(); };
+    return [h("span", { textContent: t("File") }), h("span", {}, file, h("datalist", { id: "end-files" }, files.map((f) => h("option", { value: f }))))];
+  };
   $("end-form").replaceChildren(
     h("span", { textContent: t("Name") }), input(parts.name, (v) => { if (/^[A-Za-z_][A-Za-z0-9_-]*$/.test(v)) apply(splice(state.text, parts.name_range, v)); }),
     h("span", { textContent: t("Title") }), input(attribute("title"), (v) => apply(withAttribute("title", v))),
     h("span", { textContent: t("Description") }), description,
-    h("span", { textContent: t("Folder") }), input(attribute("group"), (v) => apply(withAttribute("group", v)), { placeholder: t("Network/Security") }));
+    h("span", { textContent: t("Folder") }), input(attribute("group"), (v) => apply(withAttribute("group", v)), { placeholder: t("Network/Security") }),
+    ...target());
   $("end-code").replaceChildren(...colored(state.text, null));
   $("save").hidden = !project?.edit;
   $("save").textContent = state.origin ? t("Save in {file}", { file: state.origin.path }) : t("Save");
@@ -1011,7 +1023,13 @@ async function copy(text, button, label) {
     button.textContent = t("Copied");
     setTimeout(() => { button.textContent = t(label); }, 1500);
   } catch {
-    prompt(t(label), text);
+    // Without the clipboard (a page served over plain HTTP, an editor): the text to copy by hand,
+    // where the page can ask.
+    try {
+      prompt(t(label), text);
+    } catch {
+      // The code is in sight in the dialog.
+    }
   }
 }
 
@@ -1019,12 +1037,8 @@ async function copy(text, button, label) {
 async function save() {
   const parts = view();
   if (!parts) return;
-  let path = state.origin?.path;
-  if (!path) {
-    const files = state.files.filter((f) => f.path.endsWith(".cav")).map((f) => f.path);
-    path = prompt(`${t("The file to write the view in:")}\n${files.join("\n")}`, files[0] ?? "views.cav");
-    if (!path) return;
-  }
+  const path = state.origin?.path ?? state.target;
+  if (!path) return;
   const told = $("end-status");
   try {
     const response = await fetch(`${project.site ?? "../"}__edit`, {
