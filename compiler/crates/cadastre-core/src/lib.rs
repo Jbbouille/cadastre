@@ -19,6 +19,7 @@ pub mod i18n;
 pub mod impact;
 pub mod inventory;
 pub mod lower;
+mod navigation;
 pub mod net;
 pub mod outline;
 pub mod path;

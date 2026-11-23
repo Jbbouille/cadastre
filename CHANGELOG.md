@@ -14,6 +14,8 @@ The compiler, the VS Code extension, the IntelliJ plugin and the WebAssembly mod
 
 ## Unreleased
 
+- **API of the site, navigable**: `api/index.json` is where to start, and every record carries a block `_links` beside its fields, each `href` relative to its file: a resource leads to its parent, its kind, its owner, its site and system, its children, what runs on it, the resources of its references (those of the project too), its links and its page; a link to its ends, what it carries and goes through; a view to its nodes and links. New files: `schema.json` (each kind with its parents and keys, their type, and whether the language or the project declares them; the keys of the links and of each layer), `kinds.json` and `kinds/<kind>.json` (the resources by kind), `links/<id>.json` (a link alone), `views.json`. The fields stay as they were: a client reading them is not changed, and the export and the MCP server have no `_links`. See `docs/api.md`, Navigating.
+
 ## 0.6.0
 
 Nothing in a project needs to change. This version is about writing views: the **composer of views** writes one by taking words among those it proposes, each showing what it changes in the diagram before it is taken. It is in the site, the playground, VS Code and the JetBrains IDEs, and saves into the files of the project under `cadastre serve --edit`. The playground is simpler: its ad-hoc view gives way to the composer (a link to one opens it there), its problems have a page of their own. Two fixes: the columns of the keys a project declares on its links, the outline of a file being typed.

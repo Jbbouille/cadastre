@@ -606,6 +606,21 @@ impl Schema {
             .collect()
     }
 
+    /// The built-in kind a kind of the project is like; `None` for a built-in kind.
+    pub fn like(&self, kind: &str) -> Option<&'static str> {
+        self.likes.get(kind).copied()
+    }
+
+    /// The keys the project declares for every link.
+    pub fn every_link_keys(&self) -> &'static [AttrDef] {
+        self.links
+    }
+
+    /// The keys the project declares for the links of each layer.
+    pub fn layer_keys(&self) -> &[(&'static str, &'static [AttrDef])] {
+        &self.layers
+    }
+
     /// The kinds: built-in ones, then those of the project.
     pub fn kind_names(&self) -> Vec<&'static str> {
         let mut names: Vec<&'static str> = kind_names().collect();

@@ -8,9 +8,10 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::api;
+use crate::navigation;
 use crate::project::Compilation;
 use crate::render::icons::icon;
 use crate::source::SourceFile;
@@ -337,11 +338,52 @@ impl Site<'_> {
         if !self.options.elements.is_empty() {
             out.push(File { path: "movable.js".into(), content: MOVABLE.to_owned() });
         }
-        // The API: the records every page is built from.
-        let index = api::index(self.compilation, self.files);
-        out.push(File { path: "api/project.json".into(), content: pretty(&self.project) });
-        out.push(File { path: "api/resources.json".into(), content: pretty(&index) });
-        out.push(File { path: "api/links.json".into(), content: pretty(&Value::Array(self.links.clone())) });
+        // The API: the records every page is built from, each written with its links
+        // (`_links`) to the records it names; `api/index.json` is where to start.
+        let summaries: Vec<Value> = match api::index(self.compilation, self.files) {
+            Value::Array(list) => list,
+            _ => Vec::new(),
+        };
+        let linked = |mut record: Value, add: &dyn Fn(&mut Value)| {
+            add(&mut record);
+            record
+        };
+        out.push(File {
+            path: "api/index.json".into(),
+            content: pretty(&navigation::index(self.compilation, self.options.name)),
+        });
+        let mut project = self.project.clone();
+        if let Value::Object(map) = &mut project {
+            map.insert(
+                "_links".into(),
+                json!({ "self": { "href": "project.json" }, "index": { "href": "index.json" } }),
+            );
+        }
+        out.push(File { path: "api/project.json".into(), content: pretty(&project) });
+        out.push(File { path: "api/schema.json".into(), content: pretty(&navigation::schema(self.compilation)) });
+        let (kinds, kind_files) = navigation::kinds(self.compilation, &summaries);
+        out.push(File { path: "api/kinds.json".into(), content: pretty(&kinds) });
+        for (kind, file) in kind_files {
+            out.push(File { path: format!("api/kinds/{}.json", file_name(&kind)), content: pretty(&file) });
+        }
+        let resources: Vec<Value> =
+            summaries.iter().map(|s| linked(s.clone(), &|r| navigation::summary(r, navigation::Hrefs::ROOT))).collect();
+        out.push(File { path: "api/resources.json".into(), content: pretty(&Value::Array(resources)) });
+        let links: Vec<Value> =
+            self.links.iter().map(|l| linked(l.clone(), &|r| navigation::link(r, navigation::Hrefs::ROOT))).collect();
+        out.push(File { path: "api/links.json".into(), content: pretty(&Value::Array(links)) });
+        for link in &self.links {
+            if let Some(id) = link["id"].as_str() {
+                out.push(File {
+                    path: format!("api/links/{}.json", file_name(id)),
+                    content: pretty(&linked(link.clone(), &|r| navigation::link(r, navigation::Hrefs::FOLDER))),
+                });
+            }
+        }
+        out.push(File {
+            path: "api/views.json".into(),
+            content: pretty(&navigation::views(self.compilation, self.files)),
+        });
         out.push(File { path: "api/checks.json".into(), content: pretty(&api::checks(self.compilation, self.files)) });
         out.push(File { path: "api/search.json".into(), content: pretty(&api::search(self.compilation)) });
         let mut records = Vec::new();
@@ -349,14 +391,17 @@ impl Site<'_> {
             let record = api::resource(self.compilation, self.files, id);
             out.push(File {
                 path: format!("api/resources/{}.json", file_name(&text(&record["id"]))),
-                content: pretty(&record),
+                content: pretty(&linked(record.clone(), &navigation::resource)),
             });
             records.push(record);
         }
         let mut views = Vec::new();
         for view in &self.compilation.plans.views {
             if let Ok(record) = api::view(self.compilation, self.files, view) {
-                out.push(File { path: format!("api/views/{}.json", file_name(&view.name)), content: pretty(&record) });
+                out.push(File {
+                    path: format!("api/views/{}.json", file_name(&view.name)),
+                    content: pretty(&linked(record.clone(), &navigation::view)),
+                });
                 views.push(record);
             }
         }
@@ -946,6 +991,8 @@ impl Site<'_> {
     fn api_page(&self, views: &[Value], records: &[Value]) -> String {
         let example_resource = records.first().map(|r| text(&r["id"]));
         let example_view = views.first().map(|v| text(&v["name"]));
+        let example_kind = records.first().map(|r| text(&r["kind"]));
+        let example_link = self.links.iter().find_map(|l| l["id"].as_str().map(str::to_owned));
         let mut body = format!(
             "<h1>API</h1>\n<p class=\"lead\">{}</p>\n",
             self.t("The model of the project as JSON files, static, beside these pages: for scripts, dashboards and agents. Read them with <code>fetch</code> from a page, <code>curl</code> from a script, or as files in the deployed folder. The model is read only: writing is editing the sources and going through Git.")
@@ -955,6 +1002,11 @@ impl Site<'_> {
             self.t("Format <code>cadastre-model</code>, version <b>{version}</b>: within a version a field is added, never removed nor renamed. Every resource is designated by its qualified name (<code>{example}</code>).")
                 .replace("{version}", &self.project["version"].to_string())
                 .replace("{example}", &esc(example_resource.as_deref().unwrap_or("dc1.lan.apps.web01")))
+        ));
+        body.push_str(&format!(
+            "<h2>{}</h2>\n<p>{}</p>\n",
+            self.t("Navigating"),
+            self.t("Start from <a href=\"api/index.json\">api/index.json</a> and follow the links: every record carries a block <code>_links</code> beside its fields, each <code>href</code> relative to the file it is in, leading to the records it names (a resource to its parent, its kind, its links, the resources of its references), so that no path is built by hand.")
         ));
         body.push_str(&format!(
             "<h2>{}</h2>\n<table>\n<tr><th>{}</th><th>{}</th><th>{}</th></tr>\n",
@@ -971,6 +1023,26 @@ impl Site<'_> {
                 self.t(what)
             ));
         };
+        row(
+            "api/index.json",
+            "where to start: what the API holds, a link to each file, and the templates of the others (resources/{id}.json)",
+            Some("api/index.json".to_owned()),
+        );
+        row(
+            "api/schema.json",
+            "the schema of the project: each kind with its parents and keys (type, required, list, declared by the language or the project), the keys of every resource, of the links and of each layer, the groups of kinds",
+            Some("api/schema.json".to_owned()),
+        );
+        row(
+            "api/kinds.json",
+            "every kind, with the kind it is like and its number of resources",
+            Some("api/kinds.json".to_owned()),
+        );
+        row(
+            "api/kinds/<kind>.json",
+            "the resources of a kind, as short records",
+            example_kind.map(|kind| format!("api/kinds/{}.json", file_name(&kind))),
+        );
         row(
             "api/project.json",
             "the project: its name, counts by kind, views, checks and their results, modules, files, diagnostics",
@@ -990,6 +1062,16 @@ impl Site<'_> {
             "api/links.json",
             "every link, both ends named: source, target, id, name, port, layers, carries, through, attributes, declared",
             Some("api/links.json".to_owned()),
+        );
+        row(
+            "api/links/<id>.json",
+            "a link, by its identifier: the record of links.json",
+            example_link.map(|id| format!("api/links/{}.json", file_name(&id))),
+        );
+        row(
+            "api/views.json",
+            "every view as declared: name, title, description, group, formats, declared",
+            Some("api/views.json".to_owned()),
         );
         row(
             "api/views/<name>.json",

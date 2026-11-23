@@ -265,6 +265,29 @@ const FR: &[(&str, &str)] = &[
         "the diagram of a view, when laid out at build time",
         "le diagramme d'une vue, quand il est mis en page à la génération",
     ),
+    (
+        "where to start: what the API holds, a link to each file, and the templates of the others (resources/{id}.json)",
+        "le point de départ : ce que contient l'API, un lien vers chaque fichier, et les modèles des autres (resources/{id}.json)",
+    ),
+    (
+        "the schema of the project: each kind with its parents and keys (type, required, list, declared by the language or the project), the keys of every resource, of the links and of each layer, the groups of kinds",
+        "le schéma du projet : chaque type avec ses parents et ses clés (type, obligatoire, liste, déclarée par le langage ou par le projet), les clés de toute ressource, des liens et de chaque couche, les groupes de types",
+    ),
+    (
+        "every kind, with the kind it is like and its number of resources",
+        "chaque type, avec le type intégré dont il dérive (like) et son nombre de ressources",
+    ),
+    ("the resources of a kind, as short records", "les ressources d'un type, en fiches courtes"),
+    ("a link, by its identifier: the record of links.json", "un lien, par son identifiant : la fiche de links.json"),
+    (
+        "every view as declared: name, title, description, group, formats, declared",
+        "chaque vue telle que déclarée : name, title, description, group, formats, declared",
+    ),
+    ("Navigating", "Naviguer"),
+    (
+        "Start from <a href=\"api/index.json\">api/index.json</a> and follow the links: every record carries a block <code>_links</code> beside its fields, each <code>href</code> relative to the file it is in, leading to the records it names (a resource to its parent, its kind, its links, the resources of its references), so that no path is built by hand.",
+        "Partir de <a href=\"api/index.json\">api/index.json</a> et suivre les liens : chaque fiche porte un bloc <code>_links</code> à côté de ses champs, chaque <code>href</code> relatif au fichier où il se trouve, menant aux fiches qu'elle nomme (une ressource à son parent, son type, ses liens, aux ressources de ses références), sans construire aucun chemin à la main.",
+    ),
     ("The same model elsewhere", "Le même modèle ailleurs"),
     ("the whole model in one file.", "tout le modèle en un fichier."),
     (

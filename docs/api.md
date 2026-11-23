@@ -16,16 +16,40 @@ The model is read only: writing is editing the `.ca` files and going through Git
 
 ```
 api/
+  index.json                    where to start: what the API holds, and a link to each file below
   project.json                  the project: counts, views, checks, modules, diagnostics
+  schema.json                   the kinds, their parents and keys, the keys of the links and layers
+  kinds.json                    every kind, with its number of resources
+  kinds/<kind>.json             the resources of a kind, as short records
   resources.json                every resource, as its short record
   resources/<id>.json           the full record of a resource, by qualified name
   links.json                    every link, both ends named
+  links/<id>.json               a link, by its identifier
+  views.json                    every view, as declared
   views/<name>.json             a view evaluated: nodes, frames, edges
   checks.json                   the checks and their results
   search.json                   the index of the search of the site: resources, views, named links (`href`: their page)
 ```
 
 The site describes these files on its **API** page (`api.html`), with a live example of each.
+
+## Navigating
+
+The API is read by following its links, from `api/index.json`: no path is to be built by hand. Every record of the site carries a block `_links` beside its fields, its entries `{ "href": … }` relative to the file it is in, as the links of a web page (`../resources/sales.json` from `api/resources/sales.shop.json`):
+
+| In | `_links` |
+|---|---|
+| `index.json` | `project`, `schema`, `kinds`, `resources`, `links`, `views`, `checks`, `search`, the pages of the site (`site`, `help`), and templates (`"templated": true`): `resource` (`resources/{id}.json`), `link`, `kind`, `view` |
+| a resource | `self`, `page` (its HTML page), `kind`, the resources it names (`parent`, `owner`, `operator`, `site`, `system`, `path`, `children`, `hosts`, `members`, `runs_here`, `failures`), `references` by key (`on`, `pool`, the reference keys of the project), `outgoing` and `incoming` (each link, `with` its other end) |
+| a link | `self`, `page`, `source`, `target`, `carries`, `through` |
+| a view | `self`, `page`; each node to its `resource`, each frame of a resource to it, each edge to its `source`, `target` and `links` |
+| a kind | `self`, `schema` (its entry in `schema.json`); its resources each with `self` |
+
+In a template, `{id}` is a qualified name, `{name}` the name of a view, every character other than a letter, a digit, `.`, `-` and `_` written `_`. The fields of the records are those of the export and of the MCP server: `_links` is added in the files of the site only, and a client of version 2 reading the fields alone reads them as before.
+
+## `schema.json`
+
+The schema of the project, for a client to know the keys without reading the sources: `kinds` (each with `like` and `declared_by`, `language` or `project`, its `parents`, `within`, `connector`, and its `keys`), `every_resource` (the keys of every kind: `label`, `description`…), `links` and `layers` (the keys of the links, and of the links of each layer), `groups` (the unions of kinds). A key gives its `type` as the schema writes it (`ref(server | subnet)*`), `required`, `list`, `declared_by`, and `designates` (the kinds of a reference), `values` (a closed list) or `computed` when it has one.
 
 ## `project.json`
 
@@ -83,4 +107,4 @@ One record per check: `name`, `severity`, `message`, `declared`, `result` (`pass
 
 ## Reading it
 
-A static site: `fetch("api/resources/sales.shop.json")` from a page, `curl` from a script, or the files in the deployed folder. With `cadastre serve`, the same paths are served under `/api/`, computed at each request from the files on disk.
+A static site: `fetch("api/index.json")` from a page, then its links; `curl` from a script, or the files in the deployed folder. With `cadastre serve`, the same paths are served under `/api/`, computed at each request from the files on disk.
