@@ -138,6 +138,10 @@ fn link_record(compilation: &Compilation, files: &[SourceFile], index: usize, ot
     })
 }
 
+/// The keys of the full record of a resource that the lists of the site (`resources.json`,
+/// `kinds/<kind>.json`) add to its short record: what a filter reads.
+pub const FILTERED: &[&str] = &["parent", "attributes", "references"];
+
 /// The full record of a resource: what the site shows on its page.
 pub fn resource(compilation: &Compilation, files: &[SourceFile], id: ResourceId) -> Value {
     let registry = &compilation.registry;

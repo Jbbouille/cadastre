@@ -168,6 +168,24 @@ fn a_link_has_its_own_file() {
 }
 
 #[test]
+fn a_filter_reads_one_file() {
+    // The keys of the resources of a kind, in the list of that kind: no file per resource to read.
+    let site = site();
+    let groups = json(&site, "api/kinds/address_group.json");
+    let backs = &groups["resources"][0];
+    assert_eq!(backs["attributes"]["ranges"], serde_json::json!(["10.0.0.0/16"]));
+    assert_eq!(backs["references"]["includes"], serde_json::json!(["dc1.lan.apps.web01", "dc1.lan.apps"]));
+    assert_eq!(backs["parent"], "dc1.lan");
+    let all = json(&site, "api/resources.json");
+    let shop = all.as_array().unwrap().iter().find(|r| r["id"] == "sales.shop").unwrap();
+    assert_eq!(shop["references"]["on"], serde_json::json!(["dc1.lan.apps.web01"]));
+    // The API page shows it with a first script, on a kind and a key of the project.
+    let page = &site["api.html"];
+    assert!(page.contains("<h2>A first script</h2>") && page.contains("fetch(&quot;api/kinds/"), "{page}");
+    assert!(page.contains("r.attributes[&quot;"), "{page}");
+}
+
+#[test]
 fn the_resources_by_kind() {
     let site = site();
     let kinds = json(&site, "api/kinds.json");
@@ -236,7 +254,20 @@ fn the_records_keep_their_fields() {
     let site = site();
     use cadastre_core::api;
     assert_eq!(without_links(&json(&site, "api/project.json")), api::project(&c, &files, "Acme"));
-    assert_eq!(without_links(&json(&site, "api/resources.json")), api::index(&c, &files));
+    // The lists: the short record, and what a filter reads, from the full record.
+    let listed: Vec<Value> = c
+        .registry
+        .ids()
+        .map(|id| {
+            let mut summary = api::summary(&c, &files, id);
+            let record = api::resource(&c, &files, id);
+            for key in api::FILTERED {
+                summary[*key] = record[*key].clone();
+            }
+            summary
+        })
+        .collect();
+    assert_eq!(without_links(&json(&site, "api/resources.json")), Value::Array(listed));
     assert_eq!(without_links(&json(&site, "api/links.json")), api::links(&c, &files));
     for id in c.registry.ids() {
         let record = api::resource(&c, &files, id);

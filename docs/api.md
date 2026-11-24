@@ -20,8 +20,8 @@ api/
   project.json                  the project: counts, views, checks, modules, diagnostics
   schema.json                   the kinds, their parents and keys, the keys of the links and layers
   kinds.json                    every kind, with its number of resources
-  kinds/<kind>.json             the resources of a kind, as short records
-  resources.json                every resource, as its short record
+  kinds/<kind>.json             the resources of a kind, as short records with their keys
+  resources.json                every resource, as its short record with its keys
   resources/<id>.json           the full record of a resource, by qualified name
   links.json                    every link, both ends named
   links/<id>.json               a link, by its identifier
@@ -35,7 +35,7 @@ The site describes these files on its **API** page (`api.html`), with a live exa
 
 ## Navigating
 
-The API is read by following its links, from `api/index.json`: no path is to be built by hand. Every record of the site carries a block `_links` beside its fields, its entries `{ "href": … }` relative to the file it is in, as the links of a web page (`../resources/sales.json` from `api/resources/sales.shop.json`):
+The API is read by following its links, from `api/index.json`: no path is to be built by hand. The records of the index, the project, the schema, the kinds, the resources, the links and the views carry a block `_links` beside their fields (not those of `checks.json` and `search.json`), its entries `{ "href": … }` relative to the file it is in, as the links of a web page (`../resources/sales.json` from `api/resources/sales.shop.json`):
 
 | In | `_links` |
 |---|---|
@@ -46,6 +46,57 @@ The API is read by following its links, from `api/index.json`: no path is to be 
 | a kind | `self`, `schema` (its entry in `schema.json`); its resources each with `self` |
 
 In a template, `{id}` is a qualified name, `{name}` the name of a view, every character other than a letter, a digit, `.`, `-` and `_` written `_`. The fields of the records are those of the export and of the MCP server: `_links` is added in the files of the site only, and a client of version 2 reading the fields alone reads them as before.
+
+## Using it
+
+Three things to know, and a script is a few lines:
+
+- **A list is enough to filter.** The records of `resources.json` and of `kinds/<kind>.json` carry, beside the short record, the `parent`, the `attributes` as written and the `references` resolved to qualified names: the servers on `debian12`, the apps of a team, the resources whose `status` is `planned` are found in one file, without reading a file per resource. The full record (`resources/<id>.json`) adds what is computed: links, children, what runs on it, failures.
+- **An `href` is relative to the file it is read from**, as a link in a web page: resolve it against the URL of that file (`new URL(href, url)` in JavaScript, `urljoin(url, href)` in Python). The same record has other `href` in `resources.json` and in `kinds/<kind>.json`: keep the URL of the file with the record.
+- **A template** (`resource`, `link`, `kind`, `view` of `index.json`) is filled with a name, every character other than a letter, a digit, `.`, `-` and `_` written `_`.
+
+In JavaScript, from a page of the site or anywhere `fetch` reaches it:
+
+```js
+const api = new URL("https://cadastre-lang.org/reference/api/index.json");
+async function get(href, from = api) {
+  const url = new URL(href, from);
+  return { url, data: await (await fetch(url)).json() };
+}
+const { data: index } = await get(api);
+// The servers on debian12: the list of the servers, filtered.
+const servers = await get(index._links.kind.href.replace("{kind}", "server"));
+const debian = servers.data.resources.filter((s) => s.attributes.os === "debian12").map((s) => s.id);
+// What runs on the first one, from its full record: its href read from the list's URL.
+const first = await get(servers.data.resources[0]._links.self.href, servers.url);
+console.log(debian, first.data.hosts);
+```
+
+In Python:
+
+```python
+import json, urllib.request
+from urllib.parse import urljoin
+
+API = "https://cadastre-lang.org/reference/api/index.json"
+
+def get(href, base=API):
+    url = urljoin(base, href)
+    with urllib.request.urlopen(url) as response:
+        return url, json.load(response)
+
+_, index = get(API)
+url, apps = get(index["_links"]["kind"]["href"].replace("{kind}", "app"))
+for app in apps["resources"]:
+    print(app["id"], app["owner"], app["references"].get("on", []))
+```
+
+With `curl` and `jq`, a column for a spreadsheet:
+
+```bash
+curl -s https://cadastre-lang.org/reference/api/kinds/server.json \
+  | jq -r '.resources[] | [.id, .site, .attributes.os // ""] | @tsv'
+```
 
 ## `schema.json`
 
@@ -69,7 +120,7 @@ The schema of the project, for a client to know the keys without reading the sou
 
 ## A resource (`resources/<id>.json`)
 
-The short record (what `resources.json` lists) then the detail:
+The short record (what `resources.json` and `kinds/<kind>.json` list, with `parent`, `attributes` and `references` besides) then the detail:
 
 | Field | |
 |---|---|

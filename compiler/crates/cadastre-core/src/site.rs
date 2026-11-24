@@ -340,8 +340,23 @@ impl Site<'_> {
         }
         // The API: the records every page is built from, each written with its links
         // (`_links`) to the records it names; `api/index.json` is where to start.
+        let records: Vec<Value> =
+            self.compilation.registry.ids().map(|id| api::resource(self.compilation, self.files, id)).collect();
+        // The short records of the lists with what a filter reads (`parent`, `attributes`,
+        // `references`): the servers on debian12 are found in one file, not in one per server.
         let summaries: Vec<Value> = match api::index(self.compilation, self.files) {
-            Value::Array(list) => list,
+            Value::Array(list) => list
+                .into_iter()
+                .zip(&records)
+                .map(|(mut summary, record)| {
+                    if let Value::Object(map) = &mut summary {
+                        for key in api::FILTERED {
+                            map.insert((*key).to_owned(), record[*key].clone());
+                        }
+                    }
+                    summary
+                })
+                .collect(),
             _ => Vec::new(),
         };
         let linked = |mut record: Value, add: &dyn Fn(&mut Value)| {
@@ -386,14 +401,11 @@ impl Site<'_> {
         });
         out.push(File { path: "api/checks.json".into(), content: pretty(&api::checks(self.compilation, self.files)) });
         out.push(File { path: "api/search.json".into(), content: pretty(&api::search(self.compilation)) });
-        let mut records = Vec::new();
-        for id in self.compilation.registry.ids() {
-            let record = api::resource(self.compilation, self.files, id);
+        for record in &records {
             out.push(File {
                 path: format!("api/resources/{}.json", file_name(&text(&record["id"]))),
                 content: pretty(&linked(record.clone(), &navigation::resource)),
             });
-            records.push(record);
         }
         let mut views = Vec::new();
         for view in &self.compilation.plans.views {
@@ -1006,8 +1018,30 @@ impl Site<'_> {
         body.push_str(&format!(
             "<h2>{}</h2>\n<p>{}</p>\n",
             self.t("Navigating"),
-            self.t("Start from <a href=\"api/index.json\">api/index.json</a> and follow the links: every record carries a block <code>_links</code> beside its fields, each <code>href</code> relative to the file it is in, leading to the records it names (a resource to its parent, its kind, its links, the resources of its references), so that no path is built by hand.")
+            self.t("Start from <a href=\"api/index.json\">api/index.json</a> and follow the links: the records carry a block <code>_links</code> beside their fields, each <code>href</code> relative to the file it is in, leading to the records it names (a resource to its parent, its kind, its links, the resources of its references), so that no path is built by hand.")
         ));
+        // A first script, on this project: the resources of a kind, filtered on one of their keys.
+        let example = records.iter().find_map(|record| {
+            let (key, value) = record["attributes"]
+                .as_object()?
+                .iter()
+                .find(|(k, v)| v.is_string() && *k != "description" && *k != "label")?;
+            Some((text(&record["kind"]), key.clone(), value.as_str()?.to_owned()))
+        });
+        if let Some((kind, key, value)) = example {
+            let script = format!(
+                "const response = await fetch(\"api/kinds/{kind}.json\");\nconst {{ resources }} = await response.json();\n// Each with its keys: no file per resource to read.\nconst found = resources.filter((r) => r.attributes[{key}] === {value});\nconsole.log(found.map((r) => r.id));",
+                kind = file_name(&kind),
+                key = serde_json::to_string(&key).unwrap_or_default(),
+                value = serde_json::to_string(&value).unwrap_or_default(),
+            );
+            body.push_str(&format!(
+                "<h2>{}</h2>\n<p>{}</p>\n<pre class=\"dot\">{}</pre>\n",
+                self.t("A first script"),
+                self.t("The lists carry the keys of each resource, so a filter reads one file. More in JavaScript, Python and jq: <a href=\"https://github.com/Jbbouille/cadastre/blob/master/docs/api.md#using-it\">docs/api.md</a>."),
+                esc(&script)
+            ));
+        }
         body.push_str(&format!(
             "<h2>{}</h2>\n<table>\n<tr><th>{}</th><th>{}</th><th>{}</th></tr>\n",
             self.t("The files"),

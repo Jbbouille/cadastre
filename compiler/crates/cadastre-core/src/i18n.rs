@@ -284,9 +284,14 @@ const FR: &[(&str, &str)] = &[
         "chaque vue telle que déclarée : name, title, description, group, formats, declared",
     ),
     ("Navigating", "Naviguer"),
+    ("A first script", "Un premier script"),
     (
-        "Start from <a href=\"api/index.json\">api/index.json</a> and follow the links: every record carries a block <code>_links</code> beside its fields, each <code>href</code> relative to the file it is in, leading to the records it names (a resource to its parent, its kind, its links, the resources of its references), so that no path is built by hand.",
-        "Partir de <a href=\"api/index.json\">api/index.json</a> et suivre les liens : chaque fiche porte un bloc <code>_links</code> à côté de ses champs, chaque <code>href</code> relatif au fichier où il se trouve, menant aux fiches qu'elle nomme (une ressource à son parent, son type, ses liens, aux ressources de ses références), sans construire aucun chemin à la main.",
+        "The lists carry the keys of each resource, so a filter reads one file. More in JavaScript, Python and jq: <a href=\"https://github.com/Jbbouille/cadastre/blob/master/docs/api.md#using-it\">docs/api.md</a>.",
+        "Les listes portent les clés de chaque ressource : un filtre ne lit qu'un fichier. D'autres exemples en JavaScript, Python et jq : <a href=\"https://github.com/Jbbouille/cadastre/blob/master/docs/api.md#using-it\">docs/api.md</a>.",
+    ),
+    (
+        "Start from <a href=\"api/index.json\">api/index.json</a> and follow the links: the records carry a block <code>_links</code> beside their fields, each <code>href</code> relative to the file it is in, leading to the records it names (a resource to its parent, its kind, its links, the resources of its references), so that no path is built by hand.",
+        "Partir de <a href=\"api/index.json\">api/index.json</a> et suivre les liens : les fiches portent un bloc <code>_links</code> à côté de leurs champs, chaque <code>href</code> relatif au fichier où il se trouve, menant aux fiches qu'elle nomme (une ressource à son parent, son type, ses liens, aux ressources de ses références), sans construire aucun chemin à la main.",
     ),
     ("The same model elsewhere", "Le même modèle ailleurs"),
     ("the whole model in one file.", "tout le modèle en un fichier."),
