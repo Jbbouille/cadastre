@@ -170,6 +170,7 @@ Not everything in the language carries the same promise. Three tiers, so that a 
 | [The site](docs/guide.md#the-site) | `cadastre site`: the project for its readers, a page per view and per resource, the playground beside |
 | [JSON model](docs/api.md) | the records of the export, of the API of the site and of the MCP server |
 | [AI agents (MCP)](docs/mcp.md) | `cadastre mcp`: an agent explores the project and writes views and checks against it |
+| [The API for agents](docs/api-agents.md) | how an agent, or a script, answers questions from the API of a published site: the rules, the tasks, the network path between two resources; in every site as `api/AGENTS.md` |
 | [Writing views](docs/views.md) | a cheat sheet for views: evaluation, recipes, pitfalls |
 | [Reference](docs/reference.md) | the exact syntax, kinds, keys, types and values, generated from the grammar and the compiler |
 | [Project layout](docs/project-layout.md) | organizing the files of a project |

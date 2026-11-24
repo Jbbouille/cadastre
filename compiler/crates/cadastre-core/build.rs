@@ -45,6 +45,11 @@ fn main() {
     std::fs::copy(&highlights, out.join("highlights.scm")).expect("the highlighting query of the grammar");
     println!("cargo:rerun-if-changed={}", highlights.display());
 
+    // The guide of the API for agents, published in every site as `api/AGENTS.md`.
+    let agents = repository_file("docs/api-agents.md");
+    std::fs::copy(&agents, out.join("api-agents.md")).expect("the guide of the API for agents");
+    println!("cargo:rerun-if-changed={}", agents.display());
+
     // The commit, when built from a clone: `unknown` otherwise (a package of crates.io).
     let Some(root) = repository() else {
         println!("cargo:rustc-env=CADASTRE_COMMIT=unknown");

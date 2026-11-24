@@ -367,6 +367,8 @@ impl Site<'_> {
             path: "api/index.json".into(),
             content: pretty(&navigation::index(self.compilation, self.options.name)),
         });
+        // How to read the API, for an agent given the address of the site.
+        out.push(File { path: "api/AGENTS.md".into(), content: AGENTS.to_owned() });
         let mut project = self.project.clone();
         if let Value::Object(map) = &mut project {
             map.insert(
@@ -1061,6 +1063,11 @@ impl Site<'_> {
             "api/index.json",
             "where to start: what the API holds, a link to each file, and the templates of the others (resources/{id}.json)",
             Some("api/index.json".to_owned()),
+        );
+        row(
+            "api/AGENTS.md",
+            "how to read this API, for an AI agent or a script: the rules, the files, the tasks, the network path between two resources",
+            Some("api/AGENTS.md".to_owned()),
         );
         row(
             "api/schema.json",
@@ -1774,6 +1781,9 @@ for (const figure of document.querySelectorAll("figure[data-links]")) {
 fn svg_body(svg: &str) -> String {
     svg.find("<svg").map_or_else(|| svg.to_owned(), |at| svg[at..].to_owned())
 }
+
+/// The guide of the API for agents (`docs/api-agents.md`).
+const AGENTS: &str = include_str!(concat!(env!("OUT_DIR"), "/api-agents.md"));
 
 const CSS: &str = r#"
 :root { --bg: #ffffff; --fg: #1f2328; --muted: #6b7280; --line: #d6dfec; --accent: #1d4ed8; --ok: #15803d; --ko: #b91c1c; --panel: #f3f6fb; --hl: #fff3bf; }

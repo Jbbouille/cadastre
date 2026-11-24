@@ -114,6 +114,30 @@ fn between_subnets_the_path_goes_through_their_gateway() {
 }
 
 #[test]
+fn the_path_between_two_resources_as_the_api_gives_it() {
+    let c = compilation(REGISTRY);
+    // From the DMZ to the servers: the steps, the firewall among them, by kind.
+    let way = cadastre_core::api::path(&c, "web", "db");
+    assert_eq!(way["found"], true, "{way}");
+    assert_eq!(way["from"], "web");
+    assert_eq!(way["steps"], serde_json::json!([["gs.gs-sw-01"], ["gs.fw"], ["gs.gs-sw-02"]]));
+    assert_eq!(way["devices"], serde_json::json!(["gs.gs-sw-01", "gs.fw", "gs.gs-sw-02"]));
+    assert_eq!(way["resources"]["gs.fw"]["kind"], "firewall");
+    assert_eq!(way["resources"]["db"]["kind"], "database");
+    assert!(!way["cables"].as_array().unwrap().is_empty(), "{way}");
+    // Redundant switches: a step of two variants.
+    let backup = cadastre_core::api::path(&c, "veeam.proxy", "gs.esx-02");
+    assert_eq!(backup["steps"][0], serde_json::json!(["col.col-sw-01", "col.col-sw-02"]));
+    // No such resource, no path: said why.
+    let unknown = cadastre_core::api::path(&c, "web", "nowhere");
+    assert_eq!(unknown["found"], false);
+    assert_eq!(unknown["why"], "no resource is named nowhere");
+    let none = cadastre_core::api::path(&c, "veeam", "web");
+    assert_eq!(none["found"], false);
+    assert!(none["why"].as_str().is_some_and(|w| !w.is_empty()), "{none}");
+}
+
+#[test]
 fn a_port_without_a_cable_and_a_vlan_not_carried_make_no_path() {
     let c = compilation(REGISTRY);
     // Case 5: gs-sw-01 eth1-11, left tagged for esx-01 without a cable, makes no way to it.

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network path · Cadastre</title>
+<!--
+  The network path between two resources, computed in the page by the compiler (WebAssembly), as
+  `render traversal` draws it: the devices between them, in order, the firewalls among them.
+
+    path.html#from=web01&to=erp01            the path, with a form to change its ends
+    path.html#from=web01&to=erp01&embed      the drawing and the devices only: for an iframe
+    path.html#example=reference&from=…       an example, when no project.json is beside the page
+
+  A page published by `cadastre site` or `cadastre serve` reads the project from project.json beside
+  it. Nothing is sent anywhere: the project is compiled in the browser. See docs/api-agents.md.
+-->
+<style>
+  :root { --bg: #ffffff; --fg: #1f2328; --muted: #656d76; --line: #d6dfec; --panel: #f3f6fb; --accent: #0969da; --error: #cf222e; --firewall: #b91c1c; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0d1117; --fg: #e6edf3; --muted: #8d96a0; --line: #30363d; --panel: #161b22; --accent: #4493f8; --error: #f85149; --firewall: #f87171; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; font: 14px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+  header { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; }
+  header h1 a { color: inherit; text-decoration: none; }
+  form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  input, button { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; }
+  input { width: 16rem; max-width: 40vw; }
+  button { cursor: pointer; } button:hover { border-color: var(--accent); }
+  .spacer { flex: 1; }
+  main { padding: 12px 16px; }
+  body.embed main { padding: 6px; }
+  h2 { font-size: 15px; margin: 0 0 8px; }
+  .why { color: var(--error); }
+  .muted { color: var(--muted); }
+  .drawing { overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: var(--bg); }
+  .drawing svg { max-width: 100%; height: auto; }
+  ol.devices { margin: 10px 0 0; padding-left: 1.4rem; }
+  ol.devices li { margin: 2px 0; }
+  .kind { color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .firewall { color: var(--firewall); font-weight: 600; }
+  .variants { color: var(--muted); }
+  pre.snippet { margin: 10px 0 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); font: 12px/1.4 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-all; }
+</style>
+</head>
+<body>
+<header id="bar">
+  <h1 id="title">Cadastre</h1>
+  <form id="ends">
+    <label><span id="from-label">From</span> <input id="from" list="names" autocomplete="off" required></label>
+    <label><span id="to-label">To</span> <input id="to" list="names" autocomplete="off" required></label>
+    <button id="go">Show the path</button>
+    <datalist id="names"></datalist>
+  </form>
+  <span class="spacer"></span>
+  <button id="embed-code" type="button" hidden>Embed…</button>
+</header>
+<main>
+  <h2 id="heading"></h2>
+  <p id="why" class="why" hidden></p>
+  <div id="drawing" class="drawing" hidden></div>
+  <ol id="devices" class="devices" hidden></ol>
+  <pre id="snippet" class="snippet" hidden></pre>
+  <p id="status" class="muted"></p>
+</main>
+<script type="module">
+import { load } from "./cadastre.js";
+
+const EXAMPLES = {
+  tutorial: ["registry.ca", "views.cav", "checks.cac"],
+  reference: ["schema.ca", "teams.ca", "infra.ca", "data.ca", "apps.ca", "saas.ca", "views.cav", "checks.cac"],
+  retail: ["schema.ca", "teams.ca", "infra.ca", "product.ca", "data.ca", "saas.ca", "systems.ca", "views.cav"],
+};
+const WORDS = {
+  fr: {
+    "From": "De", "To": "Vers", "Show the path": "Afficher le chemin", "Embed…": "Intégrer…",
+    "loading…": "chargement…",
+    "Path from {from} to {to}": "Chemin de {from} à {to}",
+    "No path from {from} to {to}": "Pas de chemin de {from} à {to}",
+    "Pick two resources.": "Choisissez deux ressources.",
+    "{count} device(s) between them, {firewalls} firewall(s).": "{count} équipement(s) entre elles, dont {firewalls} pare-feu.",
+    "Nothing between them: they reach each other directly.": "Rien entre elles : elles se joignent directement.",
+    "or": "ou",
+    "To show this path in another page:": "Pour afficher ce chemin dans une autre page :",
+  },
+};
+let lang = "en";
+const t = (text, values = {}) => Object.entries(values).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), WORDS[lang]?.[text] ?? text);
+const $ = (id) => document.getElementById(id);
+const params = () => new URLSearchParams(location.hash.slice(1));
+
+// The project: published beside the page, otherwise an example.
+async function project() {
+  try {
+    const response = await fetch("project.json", { cache: "no-store" });
+    if (response.ok) return response.json();
+  } catch {
+    // Not published: an example.
+  }
+  const name = EXAMPLES[params().get("example")] ? params().get("example") : "reference";
+  const files = await Promise.all(EXAMPLES[name].map(async (path) => {
+    for (const base of ["examples", "../examples"]) {
+      const response = await fetch(`${base}/${name}/${path}`);
+      if (response.ok) return { path, text: await response.text() };
+    }
+    return { path, text: "" };
+  }));
+  return { name, files, modules: [] };
+}
+
+$("status").textContent = t("loading…");
+const [cadastre, published] = await Promise.all([load(new URL("./cadastre_wasm.wasm", import.meta.url)), project()]);
+lang = Object.keys(WORDS).find((code) => (published.language ?? navigator.language ?? "en").toLowerCase().startsWith(code)) ?? "en";
+document.documentElement.lang = lang;
+for (const [id, text] of [["from-label", "From"], ["to-label", "To"], ["go", "Show the path"], ["embed-code", "Embed…"]]) $(id).textContent = t(text);
+if (published.name) $("title").textContent = published.name;
+// The names to choose from: every resource of the project.
+const facts = cadastre.build({ files: published.files, modules: published.modules ?? [], view: "\u0000", formats: [], facts: true }).facts;
+$("names").replaceChildren(...(facts?.resources ?? []).map((r) => Object.assign(document.createElement("option"), { value: r.id, label: r.label ? `${r.label} · ${r.kind}` : r.kind })));
+$("status").textContent = "";
+
+function show() {
+  const p = params();
+  const embed = p.has("embed");
+  document.body.classList.toggle("embed", embed);
+  $("bar").hidden = embed;
+  const [from, to] = [p.get("from") ?? "", p.get("to") ?? ""];
+  $("from").value = from;
+  $("to").value = to;
+  for (const id of ["why", "drawing", "devices", "snippet"]) $(id).hidden = true;
+  $("embed-code").hidden = !from || !to;
+  if (!from || !to) {
+    $("heading").textContent = "";
+    $("status").textContent = t("Pick two resources.");
+    return;
+  }
+  $("status").textContent = "";
+  const way = cadastre.path(published, from, to);
+  const label = (id) => way.resources?.[id]?.label ?? id;
+  if (!way.found) {
+    $("heading").textContent = t("No path from {from} to {to}", { from: way.from, to: way.to });
+    $("why").textContent = way.why;
+    $("why").hidden = false;
+    return;
+  }
+  $("heading").textContent = t("Path from {from} to {to}", { from: label(way.from), to: label(way.to) });
+  // The drawing: the traversal of a view of this path alone, drawn by the compiler.
+  const view = `view cadastre-path {\n  select server\n  edges  path(${way.from}, ${way.to})\n  render traversal\n}\n`;
+  const built = cadastre.build({ files: [...published.files, { path: "cadastre-path.cav", text: view }], modules: published.modules ?? [], view: "cadastre-path", formats: ["traversal"] });
+  const svg = built.outputs.find((o) => o.view === "cadastre-path")?.content;
+  if (svg?.trimStart().startsWith("<svg")) {
+    $("drawing").replaceChildren(document.importNode(new DOMParser().parseFromString(svg, "image/svg+xml").documentElement, true));
+    $("drawing").hidden = false;
+  }
+  // The devices, in order: a step of several is redundant equipment, one of them taken.
+  const firewalls = way.devices.filter((d) => way.resources[d].kind === "firewall").length;
+  $("devices").replaceChildren(...way.steps.map((step) => {
+    const item = document.createElement("li");
+    step.forEach((device, i) => {
+      if (i) item.append(Object.assign(document.createElement("span"), { className: "variants", textContent: ` ${t("or")} ` }));
+      const kind = way.resources[device].kind;
+      item.append(Object.assign(document.createElement("span"), { className: kind === "firewall" ? "firewall" : "", textContent: label(device) }),
+        Object.assign(document.createElement("span"), { className: "kind", textContent: kind }));
+    });
+    return item;
+  }));
+  $("devices").hidden = !way.steps.length;
+  $("status").textContent = way.steps.length
+    ? t("{count} device(s) between them, {firewalls} firewall(s).", { count: way.devices.length, firewalls })
+    : t("Nothing between them: they reach each other directly.");
+}
+
+$("ends").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const p = params();
+  p.set("from", $("from").value.trim());
+  p.set("to", $("to").value.trim());
+  location.hash = p.toString();
+});
+// The code of an iframe showing this path, to paste in another page.
+$("embed-code").addEventListener("click", () => {
+  const p = params();
+  p.set("embed", "");
+  const url = `${location.href.split("#")[0]}#${p.toString()}`;
+  $("snippet").textContent = `${t("To show this path in another page:")}\n<iframe src="${url}" width="100%" height="420" style="border:0"></iframe>`;
+  $("snippet").hidden = false;
+});
+window.addEventListener("hashchange", show);
+show();
+document.documentElement.dataset.ready = "true";
+</script>
+</body>
+</html>

@@ -120,12 +120,26 @@ fn every_file_of_the_api_is_reached_from_its_index() {
             assert!(site.contains_key(&target), "{path}: {href} leads to {target}, which is not a file of the site");
             if target.starts_with("api/") && target.ends_with(".json") {
                 queue.push(target);
+            } else if target.starts_with("api/") {
+                // A file of the API that is not JSON (`AGENTS.md`): reached, not read.
+                seen.insert(target);
             }
         }
     }
     let api: BTreeSet<String> = site.keys().filter(|p| p.starts_with("api/")).cloned().collect();
     let unreached: Vec<&String> = api.difference(&seen).collect();
     assert!(unreached.is_empty(), "not reached from api/index.json: {unreached:?}");
+}
+
+#[test]
+fn the_guide_for_agents_is_in_the_api() {
+    // An agent given the address of the site finds how to read it from the index.
+    let site = site();
+    let index = json(&site, "api/index.json");
+    assert_eq!(index["_links"]["agents"]["href"], "AGENTS.md");
+    let guide = &site["api/AGENTS.md"];
+    assert!(guide.starts_with("# Reading a Cadastre site: a guide for agents"), "{guide}");
+    assert!(guide.contains("cadastre.path(project,") && guide.contains("through_steps"), "{guide}");
 }
 
 #[test]

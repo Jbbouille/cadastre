@@ -286,6 +286,10 @@ const FR: &[(&str, &str)] = &[
     ("Navigating", "Naviguer"),
     ("A first script", "Un premier script"),
     (
+        "how to read this API, for an AI agent or a script: the rules, the files, the tasks, the network path between two resources",
+        "comment lire cette API, pour un agent d'IA ou un script : les règles, les fichiers, les tâches, le chemin réseau entre deux ressources",
+    ),
+    (
         "The lists carry the keys of each resource, so a filter reads one file. More in JavaScript, Python and jq: <a href=\"https://github.com/Jbbouille/cadastre/blob/master/docs/api.md#using-it\">docs/api.md</a>.",
         "Les listes portent les clés de chaque ressource : un filtre ne lit qu'un fichier. D'autres exemples en JavaScript, Python et jq : <a href=\"https://github.com/Jbbouille/cadastre/blob/master/docs/api.md#using-it\">docs/api.md</a>.",
     ),

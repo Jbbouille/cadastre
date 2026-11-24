@@ -16,6 +16,7 @@ The model is read only: writing is editing the `.ca` files and going through Git
 
 ```
 api/
+  AGENTS.md                     how to read all this, for an AI agent or a script (docs/api-agents.md)
   index.json                    where to start: what the API holds, and a link to each file below
   project.json                  the project: counts, views, checks, modules, diagnostics
   schema.json                   the kinds, their parents and keys, the keys of the links and layers
@@ -39,7 +40,7 @@ The API is read by following its links, from `api/index.json`: no path is to be 
 
 | In | `_links` |
 |---|---|
-| `index.json` | `project`, `schema`, `kinds`, `resources`, `links`, `views`, `checks`, `search`, the pages of the site (`site`, `help`), and templates (`"templated": true`): `resource` (`resources/{id}.json`), `link`, `kind`, `view` |
+| `index.json` | `project`, `schema`, `kinds`, `resources`, `links`, `views`, `checks`, `search`, the pages of the site (`site`, `help`), the guide for agents (`agents`, `AGENTS.md`), and templates (`"templated": true`): `resource` (`resources/{id}.json`), `link`, `kind`, `view` |
 | a resource | `self`, `page` (its HTML page), `kind`, the resources it names (`parent`, `owner`, `operator`, `site`, `system`, `path`, `children`, `hosts`, `members`, `runs_here`, `failures`), `references` by key (`on`, `pool`, the reference keys of the project), `outgoing` and `incoming` (each link, `with` its other end) |
 | a link | `self`, `page`, `source`, `target`, `carries`, `through` |
 | a view | `self`, `page`; each node to its `resource`, each frame of a resource to it, each edge to its `source`, `target` and `links` |
@@ -91,12 +92,37 @@ for app in apps["resources"]:
     print(app["id"], app["owner"], app["references"].get("on", []))
 ```
 
+The firewalls on a declared flow: its `through_steps` (the devices in order, each step with its variants, written or deduced from the network), their kinds in `resources.json`:
+
+```js
+const { data: links } = await get(index._links.links.href);
+const { data: all } = await get(index._links.resources.href);
+const kinds = new Map(all.map((r) => [r.id, r.kind]));
+const flow = links.find((l) => l.source === "invoicing.billing" && l.target === "accounting.legacy-erp");
+const firewalls = flow.through_steps.flat().filter((device) => kinds.get(device) === "firewall"); // ["paris-dc1.fw01"]
+```
+
 With `curl` and `jq`, a column for a spreadsheet:
 
 ```bash
 curl -s https://cadastre-lang.org/reference/api/kinds/server.json \
   | jq -r '.resources[] | [.id, .site, .attributes.os // ""] | @tsv'
 ```
+
+## The network path between two resources
+
+The path between any two resources, a flow between them or not (the devices from one to the other, through the cabling, the gateways of the subnets, the VPN tunnels, the egress to the internet), is computed by the compiler, as `render traversal` draws it: every pair cannot be published in advance. A site published with its playground computes it in the page, with the compiler as WebAssembly (`playground/cadastre.js`, `playground/cadastre_wasm.wasm`, and the project, `playground/project.json`):
+
+```js
+const base = new URL("https://cadastre-lang.org/reference/playground/");
+const { load } = await import(new URL("cadastre.js", base));
+const cadastre = await load(new URL("cadastre_wasm.wasm", base));
+const project = await (await fetch(new URL("project.json", base))).json();
+const way = cadastre.path(project, "web01", "erp01");
+// { from, to, found, why, steps: [["sw-01", "sw-02"], ["fw01"]], devices, cables, connectors, internet, resources }
+```
+
+`steps` are the devices between the two ends, in order, each with its variants (redundant switches); `resources` gives the kind and label of each, the firewalls being of kind `firewall`; when there is no path, `found` is `false` and `why` says what is missing (`no router nor firewall routes subnet aws-paris.prod.dmz (declare its gateway)`). The page `playground/path.html#from=web01&to=erp01` draws it for a person, and `&embed` leaves the drawing alone, for an `<iframe>`. The record in detail, and the other ways to it: [the guide for agents](api-agents.md), § 5.
 
 ## `schema.json`
 
@@ -158,4 +184,4 @@ One record per check: `name`, `severity`, `message`, `declared`, `result` (`pass
 
 ## Reading it
 
-A static site: `fetch("api/index.json")` from a page, then its links; `curl` from a script, or the files in the deployed folder. With `cadastre serve`, the same paths are served under `/api/`, computed at each request from the files on disk.
+A static site: `fetch("api/index.json")` from a page, then its links (an agent reads [`api/AGENTS.md`](api-agents.md) first); `curl` from a script, or the files in the deployed folder. With `cadastre serve`, the same paths are served under `/api/`, computed at each request from the files on disk.

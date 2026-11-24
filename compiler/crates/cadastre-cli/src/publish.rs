@@ -16,6 +16,7 @@ const PAGE: &[&str] = &[
     "index.html",
     "compose.html",
     "compose.js",
+    "path.html",
     "cadastre.js",
     "movable.js",
     "zoom.js",

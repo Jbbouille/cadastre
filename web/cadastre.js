@@ -47,6 +47,22 @@ export class Cadastre {
   }
 
   /**
+   * The network path between two resources of a project, as `render traversal` draws it: the
+   * devices in order (`steps`, each with its variants), `devices`, `cables`, `connectors`,
+   * `internet`, and the kind and label of each in `resources`; `found: false` with `why` when
+   * there is none (see `cadastre_core::api::path`, `docs/api-agents.md`).
+   * @param {{ files: { path: string, text: string }[], modules?: object[] }} project as `project.json` gives it
+   * @param {string} from a qualified name, or a name as written in a view
+   * @param {string} to
+   * @returns {{ from: string, to: string, found: boolean, why: string | null, steps?: string[][], devices?: string[],
+   *   cables?: string[][], connectors?: string[], internet?: string[][], resources?: Record<string, { kind: string, label: string | null }> }}
+   */
+  path(project, from, to) {
+    // No view built: the path only.
+    return this.build({ files: project.files, modules: project.modules ?? [], view: "\u0000", formats: [], path: { from, to } }).path;
+  }
+
+  /**
    * The views of a `.cav` text, clause by clause, with their ranges in string indices: what the
    * composer of views rewrites (see `cadastre_core::compose::parts`).
    * @param {string} text

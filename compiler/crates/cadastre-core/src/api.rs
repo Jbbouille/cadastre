@@ -138,6 +138,75 @@ fn link_record(compilation: &Compilation, files: &[SourceFile], index: usize, ot
     })
 }
 
+/// The network path between two resources, as `render traversal` draws it for `edges path(a, b)`:
+/// from the machines they run on, through the devices of the cabling (`steps`, in order, each
+/// with its variants: redundant switches), the `cables` taken (pairs of plugs), the `connectors`
+/// crossed between routers (`wan_link`, `vpn_tunnel`), and the way over the internet through an
+/// `egress` or an `ingress` (`internet`, pairs). `from` and `to` are qualified names, or names
+/// written as in a view (`web01` when it designates one resource). `found` is `false` with `why`
+/// when there is no path, or no such resource; `resources` gives the kind and label of every
+/// resource named, so that the firewalls are `kind == "firewall"`.
+pub fn path(compilation: &Compilation, from: &str, to: &str) -> Value {
+    use crate::resolve::{Resolution, Resolver};
+    let registry = &compilation.registry;
+    let failed = |why: String| json!({ "from": from, "to": to, "found": false, "why": why });
+    if compilation.diagnostics.iter().any(|d| d.severity == Severity::Error) {
+        return failed("the project has errors: fix them first".to_owned());
+    }
+    let resolve = |name: &str| -> Result<ResourceId, String> {
+        let span = Span { file: crate::source::FileId(0), start: 0, end: 0, line: 0, column: 0 };
+        let reference = crate::registry::Reference { segments: name.split('.').map(str::to_owned).collect(), span };
+        match Resolver::new(registry).resolve(&reference, None, &[]) {
+            Resolution::Resolved(id) => Ok(id),
+            Resolution::Ambiguous(ids) => Err(format!(
+                "{name} designates several resources: {}",
+                ids.iter().map(|&id| registry.qualified_name(id)).collect::<Vec<_>>().join(", ")
+            )),
+            _ => Err(format!("no resource is named {name}")),
+        }
+    };
+    let (a, b) = match (resolve(from), resolve(to)) {
+        (Ok(a), Ok(b)) => (a, b),
+        (Err(why), _) | (_, Err(why)) => return failed(why),
+    };
+    let network = crate::path::Network::new(registry, &compilation.model);
+    let name = |id: ResourceId| registry.qualified_name(id);
+    let way = match network.between(a, b) {
+        Ok(way) => way,
+        Err(error) => {
+            let mut record = failed(network.explain(&error));
+            record["from"] = json!(name(a));
+            record["to"] = json!(name(b));
+            return record;
+        }
+    };
+    let mut named: BTreeMap<String, Value> = BTreeMap::new();
+    let mut mention = |id: ResourceId| {
+        named
+            .entry(name(id))
+            .or_insert_with(|| json!({ "kind": registry.resource(id).kind, "label": label(registry, id) }));
+        name(id)
+    };
+    let (from_name, to_name) = (mention(a), mention(b));
+    let steps: Vec<Vec<String>> = way.steps.iter().map(|step| step.iter().map(|&d| mention(d)).collect()).collect();
+    let devices: Vec<String> = way.devices().into_iter().map(&mut mention).collect();
+    let cables: Vec<[String; 2]> = way.cables.iter().map(|&(x, y)| [mention(x), mention(y)]).collect();
+    let connectors: Vec<String> = way.connectors.iter().map(|&c| mention(c)).collect();
+    let internet: Vec<[String; 2]> = way.internet.iter().map(|&(x, y)| [mention(x), mention(y)]).collect();
+    json!({
+        "from": from_name,
+        "to": to_name,
+        "found": true,
+        "why": null,
+        "steps": steps,
+        "devices": devices,
+        "cables": cables,
+        "connectors": connectors,
+        "internet": internet,
+        "resources": named,
+    })
+}
+
 /// The keys of the full record of a resource that the lists of the site (`resources.json`,
 /// `kinds/<kind>.json`) add to its short record: what a filter reads.
 pub const FILTERED: &[&str] = &["parent", "attributes", "references"];

@@ -96,6 +96,8 @@ pub(crate) fn index(compilation: &Compilation, name: &str) -> Value {
             "search": at.api("search.json"),
             "site": at.page("index.html"),
             "help": at.page("api.html"),
+            // How to read all this, for an agent: the files, the rules, the tasks, the paths.
+            "agents": { "href": "AGENTS.md", "type": "text/markdown" },
         },
     })
 }

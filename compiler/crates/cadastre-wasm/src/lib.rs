@@ -38,7 +38,9 @@
 //! For the composer of views: `"facts": true` adds `facts` to the response (the kinds, layers,
 //! keys, resources and recipes of the project), `"insight": true` adds `insight` for the view
 //! asked (what it draws and the links it loses), `"variants": "<view>"` adds `variants`, what the
-//! views written after that one in its file would draw against it; `compose_parts(ptr, len)` takes the text of a
+//! views written after that one in its file would draw against it; `"path": { "from": "web01", "to":
+//! "erp01" }` adds `path`, the network path between two resources (`cadastre_core::api::path`);
+//! `compose_parts(ptr, len)` takes the text of a
 //! `.cav` file and returns its views clause by clause, with their ranges in UTF-16 code units
 //! (see `cadastre_core::compose`).
 
@@ -83,6 +85,15 @@ struct Request {
     /// of the response: the proposals of the composer.
     #[serde(default)]
     variants: Option<String>,
+    /// The network path between two resources, in `path` of the response.
+    #[serde(default)]
+    path: Option<PathRequest>,
+}
+
+#[derive(Deserialize)]
+struct PathRequest {
+    from: String,
+    to: String,
 }
 
 #[derive(Deserialize)]
@@ -112,6 +123,8 @@ struct Response {
     insight: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     variants: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path: Option<serde_json::Value>,
 }
 
 #[derive(Serialize)]
@@ -242,6 +255,7 @@ pub fn run(request: &str) -> String {
         _ => None,
     };
     let variants = request.variants.as_deref().and_then(|base| cadastre_core::compose::variants(&compilation, base));
+    let path = request.path.as_ref().map(|p| cadastre_core::api::path(&compilation, &p.from, &p.to));
     let response = Response {
         summary: ResponseSummary {
             errors: summary.errors,
@@ -279,6 +293,7 @@ pub fn run(request: &str) -> String {
         facts,
         insight,
         variants,
+        path,
     };
     serde_json::to_string(&response).expect("the response is serializable")
 }
@@ -475,6 +490,19 @@ mod tests {
         let parts: serde_json::Value =
             serde_json::from_str(&cadastre_core::compose::parts("view flows { select app }").to_string()).unwrap();
         assert_eq!(parts[0]["select"]["kinds"], serde_json::json!(["app"]));
+    }
+
+    #[test]
+    fn gives_the_network_path_between_two_resources() {
+        // Two servers in a subnet, behind one switch: the switch is the path.
+        let request = serde_json::json!({
+            "files": [{ "path": "a.ca", "text": "site s {\n  network n { subnet a { cidr: 10.0.0.0/24 } }\n  switch sw {\n    interface p1 { peer: x.e }\n    interface p2 { peer: y.e }\n  }\n  server x { ip: 10.0.0.1, interface e }\n  server y { ip: 10.0.0.2, interface e }\n}\n" }],
+            "formats": [], "path": { "from": "x", "to": "y" }
+        });
+        let response: serde_json::Value = serde_json::from_str(&run(&request.to_string())).unwrap();
+        assert_eq!(response["path"]["found"], true, "{response}");
+        assert_eq!(response["path"]["devices"], serde_json::json!(["s.sw"]), "{response}");
+        assert_eq!(response["path"]["resources"]["s.sw"]["kind"], "switch");
     }
 
     #[test]

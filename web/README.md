@@ -37,7 +37,10 @@ const cadastre = await load("./cadastre_wasm.wasm");
 const { diagnostics, outputs } = cadastre.build({ files: [{ path: "infra.ca", text: "…" }], view: "network" });
 const ranges = cadastre.highlight("server web01"); // [[0, 6, "type"], [7, 12, "variable"]]
 const views = cadastre.parts("view flows { select app }"); // [{ name, select: { kinds: ["app"], range… }, … }]
+const way = cadastre.path(project, "web01", "erp01"); // { found, steps: [["sw-01", "sw-02"], ["fw01"]], resources… }
 ```
+
+`path(project, from, to)` is the network path between two resources (the `project` as `project.json` gives it: `{ files, modules }`): what `render traversal` draws for `edges path(from, to)`, as data; `build` answers it too, with `"path": { "from": …, "to": … }`. Its record is described in [docs/api-agents.md](../docs/api-agents.md), § 5.
 
 For the composer of views, `build` also answers `facts` (with `"facts": true`: the kinds, layers, keys and their values, resources and recipes of the project), `insight` (with `"insight": true` and a `view`: its counts, what each node of its DOT stands for, the layers of each edge, the links it loses, the drawings of their own it has something for, `racks`, `traversal`, `sequence`) and `variants` (with `"variants": "<view>"`: what each view written after that one in its file would draw against it, the nodes and edges it adds and removes, `ok: false` for one with an error; the proposals of the composer are evaluated so, in one build); `parts` gives the views of a `.cav` text clause by clause, each with its range in string indices, to rewrite one clause and leave the rest of the text as it is (`cadastre_core::compose`).
 
@@ -78,6 +81,10 @@ node web/build-demo.mjs --wasm web/cadastre_wasm.wasm --examples examples --out 
 ```
 
 Its code is colored at build time by the grammar of the language, as in the playground and the editors (`highlight`). Its examples are taken from `examples/`: `<pre class="code" data-file="tutorial/registry.ca">` gets a file, `<pre class="code" data-view="retail/landscape">` the block of a view with the comment above it, `<pre class="mermaid" data-sequence="reference/invoicing-process">` the sequence diagram of a view, drawn by the page with Mermaid. `<div class="composer" data-composer="reference">` gets the composer of views in small: the apps of that example and three words to take or leave, each of the eight views they make drawn at build time by Graphviz (`dot` on the `PATH`), so that the page shows what a word changes without loading the compiler. A view or a file that is not found fails the build. The pictures of the gallery are the diagrams of the sites of the examples, published beside it (`retail/views/landscape.svg`), as the Pages workflow does.
+
+## The network path
+
+[`path.html`](path.html) draws the network path between two resources and lists the devices on it, the firewalls marked: `path.html#from=web01&to=erp01`, with a form to change its ends; `&embed` leaves the drawing and the devices alone, for an `<iframe>` in another page (*Embed…* gives its code). It reads the project from `project.json` beside it (`cadastre site`, `cadastre serve`), otherwise an example (`#example=reference`), and computes the path in the page.
 
 ## The composer of views
 
