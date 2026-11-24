@@ -365,7 +365,7 @@ impl Site<'_> {
         };
         out.push(File {
             path: "api/index.json".into(),
-            content: pretty(&navigation::index(self.compilation, self.options.name)),
+            content: pretty(&navigation::index(self.compilation, self.options.name, self.options.playground)),
         });
         // How to read the API, for an agent given the address of the site.
         out.push(File { path: "api/AGENTS.md".into(), content: AGENTS.to_owned() });

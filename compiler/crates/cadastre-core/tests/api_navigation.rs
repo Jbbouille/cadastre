@@ -155,6 +155,11 @@ fn a_resource_leads_to_what_it_names() {
     assert_eq!(links["parent"]["href"], "../resources/sales.json");
     assert_eq!(links["owner"]["href"], "../resources/ops.json");
     assert_eq!(links["references"]["on"][0]["href"], "../resources/dc1.lan.apps.web01.json");
+    // What the failure of a server alone takes down: the apps on it, in one record.
+    let web01 = json(&site, "api/resources/dc1.lan.apps.web01.json");
+    let down: Vec<&str> = web01["takes_down"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+    assert!(down.contains(&"sales.shop") && down.contains(&"sales.orders"), "{down:?}");
+    assert!(web01["_links"]["takes_down"].as_array().is_some_and(|l| !l.is_empty()));
     let outgoing = &links["outgoing"][0];
     assert!(outgoing["href"].as_str().unwrap().starts_with("../links/sales.shop--sales.orders"), "{outgoing}");
     assert_eq!(outgoing["with"], "../resources/sales.orders.json");

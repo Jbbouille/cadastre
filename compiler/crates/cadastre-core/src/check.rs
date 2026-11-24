@@ -60,6 +60,8 @@ pub struct Model {
     pub hosting_failures: std::sync::OnceLock<HashMap<ResourceId, Vec<ResourceId>>>,
     /// The pairs of failures of each resource (`failures(pairs)`), computed when first asked.
     pub failure_pairs: std::sync::OnceLock<HashMap<ResourceId, Vec<(ResourceId, ResourceId)>>>,
+    /// The inverse of `failures`: what the failure of each resource alone takes down.
+    pub takes_down: std::sync::OnceLock<HashMap<ResourceId, Vec<ResourceId>>>,
     /// Names written in the registry and the plans, with the resources they designate:
     /// the resolved one, or the candidates of an ambiguous or wrongly typed name.
     pub names: Vec<(Span, Vec<ResourceId>)>,
@@ -88,6 +90,23 @@ impl Model {
     /// The resources whose failure alone makes a resource unavailable (impact analysis).
     pub fn failures_of(&self, registry: &Registry, id: ResourceId) -> &[ResourceId] {
         self.failures.get_or_init(|| crate::impact::failures(registry, self, true)).get(&id).map_or(&[], Vec::as_slice)
+    }
+
+    /// The resources the failure of `id` alone makes unavailable: those whose `failures` hold it,
+    /// in the order of the registry.
+    pub fn takes_down(&self, registry: &Registry, id: ResourceId) -> &[ResourceId] {
+        self.takes_down
+            .get_or_init(|| {
+                let mut inverse: HashMap<ResourceId, Vec<ResourceId>> = HashMap::new();
+                for resource in registry.ids() {
+                    for &failing in self.failures_of(registry, resource) {
+                        inverse.entry(failing).or_default().push(resource);
+                    }
+                }
+                inverse
+            })
+            .get(&id)
+            .map_or(&[], Vec::as_slice)
     }
 
     /// The same through hosting only: containment, racks, `on`, cluster and pool members,

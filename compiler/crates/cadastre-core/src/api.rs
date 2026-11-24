@@ -287,6 +287,7 @@ pub fn resource(compilation: &Compilation, files: &[SourceFile], id: ResourceId)
         "members": names(&members),
         "runs_here": names(&runs_here),
         "failures": names(model.failures_of(registry, id)),
+        "takes_down": names(model.takes_down(registry, id)),
         "failure_pairs": model
             .failure_pairs_of(registry, id)
             .iter()

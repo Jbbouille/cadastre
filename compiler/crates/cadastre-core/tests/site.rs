@@ -84,6 +84,11 @@ fn the_pages_and_the_api() {
     // The composer of views: a new view from the home page, a view changed from its page, a view
     // around a resource from its page.
     assert!(home.contains("href=\"playground/compose.html#new\""), "{home}");
+    // The API leads to the compiler and the sources of the project, to compute a path.
+    let index: serde_json::Value = serde_json::from_str(&site["api/index.json"]).unwrap();
+    assert_eq!(index["_links"]["compiler"]["href"], "../playground/cadastre.js");
+    assert_eq!(index["_links"]["sources"]["href"], "../playground/project.json");
+    assert_eq!(index["_links"]["path"]["templated"], true);
     assert!(site["views/apps.html"].contains("href=\"../playground/compose.html#view=apps\""));
     assert!(site["resources/sales.shop.html"].contains("href=\"../playground/compose.html#around=sales.shop\""));
     // The check of severity info that fails is to know, not failing.

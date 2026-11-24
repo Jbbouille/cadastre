@@ -21,7 +21,7 @@ The words:
 1. **Start from `api/index.json`, and follow its links.** Every file you need is reached from it by the `_links` blocks of the records: never build a path by hand when a link gives it.
 2. **An `href` is relative to the file you read it from**, as a link in a web page. Resolve it against the URL of that file: `new URL(href, urlOfTheFile)` in JavaScript, `urljoin(url_of_the_file, href)` in Python. The same record has other `href` in `resources.json` (`resources/x.json`) and in `kinds/app.json` (`../resources/x.json`): keep the URL of the file with the record.
 3. **A list is enough to filter.** `resources.json` (every resource) and `kinds/<kind>.json` (those of a kind) give each resource with its `owner`, `operator`, `site`, `system`, `parent`, `attributes` (every key as written) and `references` (resolved to qualified names). To find the servers on `debian12` or the apps of a team, read one list, not one file per resource.
-4. **The full record says what is computed.** `resources/<id>.json` adds the links of the resource (`outgoing`, `incoming`), what it contains (`children`), what runs on it (`hosts`), what runs below it (`runs_here`), what it depends on (`failures`, `failure_pairs`). Read it for one resource, not for a whole list.
+4. **The full record says what is computed.** `resources/<id>.json` adds the links of the resource (`outgoing`, `incoming`), what it contains (`children`), what runs on it (`hosts`), what runs below it (`runs_here`), what it depends on (`failures`, `failure_pairs`), what its failure takes down (`takes_down`). Read it for one resource, not for a whole list.
 5. **Names in templates.** `index.json` gives templates (`"templated": true`): `resources/{id}.json`, `links/{id}.json`, `kinds/{kind}.json`, `views/{name}.json`. Fill them with a qualified name, a link identifier, a kind or a view name, every character other than a letter, a digit, `.`, `-` and `_` written `_`.
 
 ## 3. The files
@@ -38,7 +38,7 @@ The words:
 | `links.json` | an array: every link, `source`, `target`, `port`, `layers`, `carries`, `through`, `through_steps`, `attributes` | flows between resources, what they carry and go through |
 | `links/<id>.json` | one link | follow a link of a resource |
 | `views.json`, `views/<name>.json` | the views, and what each draws: nodes, frames, edges | reuse a view the authors made |
-| `checks.json` | the rules and their results, what fails them | quality, compliance |
+| `checks.json` | an array: each rule with its `name`, `severity`, `message`, `result` (`passed`, `failed`…), and `failing`, what fails it (each an `item` and where it is `declared`) | quality, compliance |
 | `search.json` | the index of the search of the site (resources, views, named links, with their page) | match free text to a resource |
 
 `checks.json` and `search.json` have no `_links`; every other file has. When the project has errors, the views (`views/<name>.json`) are not published; `project.json` lists the errors.
@@ -65,7 +65,7 @@ const all = await get(index._links.resources.href);
 const found = all.data.filter((r) => r.name === "erp01" || r.label === "Accounting ERP");
 ```
 
-**Filter a kind on a key.** `schema.json` tells the keys of a kind and their values; the list of the kind gives them.
+**Filter a kind on a key.** `schema.json` tells the keys a kind declares, with their types and values; a key written without being declared (`classification` on a data, `os` on a server, in many projects) is not in it, but it is in the `attributes` of the resources that write it. The list of the kind gives them all.
 
 ```js
 const servers = await get(index._links.kind.href.replace("{kind}", "server"));
@@ -93,7 +93,7 @@ const firewalls = flow.through_steps.flat().filter((device) => kinds.get(device)
 
 **The network path between any two resources**, flow or not: see section 5.
 
-**What fails with it.** `failures` in the full record of a resource: the resources whose failure alone makes it unavailable, what it depends on. A failure spreads to what a resource contains (a site, a network, a subnet, a server with its interfaces) and to what is in a rack; to what runs on it (`on`), once every host is down (an app on two servers survives the loss of one); to a cluster or a pool once all its members are down; to a tunnel when one of its ends is down; and along the links: the source of a link depends on its target and on what the link goes through (`through`). So the `failures` of an app hold the apps and databases it calls, their servers, the sites around them, the devices its flows go through. The cabling itself is not followed: a switch counts when a link's `through` names it, not because a server is cabled to it. `failure_pairs`: the pairs whose failure together, and not of either alone, makes it unavailable, what its redundancy rests on; empty, no such pair, which is not an absence of data. To know what a failure takes down, read it the other way: the resources whose `failures` include it. Teams, systems, actors and data do not fail.
+**What fails with it, and what its failure takes down.** `takes_down` in the full record of a resource: the resources its failure alone makes unavailable (the impact of a failure of `paris-dc1.fw01`: one request). `failures`: the other way, the resources whose failure alone makes it unavailable, what it depends on. Unavailable means that it cannot do its work: an app whose flow to the ERP goes through a firewall is unavailable when the firewall fails, the ERP itself is not (it does not depend on what its callers go through). A failure spreads to what a resource contains (a site, a network, a subnet, a server with its interfaces) and to what is in a rack; to what runs on it (`on`), once every host is down (an app on two servers survives the loss of one); to a cluster or a pool once all its members are down; to a tunnel when one of its ends is down; and along the links: the source of a link depends on its target and on what the link goes through (`through`). So the `failures` of an app hold the apps and databases it calls, their servers, the sites around them, the devices its flows go through. The cabling itself is not followed: a switch counts when a link's `through` names it, not because a server is cabled to it. `failure_pairs`: the pairs whose failure together, and not of either alone, makes it unavailable, what its redundancy rests on; empty, no such pair, which is not an absence of data. Teams, systems, actors and data do not fail.
 
 **What the authors drew.** `views.json` lists the views with their `title` and `description`; `views/<name>.json` gives what one draws: `nodes` (each a resource), `frames` (what groups them), `edges` (with the `links` they stand for). Each has its HTML page (`_links.page`), with its diagram, to show a person.
 
@@ -104,26 +104,24 @@ const firewalls = flow.through_steps.flat().filter((device) => kinds.get(device)
 The path between two resources (the switches, firewalls, routers and tunnels from one to the other, as the cabling, the subnets and their gateways, the VPN tunnels and the egress to the internet give it) is computed by the compiler. Every pair cannot be published in advance; there are three ways to it.
 
 1. **A declared flow**: its `through_steps` (section 4), already in the API. No computation.
-2. **Computed in a browser or Node.js**, by the compiler itself as WebAssembly. A site published with its playground holds it under `playground/` (the module `cadastre_wasm.wasm`, its wrapper `cadastre.js`, and the project, `project.json`):
+2. **Computed in a browser or Node.js**, by the compiler itself as WebAssembly. A site published with its playground gives, in the `_links` of `index.json`: `compiler` (`cadastre.js`, its wrapper), `compiler_module` (`cadastre_wasm.wasm`), and `sources`, the sources of the project (`playground/project.json`: its `.ca` files, what the compiler reads; not `api/project.json`, which is a summary of the compiled project). Without these links, the site has no playground: use way 1.
 
-   In a page:
+   In a page (the helper `get` and `index` of section 4):
 
    ```js
-   const base = new URL("https://example.org/our-is/playground/");
-   const { load } = await import(new URL("cadastre.js", base));
-   const cadastre = await load(new URL("cadastre_wasm.wasm", base));
-   const project = await (await fetch(new URL("project.json", base))).json();
+   const { load } = await import(new URL(index._links.compiler.href, api));
+   const cadastre = await load(new URL(index._links.compiler_module.href, api));
+   const { data: project } = await get(index._links.sources.href);
    const way = cadastre.path(project, "web", "db");
    ```
 
    In Node.js, which imports only `file:` and `data:` URLs: `cadastre.js` from its text, the module from its bytes.
 
    ```js
-   const base = "https://example.org/our-is/playground/";
-   const source = await (await fetch(base + "cadastre.js")).text();
+   const source = await (await fetch(new URL(index._links.compiler.href, api))).text();
    const { load } = await import("data:text/javascript," + encodeURIComponent(source));
-   const cadastre = await load(await (await fetch(base + "cadastre_wasm.wasm")).arrayBuffer());
-   const project = await (await fetch(base + "project.json")).json();
+   const cadastre = await load(await (await fetch(new URL(index._links.compiler_module.href, api))).arrayBuffer());
+   const { data: project } = await get(index._links.sources.href);
    const way = cadastre.path(project, "web", "db");
    ```
 
@@ -151,7 +149,7 @@ The path between two resources (the switches, firewalls, routers and tunnels fro
 
    **A declared way and a computed path can differ.** `through_steps` is what the authors wrote on a flow, or what the compiler deduced from an `egress`; `path` follows the network itself: the cabling, the subnets and their `gateway`, the tunnels. A model may write that a flow goes through a firewall without describing the routing that leads there: the flow has its `through_steps`, `path` finds no path, and its `why` names what the network lacks. Report both, each for what it is.
 
-3. **Shown to a person**: the page `playground/path.html#from=web01&to=erp01` draws the path (the boxes of the devices, in order) and lists the devices, firewalls marked; `&embed` leaves the drawing alone, for an `<iframe>`:
+3. **Shown to a person**: the page `playground/path.html#from=web01&to=erp01` (the template `path` of `index.json`, its values encoded with `encodeURIComponent`) draws the path (the boxes of the devices, in order) and lists the devices, firewalls marked; `&embed` leaves the drawing alone, for an `<iframe>`:
 
    ```html
    <iframe src="https://example.org/our-is/playground/path.html#from=web01&to=erp01&embed" width="100%" height="420" style="border:0"></iframe>

@@ -40,8 +40,8 @@ The API is read by following its links, from `api/index.json`: no path is to be 
 
 | In | `_links` |
 |---|---|
-| `index.json` | `project`, `schema`, `kinds`, `resources`, `links`, `views`, `checks`, `search`, the pages of the site (`site`, `help`), the guide for agents (`agents`, `AGENTS.md`), and templates (`"templated": true`): `resource` (`resources/{id}.json`), `link`, `kind`, `view` |
-| a resource | `self`, `page` (its HTML page), `kind`, the resources it names (`parent`, `owner`, `operator`, `site`, `system`, `path`, `children`, `hosts`, `members`, `runs_here`, `failures`), `references` by key (`on`, `pool`, the reference keys of the project), `outgoing` and `incoming` (each link, `with` its other end) |
+| `index.json` | `project`, `schema`, `kinds`, `resources`, `links`, `views`, `checks`, `search`, the pages of the site (`site`, `help`), the guide for agents (`agents`, `AGENTS.md`), and with the playground: `playground`, `compiler` (`cadastre.js`), `compiler_module` (`cadastre_wasm.wasm`), `sources` (`playground/project.json`, the sources the compiler reads) and the template `path` (`path.html#from={from}&to={to}`), and templates (`"templated": true`): `resource` (`resources/{id}.json`), `link`, `kind`, `view` |
+| a resource | `self`, `page` (its HTML page), `kind`, the resources it names (`parent`, `owner`, `operator`, `site`, `system`, `path`, `children`, `hosts`, `members`, `runs_here`, `failures`, `takes_down`), `references` by key (`on`, `pool`, the reference keys of the project), `outgoing` and `incoming` (each link, `with` its other end) |
 | a link | `self`, `page`, `source`, `target`, `carries`, `through` |
 | a view | `self`, `page`; each node to its `resource`, each frame of a resource to it, each edge to its `source`, `target` and `links` |
 | a kind | `self`, `schema` (its entry in `schema.json`); its resources each with `self` |
@@ -163,6 +163,7 @@ The short record (what `resources.json` and `kinds/<kind>.json` list, with `pare
 | `members` | the members of a pool or a cluster (the resources whose `pool` or `cluster` designates it) |
 | `runs_here` | what runs on what it contains or on its members, at any depth: the apps of a site, of a subnet, of a pool |
 | `failures` | the resources whose failure alone makes it unavailable (impact analysis) |
+| `takes_down` | the inverse of `failures`: the resources the failure of this one alone makes unavailable (the impact of its failure) |
 | `failure_pairs` | the pairs of resources whose failure together, and not of either alone, makes it unavailable: what its redundancy rests on (`[["dc.s1", "dc.s2"]]`) |
 | `questions` | its open questions |
 | `outgoing`, `incoming` | its links: `with`, `id` (the identifier of the link: its name, otherwise its ends and port, `shop--db--tcp-5432`; its page is `links/<id>.html`), `name`, `port`, `layers`, `carries`, `through`, `through_steps` (the way as steps, each with its variants: `[["sw-01", "sw-02"], ["fw"]]`), `through_deduced`, `attributes`, `declared` |

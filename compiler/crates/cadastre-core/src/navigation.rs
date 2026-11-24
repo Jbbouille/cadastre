@@ -17,7 +17,7 @@ use crate::site::file_name;
 /// The keys of a full record of a resource naming one resource.
 const ONE: &[&str] = &["parent", "owner", "operator", "site", "system"];
 /// The keys of a full record of a resource naming several.
-const MANY: &[&str] = &["path", "children", "hosts", "members", "runs_here", "failures"];
+const MANY: &[&str] = &["path", "children", "hosts", "members", "runs_here", "failures", "takes_down"];
 
 /// Paths from a file of the API: `depth` is 0 for `api/*.json`, 1 for `api/<folder>/*.json`.
 #[derive(Clone, Copy)]
@@ -68,10 +68,10 @@ fn strings(value: &Value) -> Vec<&str> {
 }
 
 /// The entry point of the API: what it holds, and the files to start from.
-pub(crate) fn index(compilation: &Compilation, name: &str) -> Value {
+pub(crate) fn index(compilation: &Compilation, name: &str, playground: bool) -> Value {
     let at = Hrefs::ROOT;
     let templated = |path: &str| json!({ "href": path, "templated": true });
-    json!({
+    let mut index = json!({
         "format": "cadastre-model",
         "version": crate::api::VERSION,
         "cadastre": env!("CARGO_PKG_VERSION"),
@@ -99,7 +99,23 @@ pub(crate) fn index(compilation: &Compilation, name: &str) -> Value {
             // How to read all this, for an agent: the files, the rules, the tasks, the paths.
             "agents": { "href": "AGENTS.md", "type": "text/markdown" },
         },
-    })
+    });
+    // The playground beside the site: the compiler as WebAssembly with the sources of the
+    // project, to compute what the files do not hold (the network path between two resources).
+    if playground && let Some(links) = index["_links"].as_object_mut() {
+        links.insert("playground".into(), at.page("playground/index.html"));
+        links.insert("compiler".into(), json!({ "href": "../playground/cadastre.js", "type": "text/javascript" }));
+        links.insert(
+            "compiler_module".into(),
+            json!({ "href": "../playground/cadastre_wasm.wasm", "type": "application/wasm" }),
+        );
+        links.insert("sources".into(), json!({ "href": "../playground/project.json" }));
+        links.insert(
+            "path".into(),
+            json!({ "href": "../playground/path.html#from={from}&to={to}", "templated": true, "type": "text/html" }),
+        );
+    }
+    index
 }
 
 /// The short record of a resource, in a list: its own file.

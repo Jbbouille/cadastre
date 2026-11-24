@@ -54,8 +54,9 @@ export class Cadastre {
    * @param {{ files: { path: string, text: string }[], modules?: object[] }} project as `project.json` gives it
    * @param {string} from a qualified name, or a name as written in a view
    * @param {string} to
-   * @returns {{ from: string, to: string, found: boolean, why: string | null, steps?: string[][], devices?: string[],
-   *   cables?: string[][], connectors?: string[], internet?: string[][], resources?: Record<string, { kind: string, label: string | null }> }}
+   * @returns {{ from: string, to: string, found: boolean, why: string | null, steps: string[][], devices: string[],
+   *   cables: string[][], connectors: string[], internet: string[][], resources: Record<string, { kind: string, label: string | null }> }}
+   *   the lists empty when there is no path
    */
   path(project, from, to) {
     // No view built: the path only.
