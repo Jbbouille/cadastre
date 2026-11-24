@@ -144,12 +144,18 @@ fn link_record(compilation: &Compilation, files: &[SourceFile], index: usize, ot
 /// crossed between routers (`wan_link`, `vpn_tunnel`), and the way over the internet through an
 /// `egress` or an `ingress` (`internet`, pairs). `from` and `to` are qualified names, or names
 /// written as in a view (`web01` when it designates one resource). `found` is `false` with `why`
-/// when there is no path, or no such resource; `resources` gives the kind and label of every
-/// resource named, so that the firewalls are `kind == "firewall"`.
+/// when there is no path, or no such resource, the lists then empty: one shape either way;
+/// `resources` gives the kind and label of every resource named, so that the firewalls are
+/// `kind == "firewall"`.
 pub fn path(compilation: &Compilation, from: &str, to: &str) -> Value {
     use crate::resolve::{Resolution, Resolver};
     let registry = &compilation.registry;
-    let failed = |why: String| json!({ "from": from, "to": to, "found": false, "why": why });
+    let failed = |why: String| {
+        json!({
+            "from": from, "to": to, "found": false, "why": why,
+            "steps": [], "devices": [], "cables": [], "connectors": [], "internet": [], "resources": {},
+        })
+    };
     if compilation.diagnostics.iter().any(|d| d.severity == Severity::Error) {
         return failed("the project has errors: fix them first".to_owned());
     }

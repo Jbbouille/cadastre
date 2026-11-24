@@ -132,6 +132,9 @@ fn the_path_between_two_resources_as_the_api_gives_it() {
     let unknown = cadastre_core::api::path(&c, "web", "nowhere");
     assert_eq!(unknown["found"], false);
     assert_eq!(unknown["why"], "no resource is named nowhere");
+    // One shape, found or not: the lists are there, empty.
+    assert_eq!(unknown["devices"], serde_json::json!([]));
+    assert_eq!(unknown["resources"], serde_json::json!({}));
     let none = cadastre_core::api::path(&c, "veeam", "web");
     assert_eq!(none["found"], false);
     assert!(none["why"].as_str().is_some_and(|w| !w.is_empty()), "{none}");

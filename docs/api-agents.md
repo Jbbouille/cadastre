@@ -28,20 +28,20 @@ The words:
 
 | File | What it holds | Read it to |
 |---|---|---|
-| `index.json` | the counts, the links to every file, the templates | start |
+| `index.json` | an object: the counts, the version of the compiler (`cadastre`), the links to every file, the templates | start |
 | `project.json` | name, counts by kind, the views and checks with their results, the diagnostics (errors, warnings) | know the project, see whether it compiles |
 | `schema.json` | every kind with its parents and keys (type, required, list, closed values, the kinds a reference designates), the keys of the links and of each layer | know which keys exist and what they hold, before filtering |
-| `kinds.json` | every kind with its number of resources | see what the project describes |
-| `kinds/<kind>.json` | the resources of a kind, each with its keys | filter a kind |
-| `resources.json` | every resource, each with its keys | find a resource by name or label, filter across kinds |
-| `resources/<id>.json` | one resource in full: its links, what it contains, runs, depends on | answer about one resource |
-| `links.json` | every link: `source`, `target`, `port`, `layers`, `carries`, `through`, `through_steps`, `attributes` | flows between resources, what they carry and go through |
+| `kinds.json` | an object, `kinds`: every kind with its number of resources, and `like`, the kind of the language a kind of the project is made from (`address_group` like `device`) | see what the project describes |
+| `kinds/<kind>.json` | an object: `kind`, `like`, and `resources`, the resources of the kind, each with its keys | filter a kind |
+| `resources.json` | an array: every resource, each with its keys | find a resource by name or label, filter across kinds |
+| `resources/<id>.json` | an object: one resource in full, its links, what it contains, runs, depends on | answer about one resource |
+| `links.json` | an array: every link, `source`, `target`, `port`, `layers`, `carries`, `through`, `through_steps`, `attributes` | flows between resources, what they carry and go through |
 | `links/<id>.json` | one link | follow a link of a resource |
 | `views.json`, `views/<name>.json` | the views, and what each draws: nodes, frames, edges | reuse a view the authors made |
 | `checks.json` | the rules and their results, what fails them | quality, compliance |
 | `search.json` | the index of the search of the site (resources, views, named links, with their page) | match free text to a resource |
 
-`checks.json` and `search.json` have no `_links`; every other file has. A file absent while the project has errors: the views (`views/<name>.json`), `project.json` then lists the errors.
+`checks.json` and `search.json` have no `_links`; every other file has. When the project has errors, the views (`views/<name>.json`) are not published; `project.json` lists the errors.
 
 ## 4. Doing things
 
@@ -78,7 +78,9 @@ const debian = servers.data.resources.filter((s) => s.attributes.os === "debian1
 
 **The flows of an application.** Its full record: `outgoing` and `incoming`, each with the resource at the other end (`with`), `port`, `layers`, `carries`, `through`. Across the project: `links.json`, filtered on `source` or `target`. A flow is in the layer `flow`; `auth` is authentication, `trigger` a job started, `connector` a cable or a tunnel.
 
-**What data goes where.** A link `carries` data resources; their `attributes` say what they are (`classification: personal`…). Personal data leaving for a SaaS: the links whose `target` is of kind `saas` and whose `carries` include a data classified `personal`.
+**Which way the data goes.** `source → target` is who opens the connection, not where the data goes. The data goes as the link's `attributes.exchange` says: `push`, from the source to the target; `pull`, from the target to the source (billing pulling the customers from the CRM: the data goes from the CRM to billing); `both`, both ways. Without `exchange`, the direction of the data is not stated: say so rather than assume it.
+
+**What data goes where.** A link `carries` data resources; their `attributes` say what they are (`classification: personal`…). A database or a SaaS `stores` data (`references.stores`). Personal data leaving for a SaaS: the links with a SaaS at one end whose `carries` include a data classified `personal`, the data going towards the SaaS (`push` from the other end, `pull` by the SaaS, or `both`); and the SaaS whose `stores` include such a data.
 
 **The firewalls on a flow.** A declared link gives the way it takes in `through_steps`: the devices in order, each step a list of variants (redundant devices, one of them taken), written by its authors or deduced from the network (`through_deduced: true`). Their kinds are in `resources.json`.
 
@@ -91,11 +93,11 @@ const firewalls = flow.through_steps.flat().filter((device) => kinds.get(device)
 
 **The network path between any two resources**, flow or not: see section 5.
 
-**What fails with it.** `failures` in the full record of a resource: the resources whose failure alone makes it unavailable, what it depends on (its servers, the switch before them, the firewall on the way…). `failure_pairs`: the pairs whose failure together, and not of either alone, makes it unavailable: what its redundancy rests on. To know what a failure takes down, read it the other way: the resources whose `failures` include it.
+**What fails with it.** `failures` in the full record of a resource: the resources whose failure alone makes it unavailable, what it depends on. A failure spreads to what a resource contains (a site, a network, a subnet, a server with its interfaces) and to what is in a rack; to what runs on it (`on`), once every host is down (an app on two servers survives the loss of one); to a cluster or a pool once all its members are down; to a tunnel when one of its ends is down; and along the links: the source of a link depends on its target and on what the link goes through (`through`). So the `failures` of an app hold the apps and databases it calls, their servers, the sites around them, the devices its flows go through. The cabling itself is not followed: a switch counts when a link's `through` names it, not because a server is cabled to it. `failure_pairs`: the pairs whose failure together, and not of either alone, makes it unavailable, what its redundancy rests on; empty, no such pair, which is not an absence of data. To know what a failure takes down, read it the other way: the resources whose `failures` include it. Teams, systems, actors and data do not fail.
 
 **What the authors drew.** `views.json` lists the views with their `title` and `description`; `views/<name>.json` gives what one draws: `nodes` (each a resource), `frames` (what groups them), `edges` (with the `links` they stand for). Each has its HTML page (`_links.page`), with its diagram, to show a person.
 
-**What is wrong or unknown.** `checks.json`: each rule with its `result` and what fails it. A resource whose `incomplete` is `true` lacks something, listed in `missing`; `questions` holds the open questions of its authors. Say so when an answer rests on them.
+**What is wrong or unknown.** `checks.json`: each rule with its `result` and what fails it. A resource whose `incomplete` is `true` lacks something, listed in `missing`. The open questions of its authors are in `questions` in its full record (in the lists, in `attributes.question`). Say so when an answer rests on them.
 
 ## 5. The network path between two resources
 
@@ -104,11 +106,24 @@ The path between two resources (the switches, firewalls, routers and tunnels fro
 1. **A declared flow**: its `through_steps` (section 4), already in the API. No computation.
 2. **Computed in a browser or Node.js**, by the compiler itself as WebAssembly. A site published with its playground holds it under `playground/` (the module `cadastre_wasm.wasm`, its wrapper `cadastre.js`, and the project, `project.json`):
 
+   In a page:
+
    ```js
    const base = new URL("https://example.org/our-is/playground/");
    const { load } = await import(new URL("cadastre.js", base));
    const cadastre = await load(new URL("cadastre_wasm.wasm", base));
    const project = await (await fetch(new URL("project.json", base))).json();
+   const way = cadastre.path(project, "web", "db");
+   ```
+
+   In Node.js, which imports only `file:` and `data:` URLs: `cadastre.js` from its text, the module from its bytes.
+
+   ```js
+   const base = "https://example.org/our-is/playground/";
+   const source = await (await fetch(base + "cadastre.js")).text();
+   const { load } = await import("data:text/javascript," + encodeURIComponent(source));
+   const cadastre = await load(await (await fetch(base + "cadastre_wasm.wasm")).arrayBuffer());
+   const project = await (await fetch(base + "project.json")).json();
    const way = cadastre.path(project, "web", "db");
    ```
 
@@ -132,7 +147,9 @@ The path between two resources (the switches, firewalls, routers and tunnels fro
    }
    ```
 
-   `steps` are the devices between the two ends, in order, each a list of variants (`["col-sw-01", "col-sw-02"]`: redundant switches, one of them taken); `devices` the same, each once; `cables` the cables taken (pairs of interfaces, in no particular order); `connectors` the `wan_link` and `vpn_tunnel` crossed; `internet` the way over the internet (the `egress` of one end to the other); `resources` the kind and label of every resource named, so the firewalls are those of kind `firewall`. `from` and `to` are qualified names, or names as written in a view (`web01`, when one resource has that name). When there is no path, `found` is `false` and `why` says why, in the words of the model: `the cables stop at gs.web01`, `no router nor firewall routes subnet aws-paris.prod.dmz (declare its gateway)`, `veeam runs on no machine`. The project is compiled once per load: keep `cadastre` and `project` to ask several paths.
+   `steps` are the devices between the two ends, in order, each a list of variants (`["col-sw-01", "col-sw-02"]`: redundant switches, one of them taken); `devices` the same, each once; `cables` the cables taken (pairs of interfaces, in no particular order); `connectors` the `wan_link` and `vpn_tunnel` crossed; `internet` the way over the internet (the `egress` of one end to the other); `resources` the kind and label of every resource named, so the firewalls are those of kind `firewall`. `from` and `to` are qualified names, or names as written in a view (`web01`, when one resource has that name). When there is no path, `found` is `false`, the lists are empty, and `why` says why, in the words of the model, for a person to read (not a code to match): ``the cables stop at gs.web01``, ``no router nor firewall routes subnet aws-paris.prod.dmz (declare its `gateway`)``, ``veeam runs on no machine``; an unknown name gives ``no resource is named nowhere``, a name shared by several resources ``web01 designates several resources: a.web01, b.web01`` (give its qualified name). Nothing is thrown. The project is compiled once per load: keep `cadastre` and `project` to ask several paths.
+
+   **A declared way and a computed path can differ.** `through_steps` is what the authors wrote on a flow, or what the compiler deduced from an `egress`; `path` follows the network itself: the cabling, the subnets and their `gateway`, the tunnels. A model may write that a flow goes through a firewall without describing the routing that leads there: the flow has its `through_steps`, `path` finds no path, and its `why` names what the network lacks. Report both, each for what it is.
 
 3. **Shown to a person**: the page `playground/path.html#from=web01&to=erp01` draws the path (the boxes of the devices, in order) and lists the devices, firewalls marked; `&embed` leaves the drawing alone, for an `<iframe>`:
 
@@ -140,14 +157,14 @@ The path between two resources (the switches, firewalls, routers and tunnels fro
    <iframe src="https://example.org/our-is/playground/path.html#from=web01&to=erp01&embed" width="100%" height="420" style="border:0"></iframe>
    ```
 
-Without a JavaScript engine (a Python agent, a shell), the second way is not at hand: use the declared flows (way 1), or, with the sources of the project, the command line (`cadastre build` of a view `edges path(web01, erp01)` rendered as `text`) or the MCP server (`cadastre mcp`, [docs/mcp.md](mcp.md)).
+Without a JavaScript engine (a Python agent, a shell), the second way is not at hand: use the declared flows (way 1), or, with the sources of the project, the command line (`cadastre build` of a view `edges path(web01, erp01)` rendered as `text`) or the MCP server (`cadastre mcp`, [docs/mcp.md](https://github.com/Jbbouille/cadastre/blob/master/docs/mcp.md)).
 
 ## 6. Answering well
 
-- **Say where the answer comes from**: the resource or the link, its page (`_links.page`), and when the facts were published (`index.json`, `cadastre`: the version of the compiler).
+- **Say where the answer comes from**: the resource or the link, and its page (`_links.page`). The API holds no date: the facts are those of the last publication of the site.
 - **Do not guess what is not written.** An app without `on` runs nowhere known; a flow without `through` goes through nothing declared; a `found: false` path is not a path. Say what is missing, and what would be needed (the `why` of a path names it).
 - **Names are qualified.** Answer with `label` for people and `id` to be exact: `Accounting ERP (accounting.legacy-erp)`.
 - **Lists are complete.** `resources.json` lists every resource, `links.json` every link: a count from them is the count of the project.
 - **The model is read only.** Changing it is editing its `.ca` files, in its Git repository, by its authors.
 
-The detail of every record and field: [docs/api.md](api.md). The language itself: [docs/guide.md](guide.md).
+The detail of every record and field: [docs/api.md](https://github.com/Jbbouille/cadastre/blob/master/docs/api.md). The language itself: [docs/guide.md](https://github.com/Jbbouille/cadastre/blob/master/docs/guide.md).
